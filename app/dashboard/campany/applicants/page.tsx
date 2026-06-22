@@ -112,7 +112,7 @@ export default function ApplicantsPage() {
 
         if (error) throw error;
 
-        setApplications((data as Application[]) || []);
+        setApplications((data as any[]) || []);
       } catch (err) {
         setError('応募者データの取得に失敗しました');
         console.error(err);
