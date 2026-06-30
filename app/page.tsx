@@ -9,6 +9,7 @@ interface Job {
   job_title: string;
   salary: string;
   location: string;
+  job_categories?: string[];
   companies: {
     company_name: string;
   } | null;
@@ -23,6 +24,38 @@ interface UserType {
   user_type: string;
 }
 
+const cats = [
+  { name: 'コンサルティング', en: 'Consulting' },
+  { name: '経営・企画', en: 'Management' },
+  { name: '金融・ファイナンス', en: 'Finance' },
+  { name: 'マーケティング', en: 'Marketing' },
+  { name: 'エンジニア', en: 'Engineering' },
+  { name: 'デザイナー', en: 'Design' },
+  { name: '営業', en: 'Sales' },
+  { name: 'ライター・メディア', en: 'Media' },
+];
+
+const stats = [
+  { num: '480', unit: '社', label: '厳選された提携企業', pre: '' },
+  { num: '92', unit: '%', label: '登録学生の難関大比率', pre: '' },
+  { num: '1,650', unit: '', label: '平均時給', pre: '¥' },
+  { num: '2', unit: '週間', label: '最短マッチング', pre: '' },
+];
+
+const steps = [
+  { no: '1', title: '無料で登録', desc: 'プロフィールを登録。難関大生であることが、あなたの強みになります。' },
+  { no: '2', title: '求人を探す', desc: '職種・勤務地・働き方の条件から、あなたに合うインターンを検索。' },
+  { no: '3', title: '応募・面談', desc: '気になる企業へ応募。最短2週間でインターンをスタートできます。' },
+];
+
+const pills = ['コンサルティング', '事業開発', '投資銀行', 'プロダクト', 'マーケティング'];
+
+const categoryList = [
+  'マーケティング', 'エンジニア', 'コンサルティング', '経営・企画',
+  '営業', '金融・ファイナンス', 'ライター・メディア', '経理',
+  '人事・広報', 'デザイナー', '事務・アシスタント', 'その他',
+];
+
 export default function Home() {
   const router = useRouter();
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -34,62 +67,19 @@ export default function Home() {
   const [selectedLocation, setSelectedLocation] = useState('');
   const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
 
-  const categories = [
-    'マーケティング',
-    'エンジニア',
-    'コンサルティング',
-    '経営・企画',
-    '営業',
-    '金融・ファイナンス',
-    'ライター・メディア',
-    '経理',
-    '人事・広報',
-    'デザイナー',
-    '事務・アシスタント',
-    'その他',
-  ];
-
-  const categoryIcons: { [key: string]: string } = {
-    'マーケティング': '📊',
-    'エンジニア': '💻',
-    'コンサルティング': '🎯',
-    '経営・企画': '🚀',
-    '営業': '💼',
-    '金融・ファイナンス': '💰',
-    'ライター・メディア': '✍️',
-    '経理': '📈',
-    '人事・広報': '👥',
-    'デザイナー': '🎨',
-    '事務・アシスタント': '📋',
-    'その他': '⭐',
-  };
-
-  const locationIcons: { [key: string]: string } = {
-    '東京': '🗼',
-    '大阪': '🏯',
-    '名古屋': '🏢',
-    '福岡': '🌆',
-    'リモート': '🏠',
-  };
-
   useEffect(() => {
     async function checkAuth() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         setUser(session.user as User);
-
         const { data } = await supabase
           .from('user_types')
           .select('user_type')
           .eq('user_id', session.user.id)
           .single();
-
-        if (data) {
-          setUserType(data);
-        }
+        if (data) setUserType(data);
       }
     }
-
     checkAuth();
   }, []);
 
@@ -98,20 +88,11 @@ export default function Home() {
       try {
         const { data, error } = await supabase
           .from('jobs')
-          .select(`
-            id,
-            job_title,
-            salary,
-            location,
-            companies (
-              company_name
-            )
-          `);
-
+          .select(`id, job_title, salary, location, companies (company_name)`);
         if (error) {
           console.error('データの取得に失敗しました:', error);
         } else {
-          setJobs(data as Job[]);
+          setJobs((data as unknown) as Job[]);
         }
       } catch (err) {
         console.error('エラー:', err);
@@ -119,36 +100,27 @@ export default function Home() {
         setLoading(false);
       }
     }
-
     fetchJobs();
   }, []);
 
   useEffect(() => {
     let filtered = jobs;
-
     if (searchQuery) {
       filtered = filtered.filter(
         (job) =>
           job.job_title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          job.companies?.company_name
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase())
+          job.companies?.company_name.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-
     if (selectedLocation) {
       filtered = filtered.filter((job) => job.location === selectedLocation);
     }
-
     if (selectedCategory) {
       filtered = filtered.filter((job) => {
-  const categories = Array.isArray(job.job_categories) 
-    ? job.job_categories 
-    : [];
-  return categories.some(cat => cat.includes(selectedCategory));
-});
+        const categories = Array.isArray(job.job_categories) ? job.job_categories : [];
+        return categories.some((cat) => cat.includes(selectedCategory));
+      });
     }
-
     setFilteredJobs(filtered);
   }, [jobs, searchQuery, selectedCategory, selectedLocation]);
 
@@ -160,394 +132,363 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50">
-        <div className="text-center">
-          <div className="inline-block animate-spin">
-            <div className="text-4xl">🔄</div>
-          </div>
-          <p className="text-xl font-medium text-gray-600 mt-4">読み込み中...</p>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBF8F4', fontFamily: "'Zen Kaku Gothic New', sans-serif" }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 48, height: 48, border: '3px solid #F2620C', borderTopColor: 'transparent', borderRadius: '50%', margin: '0 auto 16px', animation: 'spin 0.8s linear infinite' }} />
+          <p style={{ color: '#57514A', fontSize: 15 }}>読み込み中...</p>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* ナビゲーション */}
-      <nav className="border-b border-gray-200 sticky top-0 z-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => router.push('/')}
-              className="flex items-center gap-2 text-2xl font-bold"
-            >
-              <span className="text-3xl">🎓</span>
-              <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                トウコべ
-              </span>
-            </button>
+    <div style={{ width: '100%', fontFamily: "'Zen Kaku Gothic New', sans-serif", color: '#1C1813' }}>
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+      <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+      <style>{`
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; background: #FBF8F4; }
+        input::placeholder { color: #A89F94; }
+        select { -webkit-appearance: none; appearance: none; }
+        .cat-card:hover { border-color: #F2620C !important; box-shadow: 0 8px 24px rgba(242,98,12,.10) !important; transform: translateY(-2px) !important; }
+        .job-card:hover { box-shadow: 0 14px 36px rgba(28,24,19,.10) !important; transform: translateY(-3px) !important; }
+        .nav-link:hover { color: #F2620C !important; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
 
-            <div className="flex items-center gap-6">
-              {user ? (
-                <>
-                  {userType?.user_type === 'company' && (
-                    <button
-                      onClick={() => router.push('/dashboard/company')}
-                      className="text-gray-700 hover:text-blue-600 font-medium transition-colors flex items-center gap-2"
-                    >
-                      <span>🏢</span> ダッシュボード
-                    </button>
-                  )}
-                  {userType?.user_type === 'student' && (
-                    <button
-                      onClick={() => router.push('/dashboard/student')}
-                      className="text-gray-700 hover:text-blue-600 font-medium transition-colors flex items-center gap-2"
-                    >
-                      <span>👤</span> マイページ
-                    </button>
-                  )}
-                  {user.email === 'ru_matsumoto@manabiph.com' && (
-                    <button
-                      onClick={() => router.push('/dashboard/admin')}
-                      className="text-gray-700 hover:text-blue-600 font-medium transition-colors flex items-center gap-2"
-                    >
-                      <span>⚙️</span> 管理者
-                    </button>
-                  )}
-                  <button
-                    onClick={handleLogout}
-                    className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    ログアウト
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={() => router.push('/auth/login')}
-                    className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
-                  >
-                    ログイン
-                  </button>
-                  <button
-                    onClick={() => router.push('/auth/signup')}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                  >
-                    登録
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* ヒーローセクション */}
-      <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 py-24 relative overflow-hidden">
-        {/* 背景装飾 */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="text-center mb-16">
-            <div className="text-6xl mb-4">🚀</div>
-            <h1 className="text-5xl font-bold text-gray-900 mb-4">
-              あなたのキャリアの第一歩を
-            </h1>
-            <p className="text-xl text-gray-600 mb-8">
-              優良企業のインターン求人を、簡単に見つけられる
-            </p>
-          </div>
-
-          {/* 検索バー */}
-          <div className="max-w-3xl mx-auto mb-12">
-            <div className="bg-white rounded-2xl shadow-xl p-1 flex flex-col md:flex-row gap-2">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1 px-6 py-4 focus:outline-none text-gray-900 placeholder-gray-500 rounded-xl"
-                placeholder="職種や企業名で検索..."
-              />
-              <button className="px-8 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium md:rounded-r-2xl">
-                🔍 検索
-              </button>
-            </div>
-          </div>
-
-          {/* フィルター */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
-            <div className="relative">
-              <label className="text-sm font-medium text-gray-700 block mb-2">
-                💼 職種を選ぶ
-              </label>
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              >
-                <option value="">すべての職種</option>
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {categoryIcons[cat]} {cat}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="relative">
-              <label className="text-sm font-medium text-gray-700 block mb-2">
-                📍 勤務地を選ぶ
-              </label>
-              <select
-                value={selectedLocation}
-                onChange={(e) => setSelectedLocation(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              >
-                <option value="">すべての地域</option>
-                <option value="東京">🗼 東京</option>
-                <option value="大阪">🏯 大阪</option>
-                <option value="名古屋">🏢 名古屋</option>
-                <option value="福岡">🌆 福岡</option>
-                <option value="リモート">🏠 リモート</option>
-              </select>
-            </div>
+      {/* NAV */}
+      <div style={{ background: 'rgba(255,255,255,.95)', borderBottom: '1px solid #EFE8DF', position: 'sticky', top: 0, zIndex: 50, backdropFilter: 'saturate(180%) blur(8px)' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '14px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <img src="/toukobe-intern-logo.png" alt="トウコべインターン" style={{ height: 36, width: 'auto', cursor: 'pointer' }} onClick={() => router.push('/')} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 30 }}>
+            <span className="nav-link" style={{ fontSize: 14, color: '#3A352F', fontWeight: 500, cursor: 'pointer', transition: 'color .2s' }} onClick={() => router.push('/search')}>求人検索</span>
+            <span className="nav-link" style={{ fontSize: 14, color: '#3A352F', fontWeight: 500, cursor: 'pointer', transition: 'color .2s' }} onClick={() => router.push('/categories')}>職種一覧</span>
+            <span className="nav-link" style={{ fontSize: 14, color: '#3A352F', fontWeight: 500, cursor: 'pointer', transition: 'color .2s' }} onClick={() => router.push('/how-it-works')}>使い方</span>
+            <span className="nav-link" style={{ fontSize: 14, color: '#3A352F', fontWeight: 500, cursor: 'pointer', transition: 'color .2s' }} onClick={() => router.push('/for-companies')}>企業の方へ</span>
+            {user ? (
+              <>
+                {userType?.user_type === 'company' && (
+                  <span className="nav-link" style={{ fontSize: 14, color: '#3A352F', fontWeight: 500, cursor: 'pointer', transition: 'color .2s' }} onClick={() => router.push('/dashboard/company')}>ダッシュボード</span>
+                )}
+                {userType?.user_type === 'student' && (
+                  <span className="nav-link" style={{ fontSize: 14, color: '#3A352F', fontWeight: 500, cursor: 'pointer', transition: 'color .2s' }} onClick={() => router.push('/dashboard/student')}>マイページ</span>
+                )}
+                {user.email === 'ru_matsumoto@manabiph.com' && (
+                  <span className="nav-link" style={{ fontSize: 14, color: '#3A352F', fontWeight: 500, cursor: 'pointer', transition: 'color .2s' }} onClick={() => router.push('/dashboard/admin')}>管理者</span>
+                )}
+                <span className="nav-link" style={{ fontSize: 14, color: '#3A352F', fontWeight: 500, cursor: 'pointer', transition: 'color .2s' }} onClick={handleLogout}>ログアウト</span>
+              </>
+            ) : (
+              <>
+                <span className="nav-link" style={{ fontSize: 14, color: '#3A352F', fontWeight: 500, cursor: 'pointer', transition: 'color .2s' }} onClick={() => router.push('/auth/login')}>ログイン</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: '#fff', background: '#F2620C', borderRadius: 8, padding: '11px 24px', boxShadow: '0 2px 8px rgba(242,98,12,.28)', cursor: 'pointer' }} onClick={() => router.push('/auth/signup')}>無料で登録</span>
+              </>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        {/* おすすめ求人セクション */}
-        {jobs.length > 0 && (
-          <div className="mb-24">
-            <div className="mb-12">
-              <h2 className="text-4xl font-bold text-gray-900 mb-2">
-                ⭐ おすすめのインターン
-              </h2>
-              <p className="text-lg text-gray-600">
-                人気の求人をピックアップしました
-              </p>
-            </div>
+      {/* HERO */}
+      <div style={{ position: 'relative', background: 'linear-gradient(160deg,#FFF6EE 0%,#FFEFE2 55%,#FFE7D4 100%)', padding: '88px 0 80px', overflow: 'hidden' }}>
+        <svg viewBox="0 0 1280 640" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="wv" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor="#FFD9BE" /><stop offset="1" stopColor="#FFC59B" />
+            </linearGradient>
+          </defs>
+          <path d="M0,380 C260,320 420,490 680,420 C900,360 1080,490 1280,420 L1280,640 L0,640 Z" fill="#FFE0C9" opacity=".5" />
+          <path d="M0,470 C300,420 460,560 740,490 C980,430 1120,540 1280,490 L1280,640 L0,640 Z" fill="#FFD3B4" opacity=".45" />
+          <path d="M-40,150 C240,90 460,250 720,170 C960,98 1140,210 1320,150" fill="none" stroke="url(#wv)" strokeWidth="1.5" opacity=".7" />
+          <path d="M-40,205 C260,135 480,305 760,215 C1000,140 1160,255 1320,195" fill="none" stroke="url(#wv)" strokeWidth="1.5" opacity=".55" />
+          <path d="M-40,260 C280,190 500,360 800,260 C1040,180 1180,300 1320,240" fill="none" stroke="url(#wv)" strokeWidth="1.5" opacity=".4" />
+        </svg>
+        <div style={{ position: 'absolute', right: -140, top: -120, width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle,#FFD0AE 0%, rgba(255,208,174,0) 70%)', pointerEvents: 'none' }} />
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {jobs.slice(0, 3).map((job) => {
-                const category = categories.find((c) =>
-                  job.job_title.includes(c)
-                );
-                return (
-                  <div
-                    key={job.id}
-                    className="bg-white border-2 border-gray-200 rounded-2xl hover:shadow-2xl hover:border-blue-300 transition-all cursor-pointer overflow-hidden group"
-                    onClick={() => {
-                      if (user) {
-                        router.push(`/jobs/${job.id}`);
-                      } else {
-                        router.push('/auth/login');
-                      }
-                    }}
-                  >
-                    <div className="bg-gradient-to-r from-blue-500 to-indigo-500 h-24 flex items-center justify-center">
-                      <span className="text-6xl">
-                        {categoryIcons[category || 'その他']}
-                      </span>
-                    </div>
-
-                    <div className="p-6">
-                      <p className="text-sm font-bold text-blue-600 mb-2 uppercase tracking-wider">
-                        {job.companies?.company_name || '企業名不明'}
-                      </p>
-                      <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2 mb-4">
-                        {job.job_title}
-                      </h3>
-
-                      <div className="space-y-3 mb-6 text-sm text-gray-600">
-                        <div className="flex items-center">
-                          <span className="text-2xl mr-3">
-                            {locationIcons[job.location] || '📍'}
-                          </span>
-                          <span>{job.location || '未設定'}</span>
-                        </div>
-                        <div className="flex items-center">
-                          <span className="text-2xl mr-3">💰</span>
-                          <span className="font-semibold text-gray-900">
-                            {job.salary || '未設定'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-xl font-bold hover:from-blue-700 hover:to-indigo-700 transition-all group-hover:shadow-lg">
-                        詳細を見る →
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+        <div style={{ position: 'relative', maxWidth: 760, margin: '0 auto', textAlign: 'center', padding: '0 48px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 30 }}>
+            <span style={{ width: 40, height: 1, background: 'linear-gradient(90deg,rgba(242,98,12,0),#F2620C)', display: 'block' }} />
+            <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '.22em', color: '#C2530A' }}>難関大生に特化した長期インターン</span>
+            <span style={{ width: 40, height: 1, background: 'linear-gradient(90deg,#F2620C,rgba(242,98,12,0))', display: 'block' }} />
           </div>
-        )}
-
-        {/* 求人一覧セクション */}
-        <div>
-          <div className="mb-12">
-            <h2 className="text-4xl font-bold text-gray-900 mb-2">
-              📋 インターン求人一覧
-            </h2>
-            {filteredJobs.length > 0 && (
-              <p className="text-lg text-gray-600">
-                {filteredJobs.length} 件の求人が見つかりました
-              </p>
-            )}
+          <h1 style={{ fontWeight: 900, fontSize: 58, lineHeight: 1.4, margin: '0 0 22px', letterSpacing: '.02em' }}>最初のキャリアを、<br />本気で選ぶ。</h1>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, marginBottom: 42 }}>
+            <span style={{ fontWeight: 900, fontSize: 30, letterSpacing: '.06em', color: '#F2620C', lineHeight: 1 }}>トウコべインターン</span>
+            <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, letterSpacing: '.42em', color: '#B59A86', paddingLeft: '.42em' }}>TOUKOBE&nbsp;&nbsp;INTERN</span>
           </div>
 
-          {filteredJobs.length === 0 ? (
-            <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-20 text-center border-2 border-dashed border-gray-300">
-              <div className="text-6xl mb-4">🔍</div>
-              <p className="text-xl text-gray-600 mb-2">
-                条件に該当する求人がありません
-              </p>
-              <p className="text-gray-500 mb-6">
-                検索条件を変更して、もう一度試してみてください
-              </p>
-              <button
-                onClick={() => {
-                  setSearchQuery('');
-                  setSelectedCategory('');
-                  setSelectedLocation('');
-                }}
-                className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          {/* Search */}
+          <div style={{ background: '#fff', borderRadius: 18, boxShadow: '0 20px 50px rgba(28,24,19,.13)', padding: 12, display: 'flex', gap: 8, alignItems: 'center', textAlign: 'left' }}>
+            <div style={{ flex: 2, display: 'flex', alignItems: 'center', gap: 10, padding: '0 8px 0 14px' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C2B8AC" strokeWidth="2.2"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.5" y2="16.5" /></svg>
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="職種・企業名・キーワード"
+                style={{ flex: 1, border: 'none', padding: '15px 0', fontFamily: "'Zen Kaku Gothic New', sans-serif", fontSize: 15, outline: 'none', color: '#1C1813', background: 'transparent' }}
+              />
+            </div>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                style={{ width: '100%', border: 'none', borderLeft: '1px solid #EFE8DF', padding: '15px 32px 15px 18px', fontFamily: "'Zen Kaku Gothic New', sans-serif", fontSize: 14, color: '#57514A', outline: 'none', background: '#fff', cursor: 'pointer' }}
               >
-                フィルターをリセット
-              </button>
+                <option value="">職種を選ぶ</option>
+                {categoryList.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <span style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', color: '#C2B8AC', pointerEvents: 'none', fontSize: 11 }}>▼</span>
             </div>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <select
+                value={selectedLocation}
+                onChange={(e) => setSelectedLocation(e.target.value)}
+                style={{ width: '100%', border: 'none', borderLeft: '1px solid #EFE8DF', padding: '15px 32px 15px 18px', fontFamily: "'Zen Kaku Gothic New', sans-serif", fontSize: 14, color: '#57514A', outline: 'none', background: '#fff', cursor: 'pointer' }}
+              >
+                <option value="">勤務地</option>
+                <option value="東京">東京</option>
+                <option value="大阪">大阪</option>
+                <option value="名古屋">名古屋</option>
+                <option value="福岡">福岡</option>
+                <option value="リモート">リモート</option>
+              </select>
+              <span style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', color: '#C2B8AC', pointerEvents: 'none', fontSize: 11 }}>▼</span>
+            </div>
+            <button
+              onClick={() => {
+                const params = new URLSearchParams();
+                if (searchQuery) params.set('q', searchQuery);
+                if (selectedCategory) params.set('category', selectedCategory);
+                if (selectedLocation) params.set('location', selectedLocation);
+                router.push(`/search?${params.toString()}`);
+              }}
+              style={{ background: '#F2620C', color: '#fff', border: 'none', padding: '17px 38px', borderRadius: 12, fontFamily: "'Zen Kaku Gothic New', sans-serif", fontWeight: 700, fontSize: 15, cursor: 'pointer', whiteSpace: 'nowrap', boxShadow: '0 4px 14px rgba(242,98,12,.3)' }}>
+              検索する
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12.5, color: '#938B81' }}>人気：</span>
+            {pills.map((p) => (
+              <span key={p} style={{ fontSize: 12.5, color: '#57514A', background: '#fff', border: '1px solid #EFE8DF', borderRadius: 999, padding: '6px 14px', cursor: 'pointer' }} onClick={() => router.push(`/search?q=${encodeURIComponent(p)}`)}>
+                {p}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* STATS BAND */}
+      <div style={{ background: '#1C1813' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '34px 48px', display: 'flex', justifyContent: 'space-between', gap: 24 }}>
+          {stats.map((s, i) => (
+            <div key={i} style={{ flex: 1, textAlign: 'center', borderRight: i < stats.length - 1 ? '1px solid #332C24' : 'none' }}>
+              <div style={{ fontWeight: 900, color: '#fff', lineHeight: 1, marginBottom: 10 }}>
+                <span style={{ fontSize: 18, color: '#FBA94C' }}>{s.pre}</span>
+                <span style={{ fontSize: 40 }}>{s.num}</span>
+                <span style={{ fontSize: 18, marginLeft: 2, color: '#C9C0B6' }}>{s.unit}</span>
+              </div>
+              <div style={{ fontSize: 12.5, color: '#9A9086' }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* CATEGORIES */}
+      <div style={{ background: '#FBF8F4' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '76px 48px' }}>
+          <div style={{ textAlign: 'center', marginBottom: 44 }}>
+            <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: '#F2620C', letterSpacing: '.18em', marginBottom: 12 }}>CATEGORIES</div>
+            <h2 style={{ fontWeight: 900, fontSize: 32, margin: '0 0 10px' }}>職種から探す</h2>
+            <p style={{ fontSize: 14, color: '#7A7268', margin: 0 }}>関心のある領域から、最適なインターンへ。</p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
+            {cats.map((c) => (
+              <div
+                key={c.name}
+                className="cat-card"
+                onClick={() => router.push(`/search?category=${encodeURIComponent(c.name)}`)}
+                style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 14, padding: '26px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: '.2s', cursor: 'pointer' }}
+              >
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 16 }}>{c.name}</div>
+                  <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, color: '#B6ADA2', marginTop: 6 }}>{c.en}</div>
+                </div>
+                <span style={{ width: 32, height: 32, borderRadius: '50%', background: '#FFF1E8', color: '#F2620C', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>→</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* FEATURED JOBS */}
+      <div style={{ background: '#fff' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '76px 48px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 34 }}>
+            <div>
+              <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: '#F2620C', letterSpacing: '.18em', marginBottom: 12 }}>FEATURED</div>
+              <h2 style={{ fontWeight: 900, fontSize: 32, margin: 0 }}>注目の長期インターン</h2>
+            </div>
+            <span style={{ fontSize: 14, color: '#F2620C', fontWeight: 700, cursor: 'pointer' }} onClick={() => router.push('/search')}>すべて見る →</span>
+          </div>
+          {jobs.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px 0', color: '#938B81', fontSize: 15 }}>求人を読み込んでいます...</div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {filteredJobs.map((job) => {
-                const category = categories.find((c) =>
-                  job.job_title.includes(c)
-                );
-                return (
-                  <div
-                    key={job.id}
-                    className="bg-white border-2 border-gray-200 rounded-2xl hover:shadow-2xl hover:border-blue-300 transition-all cursor-pointer overflow-hidden group"
-                    onClick={() => {
-                      if (user) {
-                        router.push(`/jobs/${job.id}`);
-                      } else {
-                        router.push('/auth/login');
-                      }
-                    }}
-                  >
-                    <div className="bg-gradient-to-r from-blue-400 to-indigo-400 h-20 flex items-center justify-center">
-                      <span className="text-5xl">
-                        {categoryIcons[category || 'その他']}
-                      </span>
-                    </div>
-
-                    <div className="p-6">
-                      <p className="text-xs font-bold text-blue-600 mb-2 uppercase tracking-wider">
-                        {job.companies?.company_name || '企業名不明'}
-                      </p>
-                      <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2 mb-4">
-                        {job.job_title}
-                      </h3>
-
-                      <div className="space-y-2 mb-6 text-sm text-gray-600">
-                        <div className="flex items-center">
-                          <span className="text-xl mr-2">
-                            {locationIcons[job.location] || '📍'}
-                          </span>
-                          <span>{job.location || '未設定'}</span>
-                        </div>
-                        <div className="flex items-center">
-                          <span className="text-xl mr-2">💰</span>
-                          <span className="font-semibold text-gray-900">
-                            {job.salary || '未設定'}
-                          </span>
-                        </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 24 }}>
+              {jobs.slice(0, 3).map((j) => (
+                <div
+                  key={j.id}
+                  className="job-card"
+                  onClick={() => router.push(`/jobs/${j.id}`)}
+                  style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column', transition: '.2s', cursor: 'pointer' }}
+                >
+                  <div style={{ height: 5, background: 'linear-gradient(90deg,#F2620C,#FB8A3C)' }} />
+                  <div style={{ padding: 26 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                      <div style={{ width: 46, height: 46, borderRadius: 11, background: '#FFF1E8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <span style={{ fontWeight: 900, fontSize: 18, color: '#F2620C' }}>{j.job_title.charAt(0)}</span>
                       </div>
-
-                      <button className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold hover:bg-blue-700 transition-all group-hover:shadow-lg">
-                        詳細を見る
-                      </button>
+                      <div style={{ fontSize: 12, color: '#938B81' }}>{j.companies?.company_name || '企業名不明'}</div>
+                    </div>
+                    <h4 style={{ fontWeight: 700, fontSize: 18, margin: '0 0 16px', lineHeight: 1.55 }}>{j.job_title}</h4>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 11.5, color: '#F2620C', background: '#FFF1E8', padding: '5px 11px', borderRadius: 6 }}>長期インターン</span>
+                      <span style={{ fontSize: 11.5, color: '#57514A', background: '#F3EEE7', padding: '5px 11px', borderRadius: 6 }}>週3〜</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 9, fontSize: 13, color: '#57514A', paddingTop: 16, borderTop: '1px solid #F0EAE2' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B6ADA2" strokeWidth="2"><path d="M12 21s-7-5.6-7-11a7 7 0 0 1 14 0c0 5.4-7 11-7 11Z" /><circle cx="12" cy="10" r="2.4" /></svg>
+                        {j.location || '未設定'}
+                      </div>
+                      <div style={{ color: '#1C1813', fontWeight: 700, fontSize: 16 }}>{j.salary || '応相談'}</div>
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           )}
         </div>
       </div>
 
-      {/* フッター */}
-      <footer className="bg-gradient-to-b from-gray-900 to-black text-white mt-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
-            <div>
-              <div className="flex items-center gap-2 text-2xl font-bold mb-4">
-                <span className="text-3xl">🎓</span> トウコべ
-              </div>
-              <p className="text-gray-400 text-sm">
-                大学生のキャリア形成を応援するインターン求人サイト
-              </p>
+      {/* ALL JOBS */}
+      {filteredJobs.length > 3 && (
+        <div style={{ background: '#fff' }}>
+          <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 48px 76px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 24 }}>
+              <h2 style={{ fontWeight: 900, fontSize: 24, margin: 0, color: '#1C1813' }}>
+                インターン求人一覧 <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 14, color: '#938B81', fontWeight: 400 }}>{filteredJobs.length} 件</span>
+              </h2>
+              <button
+                onClick={() => { setSearchQuery(''); setSelectedCategory(''); setSelectedLocation(''); }}
+                style={{ fontSize: 13, color: '#938B81', background: 'none', border: '1px solid #EFE8DF', borderRadius: 8, padding: '8px 16px', cursor: 'pointer' }}
+              >
+                フィルターをリセット
+              </button>
             </div>
-            <div>
-              <h4 className="font-bold mb-6 text-lg">👨‍🎓 学生向け</h4>
-              <ul className="space-y-3 text-sm text-gray-400">
-                <li>
-                  <button
-                    onClick={() => router.push('/')}
-                    className="hover:text-white transition-colors flex items-center gap-2"
-                  >
-                    📋 求人一覧
-                  </button>
-                </li>
-                <li>
-                  <button className="hover:text-white transition-colors flex items-center gap-2">
-                    ❓ よくある質問
-                  </button>
-                </li>
-              </ul>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20 }}>
+              {filteredJobs.slice(3).map((j) => (
+                <div
+                  key={j.id}
+                  className="job-card"
+                  onClick={() => router.push(`/jobs/${j.id}`)}
+                  style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column', transition: '.2s', cursor: 'pointer' }}
+                >
+                  <div style={{ height: 4, background: 'linear-gradient(90deg,#F2620C,#FB8A3C)' }} />
+                  <div style={{ padding: '20px 22px' }}>
+                    <div style={{ fontSize: 11, color: '#938B81', marginBottom: 8 }}>{j.companies?.company_name || '企業名不明'}</div>
+                    <h4 style={{ fontWeight: 700, fontSize: 16, margin: '0 0 14px', lineHeight: 1.5 }}>{j.job_title}</h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 7, fontSize: 13, color: '#57514A', paddingTop: 14, borderTop: '1px solid #F0EAE2' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B6ADA2" strokeWidth="2"><path d="M12 21s-7-5.6-7-11a7 7 0 0 1 14 0c0 5.4-7 11-7 11Z" /><circle cx="12" cy="10" r="2.4" /></svg>
+                        {j.location || '未設定'}
+                      </div>
+                      <div style={{ color: '#1C1813', fontWeight: 700, fontSize: 15 }}>{j.salary || '応相談'}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-            <div>
-              <h4 className="font-bold mb-6 text-lg">🏢 企業向け</h4>
-              <ul className="space-y-3 text-sm text-gray-400">
-                <li>
-                  <button
-                    onClick={() => router.push('/auth/company-login')}
-                    className="hover:text-white transition-colors flex items-center gap-2"
-                  >
-                    🔐 企業ログイン
-                  </button>
-                </li>
-                <li>
-                  <button className="hover:text-white transition-colors flex items-center gap-2">
-                    📧 お問い合わせ
-                  </button>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-bold mb-6 text-lg">⚙️ その他</h4>
-              <ul className="space-y-3 text-sm text-gray-400">
-                <li>
-                  <button className="hover:text-white transition-colors">
-                    🔒 プライバシーポリシー
-                  </button>
-                </li>
-                <li>
-                  <button className="hover:text-white transition-colors">
-                    📜 利用規約
-                  </button>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="border-t border-gray-800 pt-8 text-center text-sm text-gray-400">
-            <p>&copy; 2024 トウコべインターン. All rights reserved.</p>
           </div>
         </div>
-      </footer>
+      )}
+
+      {/* HOW IT WORKS */}
+      <div style={{ background: '#FBF8F4' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '76px 48px' }}>
+          <div style={{ textAlign: 'center', marginBottom: 50 }}>
+            <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: '#F2620C', letterSpacing: '.18em', marginBottom: 12 }}>HOW IT WORKS</div>
+            <h2 style={{ fontWeight: 900, fontSize: 32, margin: 0 }}>ご利用の流れ</h2>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 28 }}>
+            {steps.map((v) => (
+              <div key={v.no} style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: '36px 30px', textAlign: 'center' }}>
+                <div style={{ width: 58, height: 58, borderRadius: '50%', background: '#F2620C', color: '#fff', fontWeight: 900, fontSize: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 22px', boxShadow: '0 6px 16px rgba(242,98,12,.28)' }}>{v.no}</div>
+                <h4 style={{ fontWeight: 700, fontSize: 18, margin: '0 0 12px' }}>{v.title}</h4>
+                <p style={{ fontSize: 13.5, lineHeight: 1.95, color: '#57514A', margin: 0 }}>{v.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* COMPANY CTA */}
+      <div style={{ background: '#FBF8F4' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 48px 76px' }}>
+          <div style={{ background: 'linear-gradient(120deg,#1C1813 0%,#2A231B 100%)', borderRadius: 24, padding: '60px 56px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 40, position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', right: -60, bottom: -60, width: 260, height: 260, borderRadius: '50%', background: 'radial-gradient(circle,rgba(242,98,12,.35) 0%,rgba(242,98,12,0) 70%)' }} />
+            <div style={{ position: 'relative' }}>
+              <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: '#FBA94C', letterSpacing: '.16em', marginBottom: 14 }}>FOR COMPANIES</div>
+              <h3 style={{ fontWeight: 900, fontSize: 28, color: '#fff', margin: '0 0 14px' }}>難関大生に、ダイレクトに出会う。</h3>
+              <p style={{ fontSize: 15, color: '#C9C0B6', margin: 0, lineHeight: 1.8 }}>月額定額で何件でも求人掲載いただけます。まずは資料をご覧ください。</p>
+            </div>
+            <span
+              onClick={() => router.push('/auth/company-login')}
+              style={{ position: 'relative', whiteSpace: 'nowrap', background: '#F2620C', color: '#fff', fontWeight: 700, fontSize: 15, padding: '17px 42px', borderRadius: 12, boxShadow: '0 6px 18px rgba(242,98,12,.4)', cursor: 'pointer' }}
+            >
+              資料を請求する
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* FOOTER */}
+      <div style={{ background: '#15110D' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '60px 48px 34px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 40, paddingBottom: 40, borderBottom: '1px solid #2C2620' }}>
+            <div style={{ maxWidth: 320 }}>
+              <div style={{ fontWeight: 900, fontSize: 20, color: '#fff', marginBottom: 18 }}>トウコべインターン</div>
+              <p style={{ fontSize: 13, lineHeight: 1.9, color: '#8E857B', margin: 0 }}>難関大生のキャリア形成を支える、長期インターン求人プラットフォーム。</p>
+            </div>
+            <div style={{ display: 'flex', gap: 64 }}>
+              <div>
+                <div style={{ fontSize: 12, color: '#FBA94C', marginBottom: 16, letterSpacing: '.05em' }}>学生の方</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 13, fontSize: 13, color: '#B8AFA4' }}>
+                  <span style={{ cursor: 'pointer' }} onClick={() => router.push('/')}>求人検索</span>
+                  <span style={{ cursor: 'pointer' }}>使い方</span>
+                  <span style={{ cursor: 'pointer' }}>よくある質問</span>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: '#FBA94C', marginBottom: 16, letterSpacing: '.05em' }}>企業の方</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 13, fontSize: 13, color: '#B8AFA4' }}>
+                  <span style={{ cursor: 'pointer' }}>資料請求</span>
+                  <span style={{ cursor: 'pointer' }}>お問い合わせ</span>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: '#FBA94C', marginBottom: 16, letterSpacing: '.05em' }}>運営</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 13, fontSize: 13, color: '#B8AFA4' }}>
+                  <span style={{ cursor: 'pointer' }} onClick={() => window.open('https://www.manabiph.com/', '_blank')}>運営会社</span>
+                  <span style={{ cursor: 'pointer' }} onClick={() => router.push('/privacy-policy')}>プライバシーポリシー</span>
+                  <span style={{ cursor: 'pointer' }} onClick={() => router.push('/terms')}>利用規約</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style={{ paddingTop: 24, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#665D53' }}>© 2026 トウコべインターン. All rights reserved.</div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -4,572 +4,335 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 
-interface User {
-  id: string;
-  email?: string;
-}
-
+interface User { id: string; email?: string; }
 interface StudentProfile {
-  id: string;
-  name: string;
-  university: string;
-  grade: string;
-  skills: string[];
-  experience: string;
+  id: string; name: string; university: string; grade: string;
+  skills: string[]; experience: string; contact_email: string;
 }
-
 interface Application {
-  id: string;
-  job_id: string;
-  status: string;
-  created_at: string;
-  jobs?: {
-    job_title: string;
-    salary: string;
-    location: string;
-    companies?: {
-      company_name: string;
-    };
-  };
+  id: string; job_id: string; status: string; created_at: string;
+  job_title?: string; salary?: string; location?: string; company_name?: string;
 }
-
 interface Favorite {
-  id: string;
-  job_id: string;
-  jobs?: {
-    job_title: string;
-    salary: string;
-    location: string;
-    companies?: {
-      company_name: string;
-    };
-  };
+  id: string; job_id: string;
+  job_title?: string; salary?: string; location?: string; company_name?: string;
 }
+interface Message { id: string; from_user_id: string; message_text: string; created_at: string; read_at: string | null; }
 
-interface Message {
-  id: string;
-  from_user_id: string;
-  message_text: string;
-  created_at: string;
-  read_at: string | null;
-}
+type Tab = 'profile' | 'applications' | 'favorites' | 'messages';
+
+const F = {
+  label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#57514A', marginBottom: 8 } as React.CSSProperties,
+  input: { width: '100%', border: '1px solid #EFE8DF', borderRadius: 10, padding: '12px 16px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontSize: 14, color: '#1C1813', outline: 'none', boxSizing: 'border-box' as const },
+};
+
+const APP_STATUS: Record<string, { text: string; bg: string; color: string }> = {
+  pending:   { text: '検討中', bg: '#FFFBEB', color: '#B45309' },
+  interview: { text: '面接予定', bg: '#EFF6FF', color: '#1D4ED8' },
+  offer:     { text: '内定', bg: '#F0FDF4', color: '#15803D' },
+  rejected:  { text: '不採用', bg: '#FEF2F2', color: '#B91C1C' },
+};
 
 export default function StudentDashboard() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'profile' | 'applications' | 'favorites' | 'messages'>('profile');
+  const [tab, setTab] = useState<Tab>('profile');
   const [applications, setApplications] = useState<Application[]>([]);
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [editFormData, setEditFormData] = useState<Partial<StudentProfile>>({});
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState<Partial<StudentProfile>>({});
 
   useEffect(() => {
-    async function checkAuth() {
+    async function init() {
       const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session) {
-        router.push('/auth/login');
-        return;
-      }
-
+      if (!session) { router.push('/auth/login'); return; }
       setUser(session.user as User);
 
-      // プロフィールを取得
-      const { data: profileData } = await supabase
-        .from('student_profiles')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .single();
-
-      if (profileData) {
-        setProfile(profileData);
-        setEditFormData(profileData);
+      const { data: p } = await supabase.from('student_profiles').select('*').eq('user_id', session.user.id).maybeSingle();
+      if (p) {
+        setProfile(p);
+        // Pre-fill contact_email with auth email if not set
+        setEditForm({ ...p, contact_email: p.contact_email || session.user.email || '' });
+      } else {
+        setEditForm({ contact_email: session.user.email || '' });
       }
 
-      await loadApplications(session.user.id);
-      await loadFavorites(session.user.id);
-      await loadMessages(session.user.id);
+      // Fetch applications without nested join
+      await fetchApplications(session.user.id);
+      await fetchFavorites(session.user.id);
+
+      const { data: msgs } = await supabase.from('messages').select('*').eq('to_user_id', session.user.id).order('created_at', { ascending: false }).limit(50);
+      setMessages(msgs || []);
 
       setLoading(false);
     }
-
-    checkAuth();
+    init();
   }, [router]);
 
-  const loadApplications = async (userId: string) => {
-    try {
-      const { data } = await supabase
-        .from('applications')
-        .select(`
-          *,
-          jobs(
-            job_title,
-            salary,
-            location,
-            companies(company_name)
-          )
-        `)
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+  const fetchApplications = async (userId: string) => {
+    const { data: apps } = await supabase
+      .from('applications')
+      .select('id, job_id, status, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (!apps || apps.length === 0) { setApplications([]); return; }
 
-      setApplications(data || []);
-    } catch (error) {
-      console.error('Error loading applications:', error);
-    }
+    const jobIds = apps.map((a: any) => a.job_id);
+    const { data: jobs } = await supabase
+      .from('jobs')
+      .select('id, job_title, salary, location, company_id')
+      .in('id', jobIds);
+
+    const companyIds = [...new Set((jobs || []).map((j: any) => j.company_id).filter(Boolean))];
+    const { data: companies } = companyIds.length > 0
+      ? await supabase.from('companies').select('id, company_name').in('id', companyIds)
+      : { data: [] };
+
+    const jobMap: Record<string, any> = {};
+    (jobs || []).forEach((j: any) => { jobMap[j.id] = j; });
+    const compMap: Record<string, any> = {};
+    (companies || []).forEach((c: any) => { compMap[c.id] = c; });
+
+    setApplications(apps.map((a: any) => {
+      const j = jobMap[a.job_id] || {};
+      const c = compMap[j.company_id] || {};
+      return { id: a.id, job_id: a.job_id, status: a.status, created_at: a.created_at, job_title: j.job_title, salary: j.salary, location: j.location, company_name: c.company_name };
+    }));
   };
 
-  const loadFavorites = async (userId: string) => {
-    try {
-      const { data } = await supabase
-        .from('favorites')
-        .select(`
-          *,
-          jobs(
-            job_title,
-            salary,
-            location,
-            companies(company_name)
-          )
-        `)
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+  const fetchFavorites = async (userId: string) => {
+    const { data: favs } = await supabase
+      .from('favorites')
+      .select('id, job_id')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (!favs || favs.length === 0) { setFavorites([]); return; }
 
-      setFavorites(data || []);
-    } catch (error) {
-      console.error('Error loading favorites:', error);
-    }
-  };
+    const jobIds = favs.map((f: any) => f.job_id);
+    const { data: jobs } = await supabase
+      .from('jobs')
+      .select('id, job_title, salary, location, company_id')
+      .in('id', jobIds);
 
-  const loadMessages = async (userId: string) => {
-    try {
-      const { data } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('to_user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(50);
+    const companyIds = [...new Set((jobs || []).map((j: any) => j.company_id).filter(Boolean))];
+    const { data: companies } = companyIds.length > 0
+      ? await supabase.from('companies').select('id, company_name').in('id', companyIds)
+      : { data: [] };
 
-      setMessages(data || []);
-    } catch (error) {
-      console.error('Error loading messages:', error);
-    }
+    const jobMap: Record<string, any> = {};
+    (jobs || []).forEach((j: any) => { jobMap[j.id] = j; });
+    const compMap: Record<string, any> = {};
+    (companies || []).forEach((c: any) => { compMap[c.id] = c; });
+
+    setFavorites(favs.map((f: any) => {
+      const j = jobMap[f.job_id] || {};
+      const c = compMap[j.company_id] || {};
+      return { id: f.id, job_id: f.job_id, job_title: j.job_title, salary: j.salary, location: j.location, company_name: c.company_name };
+    }));
   };
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    try {
-      if (!user) return;
-
-      const skillsArray = (editFormData.skills || []).filter((s) =>
-        typeof s === 'string'
-      );
-
-      const { error } = await supabase
-        .from('student_profiles')
-        .update({
-          name: editFormData.name,
-          university: editFormData.university,
-          grade: editFormData.grade,
-          skills: skillsArray,
-          experience: editFormData.experience,
-        })
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
-      setProfile(editFormData as StudentProfile);
-      setIsEditingProfile(false);
-      alert('プロフィールを更新しました');
-    } catch (error) {
-      alert('プロフィール更新に失敗しました');
-      console.error(error);
-    }
-  };
-
-  const handleRemoveFavorite = async (favoriteId: string) => {
-    try {
-      const { error } = await supabase
-        .from('favorites')
-        .delete()
-        .eq('id', favoriteId);
-
-      if (error) throw error;
-
-      setFavorites(favorites.filter((f) => f.id !== favoriteId));
-    } catch (error) {
-      alert('お気に入りの削除に失敗しました');
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-xl font-medium text-gray-600">読み込み中...</p>
-      </div>
+    if (!user) return;
+    const skills = (editForm.skills || []).filter(s => typeof s === 'string');
+    const { error } = await supabase.from('student_profiles').upsert(
+      { user_id: user.id, name: editForm.name, university: editForm.university, grade: editForm.grade, skills, experience: editForm.experience, contact_email: editForm.contact_email },
+      { onConflict: 'user_id' }
     );
-  }
+    if (error) { alert('更新に失敗しました'); return; }
+    setProfile(editForm as StudentProfile);
+    setEditing(false);
+    alert('プロフィールを保存しました');
+  };
+
+  const handleRemoveFavorite = async (id: string) => {
+    const { error } = await supabase.from('favorites').delete().eq('id', id);
+    if (!error) setFavorites(favorites.filter(f => f.id !== id));
+  };
+
+  if (loading) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBF8F4', fontFamily: "'Zen Kaku Gothic New',sans-serif" }}>
+      <div style={{ color: '#57514A' }}>読み込み中...</div>
+    </div>
+  );
+
+  const TABS: { key: Tab; label: string; count?: number }[] = [
+    { key: 'profile', label: 'プロフィール' },
+    { key: 'applications', label: '応募履歴', count: applications.length },
+    { key: 'favorites', label: 'お気に入り', count: favorites.length },
+    { key: 'messages', label: 'メッセージ', count: messages.filter(m => !m.read_at).length },
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* ナビゲーション */}
-      <nav className="bg-white shadow-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">
-              {profile?.name || 'マイページ'}
-            </h1>
-            <p className="text-sm text-gray-600">{profile?.university}</p>
-          </div>
-          <button
-            onClick={() => supabase.auth.signOut().then(() => router.push('/'))}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-          >
-            ログアウト
-          </button>
-        </div>
-      </nav>
+    <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: "'Zen Kaku Gothic New',sans-serif", color: '#1C1813' }}>
+      <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* タブナビゲーション */}
-        <div className="mb-8 border-b border-gray-200">
-          <div className="flex space-x-8">
-            <button
-              onClick={() => setActiveTab('profile')}
-              className={`pb-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'profile'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              プロフィール
-            </button>
-            <button
-              onClick={() => setActiveTab('applications')}
-              className={`pb-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'applications'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              応募履歴 ({applications.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('favorites')}
-              className={`pb-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'favorites'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              お気に入り ({favorites.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('messages')}
-              className={`pb-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'messages'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              メッセージ ({messages.filter((m) => !m.read_at).length})
-            </button>
+      {/* NAV */}
+      <div style={{ background: '#fff', borderBottom: '1px solid #EFE8DF', padding: '14px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+          <img src="/toukobe-intern-logo.png" alt="トウコべインターン" style={{ height: 34, width: 'auto', cursor: 'pointer' }} onClick={() => router.push('/')} />
+          <div style={{ width: 1, height: 20, background: '#EFE8DF' }} />
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>{profile?.name || 'マイページ'}</div>
+            <div style={{ fontSize: 12, color: '#938B81' }}>{profile?.university} {profile?.grade}</div>
           </div>
         </div>
+        <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} style={{ background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 8, padding: '10px 20px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>ログアウト</button>
+      </div>
 
-        {/* プロフィールタブ */}
-        {activeTab === 'profile' && (
-          <div>
-            <div className="mb-6 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-800">プロフィール</h2>
-              <button
-                onClick={() => setIsEditingProfile(!isEditingProfile)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                {isEditingProfile ? 'キャンセル' : '編集'}
+      <div style={{ maxWidth: 900, margin: '0 auto', padding: '40px 48px' }}>
+        {/* TABS */}
+        <div style={{ display: 'flex', gap: 0, marginBottom: 32, background: '#fff', border: '1px solid #EFE8DF', borderRadius: 12, padding: 6 }}>
+          {TABS.map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              style={{ flex: 1, border: 'none', borderRadius: 8, padding: '11px 8px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: '.2s', background: tab === t.key ? '#F2620C' : 'transparent', color: tab === t.key ? '#fff' : '#57514A' }}
+            >
+              {t.label}{t.count !== undefined && t.count > 0 ? ` (${t.count})` : ''}
+            </button>
+          ))}
+        </div>
+
+        {/* PROFILE */}
+        {tab === 'profile' && (
+          <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: '32px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
+              <h2 style={{ fontWeight: 900, fontSize: 20, margin: 0 }}>プロフィール</h2>
+              <button onClick={() => setEditing(!editing)} style={{ background: editing ? '#F3EEE7' : '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '10px 20px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                {editing ? 'キャンセル' : '編集'}
               </button>
             </div>
-
-            {isEditingProfile ? (
-              <div className="bg-white rounded-lg shadow p-6">
-                <form onSubmit={handleUpdateProfile} className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      名前 <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={editFormData.name || ''}
-                      onChange={(e) =>
-                        setEditFormData({ ...editFormData, name: e.target.value })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      大学 <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={editFormData.university || ''}
-                      onChange={(e) =>
-                        setEditFormData({
-                          ...editFormData,
-                          university: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      学年 <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={editFormData.grade || ''}
-                      onChange={(e) =>
-                        setEditFormData({ ...editFormData, grade: e.target.value })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    >
-                      <option value="">選択してください</option>
-                      <option value="1年生">1年生</option>
-                      <option value="2年生">2年生</option>
-                      <option value="3年生">3年生</option>
-                      <option value="4年生">4年生</option>
-                      <option value="大学院">大学院</option>
+            {editing ? (
+              <form onSubmit={handleUpdateProfile} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div><label style={F.label}>名前 <span style={{ color: '#F2620C' }}>*</span></label><input style={F.input} value={editForm.name || ''} onChange={e => setEditForm({ ...editForm, name: e.target.value })} required onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} /></div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                  <div><label style={F.label}>大学 <span style={{ color: '#F2620C' }}>*</span></label><input style={F.input} value={editForm.university || ''} onChange={e => setEditForm({ ...editForm, university: e.target.value })} required onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} /></div>
+                  <div><label style={F.label}>学年 <span style={{ color: '#F2620C' }}>*</span></label>
+                    <select style={{ ...F.input, appearance: 'none' as const }} value={editForm.grade || ''} onChange={e => setEditForm({ ...editForm, grade: e.target.value })} required>
+                      <option value="">選択</option>
+                      {['1年生','2年生','3年生','4年生','大学院'].map(g => <option key={g}>{g}</option>)}
                     </select>
                   </div>
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      スキル（カンマ区切り）
-                    </label>
-                    <input
-                      type="text"
-                      value={
-                        Array.isArray(editFormData.skills)
-                          ? editFormData.skills.join(', ')
-                          : ''
-                      }
-                      onChange={(e) =>
-                        setEditFormData({
-                          ...editFormData,
-                          skills: e.target.value
-                            .split(',')
-                            .map((s) => s.trim()),
-                        })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Python, JavaScript, デザイン"
-                    />
+                {/* Contact email */}
+                <div>
+                  <label style={F.label}>
+                    連絡用メールアドレス <span style={{ color: '#F2620C' }}>*</span>
+                  </label>
+                  <input
+                    type="email"
+                    style={F.input}
+                    value={editForm.contact_email || ''}
+                    onChange={e => setEditForm({ ...editForm, contact_email: e.target.value })}
+                    required
+                    placeholder="example@university.ac.jp"
+                    onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'}
+                    onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'}
+                  />
+                  <div style={{ marginTop: 8, padding: '10px 14px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 8, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                    <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>📧</span>
+                    <p style={{ fontSize: 12, color: '#92400E', margin: 0, lineHeight: 1.7 }}>
+                      このアドレスに企業からの選考連絡・面接案内・スカウトメールが届きます。普段よく確認できるメールアドレスを登録してください。
+                    </p>
                   </div>
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      経歴・自己紹介
-                    </label>
-                    <textarea
-                      value={editFormData.experience || ''}
-                      onChange={(e) =>
-                        setEditFormData({
-                          ...editFormData,
-                          experience: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      rows={5}
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-                  >
-                    プロフィールを更新
-                  </button>
-                </form>
-              </div>
+                <div><label style={F.label}>スキル（カンマ区切り）</label><input style={F.input} value={Array.isArray(editForm.skills) ? editForm.skills.join(', ') : ''} onChange={e => setEditForm({ ...editForm, skills: e.target.value.split(',').map(s => s.trim()) })} placeholder="Python, Excel, 英語" onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} /></div>
+                <div><label style={F.label}>経歴・自己紹介</label><textarea style={{ ...F.input, resize: 'vertical' }} value={editForm.experience || ''} onChange={e => setEditForm({ ...editForm, experience: e.target.value })} rows={5} onFocus={e => (e.target as HTMLTextAreaElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLTextAreaElement).style.borderColor = '#EFE8DF'} /></div>
+                <button type="submit" style={{ alignSelf: 'flex-start', background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 32px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>更新する</button>
+              </form>
             ) : (
-              <div className="bg-white rounded-lg shadow p-6 space-y-6">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">名前</p>
-                  <p className="text-lg text-gray-800 mt-1">{profile?.name}</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+                <div><div style={{ fontSize: 12, color: '#938B81', marginBottom: 4 }}>名前</div><div style={{ fontWeight: 700, fontSize: 18 }}>{profile?.name || '未設定'}</div></div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                  <div><div style={{ fontSize: 12, color: '#938B81', marginBottom: 4 }}>大学</div><div style={{ fontWeight: 600, fontSize: 15 }}>{profile?.university || '未設定'}</div></div>
+                  <div><div style={{ fontSize: 12, color: '#938B81', marginBottom: 4 }}>学年</div><div style={{ fontWeight: 600, fontSize: 15 }}>{profile?.grade || '未設定'}</div></div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">大学</p>
-                    <p className="text-lg text-gray-800 mt-1">{profile?.university}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">学年</p>
-                    <p className="text-lg text-gray-800 mt-1">{profile?.grade}</p>
-                  </div>
+                {/* Contact email display */}
+                <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 12, padding: '16px 20px' }}>
+                  <div style={{ fontSize: 12, color: '#92400E', marginBottom: 6, fontWeight: 600 }}>📧 連絡用メールアドレス</div>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: '#1C1813' }}>{profile?.contact_email || '未設定'}</div>
+                  <div style={{ fontSize: 12, color: '#92400E', marginTop: 6 }}>企業からの選考連絡・面接案内・スカウトメールがこのアドレスに届きます</div>
                 </div>
 
                 <div>
-                  <p className="text-sm font-medium text-gray-600">スキル</p>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {profile?.skills && profile.skills.length > 0 ? (
-                      profile.skills.map((skill, idx) => (
-                        <span
-                          key={idx}
-                          className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
-                        >
-                          {skill}
-                        </span>
-                      ))
-                    ) : (
-                      <p className="text-gray-500">スキルが登録されていません</p>
-                    )}
+                  <div style={{ fontSize: 12, color: '#938B81', marginBottom: 8 }}>スキル</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {profile?.skills?.length ? profile.skills.map((s, i) => (
+                      <span key={i} style={{ fontSize: 12, background: '#FFF1E8', color: '#F2620C', border: '1px solid #FBD5C0', borderRadius: 999, padding: '4px 12px' }}>{s}</span>
+                    )) : <span style={{ fontSize: 13, color: '#B6ADA2' }}>未登録</span>}
                   </div>
                 </div>
-
-                <div>
-                  <p className="text-sm font-medium text-gray-600">経歴・自己紹介</p>
-                  <p className="text-gray-800 mt-2 whitespace-pre-wrap">
-                    {profile?.experience || '記入されていません'}
-                  </p>
-                </div>
+                <div><div style={{ fontSize: 12, color: '#938B81', marginBottom: 6 }}>経歴・自己紹介</div><p style={{ fontSize: 14, lineHeight: 1.85, color: '#57514A', margin: 0, whiteSpace: 'pre-wrap' }}>{profile?.experience || '未記入'}</p></div>
               </div>
             )}
           </div>
         )}
 
-        {/* 応募履歴タブ */}
-        {activeTab === 'applications' && (
+        {/* APPLICATIONS */}
+        {tab === 'applications' && (
           <div>
-            <h2 className="text-xl font-bold text-gray-800 mb-6">応募履歴</h2>
-
+            <h2 style={{ fontWeight: 900, fontSize: 20, margin: '0 0 20px' }}>応募履歴</h2>
             {applications.length === 0 ? (
-              <div className="bg-white rounded-lg shadow p-12 text-center">
-                <p className="text-gray-500 mb-4">応募がまだありません</p>
-                <button
-                  onClick={() => router.push('/')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  求人を探す
-                </button>
+              <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: '60px', textAlign: 'center' }}>
+                <p style={{ color: '#938B81', marginBottom: 16 }}>応募がまだありません</p>
+                <button onClick={() => router.push('/')} style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 28px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>求人を探す</button>
               </div>
             ) : (
-              <div className="space-y-4">
-                {applications.map((app) => (
-                  <div key={app.id} className="bg-white rounded-lg shadow p-6">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex-1">
-                        <h3 className="text-lg font-bold text-gray-800">
-                          {(app.jobs as any)?.job_title}
-                        </h3>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {(app.jobs?.companies as any)?.company_name}
-                        </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {applications.map(app => {
+                  const st = APP_STATUS[app.status] || APP_STATUS.pending;
+                  return (
+                    <div key={app.id} style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 14, padding: '22px 24px' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 12, color: '#938B81', marginBottom: 4 }}>{app.company_name}</div>
+                          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>{app.job_title}</div>
+                          <div style={{ fontSize: 13, color: '#57514A', display: 'flex', gap: 16 }}>
+                            <span>📍 {app.location}</span>
+                            <span>💰 {app.salary}</span>
+                          </div>
+                        </div>
+                        <span style={{ fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 999, background: st.bg, color: st.color, whiteSpace: 'nowrap' }}>{st.text}</span>
                       </div>
-                      <span
-                        className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          app.status === 'pending'
-                            ? 'bg-yellow-100 text-yellow-700'
-                            : app.status === 'interview'
-                            ? 'bg-blue-100 text-blue-700'
-                            : app.status === 'offer'
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-red-100 text-red-700'
-                        }`}
-                      >
-                        {app.status === 'pending'
-                          ? '検討中'
-                          : app.status === 'interview'
-                          ? '面接予定'
-                          : app.status === 'offer'
-                          ? '内定'
-                          : '不採用'}
-                      </span>
+                      <div style={{ display: 'flex', gap: 10, marginTop: 16, paddingTop: 16, borderTop: '1px solid #F0EAE2' }}>
+                        <button onClick={() => router.push(`/jobs/${app.job_id}`)} style={{ flex: 1, background: '#F3EEE7', color: '#57514A', border: 'none', borderRadius: 8, padding: '10px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>詳細を見る</button>
+                        <button onClick={() => router.push(`/chat/${app.id}`)} style={{ flex: 1, background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '10px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>💬 メッセージ</button>
+                      </div>
+                      <div style={{ fontSize: 11, color: '#B6ADA2', marginTop: 10 }}>応募日：{new Date(app.created_at).toLocaleDateString('ja-JP')}</div>
                     </div>
-
-                    <p className="text-sm text-gray-600 mb-4">
-                      📍 {(app.jobs as any)?.location} | 💰{' '}
-                      {(app.jobs as any)?.salary}
-                    </p>
-
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => router.push(`/jobs/${app.job_id}`)}
-                        className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                      >
-                        詳細を見る
-                      </button>
-                      <button className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                        メッセージ
-                      </button>
-                    </div>
-
-                    <p className="text-xs text-gray-500 mt-4">
-                      応募日: {new Date(app.created_at).toLocaleDateString('ja-JP')}
-                    </p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
         )}
 
-        {/* お気に入りタブ */}
-        {activeTab === 'favorites' && (
+        {/* FAVORITES */}
+        {tab === 'favorites' && (
           <div>
-            <h2 className="text-xl font-bold text-gray-800 mb-6">お気に入り</h2>
-
+            <h2 style={{ fontWeight: 900, fontSize: 20, margin: '0 0 20px' }}>お気に入り</h2>
             {favorites.length === 0 ? (
-              <div className="bg-white rounded-lg shadow p-12 text-center">
-                <p className="text-gray-500 mb-4">お気に入りがまだありません</p>
-                <button
-                  onClick={() => router.push('/')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  求人を探す
-                </button>
+              <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: '60px', textAlign: 'center' }}>
+                <p style={{ color: '#938B81', marginBottom: 16 }}>お気に入りがまだありません</p>
+                <button onClick={() => router.push('/')} style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 28px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>求人を探す</button>
               </div>
             ) : (
-              <div className="space-y-4">
-                {favorites.map((fav) => (
-                  <div key={fav.id} className="bg-white rounded-lg shadow p-6">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex-1">
-                        <h3 className="text-lg font-bold text-gray-800">
-                          {(fav.jobs as any)?.job_title}
-                        </h3>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {(fav.jobs?.companies as any)?.company_name}
-                        </p>
-                      </div>
-                    </div>
-
-                    <p className="text-sm text-gray-600 mb-4">
-                      📍 {(fav.jobs as any)?.location} | 💰{' '}
-                      {(fav.jobs as any)?.salary}
-                    </p>
-
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => router.push(`/jobs/${fav.job_id}`)}
-                        className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                      >
-                        詳細を見る
-                      </button>
-                      <button
-                        onClick={() => handleRemoveFavorite(fav.id)}
-                        className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                      >
-                        削除
-                      </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {favorites.map(fav => (
+                  <div key={fav.id} style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 14, padding: '22px 24px' }}>
+                    <div style={{ fontSize: 12, color: '#938B81', marginBottom: 4 }}>{fav.company_name}</div>
+                    <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>{fav.job_title}</div>
+                    <div style={{ fontSize: 13, color: '#57514A', marginBottom: 16 }}>📍 {fav.location} ｜ 💰 {fav.salary}</div>
+                    <div style={{ display: 'flex', gap: 10, paddingTop: 16, borderTop: '1px solid #F0EAE2' }}>
+                      <button onClick={() => router.push(`/jobs/${fav.job_id}`)} style={{ flex: 1, background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '10px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>詳細を見る</button>
+                      <button onClick={() => handleRemoveFavorite(fav.id)} style={{ flex: 1, background: '#FEF2F2', color: '#B91C1C', border: 'none', borderRadius: 8, padding: '10px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>削除</button>
                     </div>
                   </div>
                 ))}
@@ -578,28 +341,21 @@ export default function StudentDashboard() {
           </div>
         )}
 
-        {/* メッセージタブ */}
-        {activeTab === 'messages' && (
+        {/* MESSAGES */}
+        {tab === 'messages' && (
           <div>
-            <h2 className="text-xl font-bold text-gray-800 mb-6">メッセージ</h2>
-
+            <h2 style={{ fontWeight: 900, fontSize: 20, margin: '0 0 20px' }}>メッセージ</h2>
             {messages.length === 0 ? (
-              <div className="bg-white rounded-lg shadow p-12 text-center">
-                <p className="text-gray-500">メッセージはまだありません</p>
+              <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: '60px', textAlign: 'center' }}>
+                <p style={{ color: '#938B81' }}>メッセージはまだありません</p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`rounded-lg shadow p-6 ${
-                      msg.read_at ? 'bg-white' : 'bg-blue-50'
-                    }`}
-                  >
-                    <p className="text-gray-800 mb-2">{msg.message_text}</p>
-                    <p className="text-xs text-gray-500">
-                      {new Date(msg.created_at).toLocaleString('ja-JP')}
-                    </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {messages.map(msg => (
+                  <div key={msg.id} style={{ background: msg.read_at ? '#fff' : '#FFF8F5', border: `1px solid ${msg.read_at ? '#EFE8DF' : '#FBD5C0'}`, borderRadius: 14, padding: '20px 24px' }}>
+                    {!msg.read_at && <span style={{ fontSize: 11, fontWeight: 700, color: '#F2620C', background: '#FFF1E8', borderRadius: 999, padding: '3px 10px', marginBottom: 10, display: 'inline-block' }}>未読</span>}
+                    <p style={{ fontSize: 14, lineHeight: 1.8, color: '#1C1813', margin: '0 0 8px' }}>{msg.message_text}</p>
+                    <div style={{ fontSize: 11, color: '#B6ADA2' }}>{new Date(msg.created_at).toLocaleString('ja-JP')}</div>
                   </div>
                 ))}
               </div>

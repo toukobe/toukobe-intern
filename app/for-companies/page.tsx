@@ -1,0 +1,104 @@
+'use client';
+
+import { useRouter } from 'next/navigation';
+
+const features = [
+  { title: '月額定額制', desc: 'シンプルな月額プランで何件でも求人掲載可能。予算を固定したまま採用活動を続けられます。' },
+  { title: '難関大生に特化', desc: '東大・京大・一橋・東京科学大・早慶などの学生が登録。地頭の高い人材へダイレクトにリーチできます。' },
+  { title: '最短2週間でマッチング', desc: '登録から平均2週間でインターン生のアサインが完了。スピーディに即戦力を確保できます。' },
+  { title: '採用管理ダッシュボード', desc: '応募者の一覧・ステータス管理・メッセージのやりとりをすべてWeb上で完結。工数を削減できます。' },
+];
+
+const flow = [
+  { no: '01', title: '資料請求・お問い合わせ', desc: '下記フォームよりお気軽にご連絡ください。担当者より1営業日以内にご連絡します。' },
+  { no: '02', title: 'オンライン説明会', desc: 'サービス概要・料金・掲載フローをご説明します。所要時間は約30分です。' },
+  { no: '03', title: '求人票の作成', desc: '担当者がヒアリングをもとに求人票作成をサポートします。最短当日掲載も可能です。' },
+  { no: '04', title: 'マッチング・採用', desc: '応募が来たらダッシュボードで確認・面接調整。採用後のフォローも対応します。' },
+];
+
+export default function ForCompaniesPage() {
+  const router = useRouter();
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#fff', fontFamily: "'Zen Kaku Gothic New', sans-serif", color: '#1C1813' }}>
+      <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+      {/* NAV */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 48px', background: 'rgba(255,255,255,.92)', borderBottom: '1px solid #EFE8DF', position: 'sticky', top: 0, zIndex: 50 }}>
+        <img src="/toukobe-intern-logo.png" alt="トウコべインターン" style={{ height: 38, width: 'auto', cursor: 'pointer' }} onClick={() => router.push('/')} />
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+          <span style={{ fontSize: 14, color: '#3A352F', fontWeight: 500, cursor: 'pointer' }} onClick={() => router.push('/auth/company-login')}>企業ログイン</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#fff', background: '#F2620C', borderRadius: 8, padding: '10px 22px', cursor: 'pointer' }}>資料請求</span>
+        </div>
+      </div>
+
+      {/* HERO */}
+      <div style={{ background: 'linear-gradient(120deg,#1C1813 0%,#2A231B 100%)', padding: '88px 48px 80px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', right: -80, top: -80, width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(circle,rgba(242,98,12,.3) 0%,rgba(242,98,12,0) 70%)', pointerEvents: 'none' }} />
+        <div style={{ position: 'relative', maxWidth: 700, margin: '0 auto' }}>
+          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: '#FBA94C', letterSpacing: '.18em', marginBottom: 14 }}>FOR COMPANIES</div>
+          <h1 style={{ fontWeight: 900, fontSize: 48, color: '#fff', margin: '0 0 20px', lineHeight: 1.35 }}>難関大生に、<br />ダイレクトに出会う。</h1>
+          <p style={{ fontSize: 16, color: '#C9C0B6', margin: '0 0 40px', lineHeight: 1.8 }}>東大・京大・早慶などの優秀な学生が集まる長期インターンプラットフォームです。</p>
+          <button style={{ background: '#F2620C', color: '#fff', border: 'none', padding: '18px 52px', borderRadius: 12, fontFamily: "'Zen Kaku Gothic New', sans-serif", fontWeight: 700, fontSize: 16, cursor: 'pointer', boxShadow: '0 6px 18px rgba(242,98,12,.4)' }}>
+            資料を請求する
+          </button>
+        </div>
+      </div>
+
+      {/* FEATURES */}
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '76px 48px' }}>
+        <div style={{ textAlign: 'center', marginBottom: 48 }}>
+          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: '#F2620C', letterSpacing: '.18em', marginBottom: 12 }}>FEATURES</div>
+          <h2 style={{ fontWeight: 900, fontSize: 32, margin: 0 }}>選ばれる理由</h2>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 24 }}>
+          {features.map((f, i) => (
+            <div key={i} style={{ background: '#FBF8F4', border: '1px solid #EFE8DF', borderRadius: 16, padding: '32px 30px' }}>
+              <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#F2620C', color: '#fff', fontWeight: 900, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18, fontFamily: "'IBM Plex Mono', monospace" }}>0{i + 1}</div>
+              <h3 style={{ fontWeight: 700, fontSize: 19, margin: '0 0 10px' }}>{f.title}</h3>
+              <p style={{ fontSize: 14, color: '#57514A', lineHeight: 1.85, margin: 0 }}>{f.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* FLOW */}
+      <div style={{ background: '#FBF8F4', padding: '76px 48px' }}>
+        <div style={{ maxWidth: 800, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 48 }}>
+            <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: '#F2620C', letterSpacing: '.18em', marginBottom: 12 }}>FLOW</div>
+            <h2 style={{ fontWeight: 900, fontSize: 32, margin: 0 }}>掲載までの流れ</h2>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {flow.map((s, i) => (
+              <div key={s.no} style={{ display: 'flex', gap: 28 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <div style={{ width: 52, height: 52, borderRadius: '50%', background: '#F2620C', color: '#fff', fontWeight: 900, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: "'IBM Plex Mono', monospace" }}>{s.no}</div>
+                  {i < flow.length - 1 && <div style={{ width: 2, flex: 1, background: '#EFE8DF', margin: '8px 0' }} />}
+                </div>
+                <div style={{ paddingBottom: i < flow.length - 1 ? 40 : 0, paddingTop: 8, flex: 1 }}>
+                  <h3 style={{ fontWeight: 700, fontSize: 18, margin: '0 0 8px' }}>{s.title}</h3>
+                  <p style={{ fontSize: 14, color: '#57514A', lineHeight: 1.85, margin: 0 }}>{s.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* CTA */}
+      <div style={{ padding: '76px 48px', textAlign: 'center' }}>
+        <h2 style={{ fontWeight: 900, fontSize: 30, margin: '0 0 14px' }}>まずはお気軽にご相談ください</h2>
+        <p style={{ fontSize: 15, color: '#7A7268', margin: '0 0 36px' }}>お問い合わせはお気軽にどうぞ。担当者が丁寧にご説明します。</p>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 16 }}>
+          <button style={{ background: '#F2620C', color: '#fff', border: 'none', padding: '16px 44px', borderRadius: 12, fontFamily: "'Zen Kaku Gothic New', sans-serif", fontWeight: 700, fontSize: 15, cursor: 'pointer', boxShadow: '0 4px 14px rgba(242,98,12,.3)' }}>
+            資料を請求する
+          </button>
+          <button onClick={() => router.push('/auth/company-login')} style={{ background: '#fff', color: '#1C1813', border: '1px solid #EFE8DF', padding: '16px 44px', borderRadius: 12, fontFamily: "'Zen Kaku Gothic New', sans-serif", fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
+            企業ログイン
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -4,293 +4,162 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 
-interface Application {
-  id: string;
-  status: string;
-  created_at: string;
-  jobs: {
-    id: string;
-    job_title: string;
-  };
-  students: {
-    id: string;
-    name: string;
-    email: string;
-    phone_number: string;
-    faculty: string;
-    grade: string;
-  };
-}
-
-interface User {
-  id: string;
-  email?: string;
-}
-
-interface UserType {
-  company_id: string;
-}
+const STATUS_MAP: Record<string, { text: string; bg: string; color: string }> = {
+  pending:   { text: '検討中',   bg: '#FFFBEB', color: '#B45309' },
+  interview: { text: '面接予定', bg: '#EFF6FF', color: '#1D4ED8' },
+  offer:     { text: '内定',     bg: '#F0FDF4', color: '#15803D' },
+  rejected:  { text: '不採用',   bg: '#FEF2F2', color: '#B91C1C' },
+};
 
 export default function ApplicantsPage() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(null);
-  const [applications, setApplications] = useState<Application[]>([]);
+  const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState('all');
 
   useEffect(() => {
     async function checkAuth() {
       const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session) {
-        router.push('/auth/company-login');
-        return;
-      }
-
-      setUser(session.user as User);
-
-      const { data: userType } = await supabase
-        .from('user_types')
-        .select('company_id')
-        .eq('user_id', session.user.id)
-        .single();
-
-      if (!userType?.company_id) {
-        router.push('/auth/company-login');
-        return;
-      }
-
+      if (!session) { router.push('/auth/company-login'); return; }
+      const { data: userType } = await supabase.from('user_types').select('company_id').eq('user_id', session.user.id).single();
+      if (!userType?.company_id) { router.push('/auth/company-login'); return; }
       setCompanyId(userType.company_id);
     }
-
     checkAuth();
   }, [router]);
 
   useEffect(() => {
     async function fetchApplications() {
       if (!companyId) return;
-
       try {
-        const { data: jobs, error: jobsError } = await supabase
-          .from('jobs')
-          .select('id')
-          .eq('company_id', companyId);
-
-        if (jobsError) throw jobsError;
-
+        const { data: jobs } = await supabase.from('jobs').select('id').eq('company_id', companyId);
         const jobIds = jobs?.map(j => j.id) || [];
+        if (jobIds.length === 0) { setApplications([]); setLoading(false); return; }
 
-        if (jobIds.length === 0) {
-          setApplications([]);
-          setLoading(false);
-          return;
-        }
-
-        const { data, error } = await supabase
+        const { data: appsData } = await supabase
           .from('applications')
-          .select(`
-            id,
-            status,
-            created_at,
-            jobs (
-              id,
-              job_title
-            ),
-            students (
-              id,
-              name,
-              email,
-              phone_number,
-              faculty,
-              grade
-            )
-          `)
+          .select('id, status, created_at, user_id, job_id, jobs(job_title)')
           .in('job_id', jobIds)
           .order('created_at', { ascending: false });
 
-        if (error) throw error;
+        if (!appsData) { setApplications([]); setLoading(false); return; }
 
-        setApplications((data as any) || []);
+        const appsWithProfiles = await Promise.all(
+          (appsData as any[]).map(async (app) => {
+            const { data: profile } = await supabase.from('student_profiles').select('name, university, grade').eq('user_id', app.user_id).single();
+            return { ...app, profile: profile || { name: '未登録', university: '未設定', grade: '未設定' } };
+          })
+        );
+        setApplications(appsWithProfiles);
       } catch (err) {
         setError('応募者データの取得に失敗しました');
-        console.error(err);
       } finally {
         setLoading(false);
       }
     }
-
     fetchApplications();
   }, [companyId]);
 
   const handleStatusChange = async (applicationId: string, newStatus: string) => {
-    try {
-      const { error } = await supabase
-        .from('applications')
-        .update({ status: newStatus })
-        .eq('id', applicationId);
-
-      if (error) throw error;
-
-      setApplications(applications.map(app =>
-        app.id === applicationId ? { ...app, status: newStatus } : app
-      ));
-
-      alert('ステータスを更新しました');
-    } catch (err) {
-      setError('更新に失敗しました');
-      console.error(err);
-    }
+    const { error } = await supabase.from('applications').update({ status: newStatus }).eq('id', applicationId);
+    if (error) { alert('更新に失敗しました'); return; }
+    setApplications(applications.map(app => app.id === applicationId ? { ...app, status: newStatus } : app));
   };
 
-  const filteredApplications = filterStatus === 'all'
-    ? applications
-    : applications.filter(app => app.status === filterStatus);
+  const filtered = filterStatus === 'all' ? applications : applications.filter(a => a.status === filterStatus);
 
-  const statusColors: { [key: string]: string } = {
-    pending: 'bg-yellow-100 text-yellow-800',
-    approved: 'bg-green-100 text-green-800',
-    rejected: 'bg-red-100 text-red-800',
-  };
-
-  const statusLabels: { [key: string]: string } = {
-    pending: '審査中',
-    approved: '承認',
-    rejected: '不承認',
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-xl font-medium text-gray-600">読み込み中...</p>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBF8F4', fontFamily: "'Zen Kaku Gothic New',sans-serif" }}>
+      <div style={{ color: '#57514A' }}>読み込み中...</div>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <button
-            onClick={() => router.push('/dashboard/company')}
-            className="text-2xl font-bold text-blue-600 hover:text-blue-700"
-          >
-            ← ダッシュボードに戻る
-          </button>
-        </div>
-      </nav>
+    <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: "'Zen Kaku Gothic New',sans-serif", color: '#1C1813' }}>
+      <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">応募者管理</h1>
-          <p className="text-gray-600">
-            全{applications.length}件の応募
-          </p>
+      {/* NAV */}
+      <div style={{ background: '#fff', borderBottom: '1px solid #EFE8DF', padding: '14px 48px', display: 'flex', alignItems: 'center', gap: 16, position: 'sticky', top: 0, zIndex: 50 }}>
+        <img src="/toukobe-intern-logo.png" alt="トウコべインターン" style={{ height: 34, width: 'auto', cursor: 'pointer' }} onClick={() => router.push('/')} />
+        <div style={{ width: 1, height: 20, background: '#EFE8DF' }} />
+        <span style={{ fontSize: 13, color: '#F2620C', fontWeight: 700, cursor: 'pointer' }} onClick={() => router.push('/dashboard/company')}>← ダッシュボードに戻る</span>
+      </div>
+
+      <div style={{ maxWidth: 960, margin: '0 auto', padding: '48px 48px 80px' }}>
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#F2620C', letterSpacing: '.18em', marginBottom: 10 }}>APPLICANTS</div>
+          <h1 style={{ fontWeight: 900, fontSize: 30, margin: '0 0 4px' }}>応募者管理</h1>
+          <p style={{ fontSize: 13, color: '#938B81', margin: 0 }}>全 {applications.length} 件の応募</p>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-700">{error}</p>
+          <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '14px 18px', marginBottom: 20 }}>
+            <p style={{ color: '#B91C1C', fontSize: 13, margin: 0 }}>{error}</p>
           </div>
         )}
 
-        <div className="mb-8 flex gap-4">
-          {['all', 'pending', 'approved', 'rejected'].map((status) => (
-            <button
-              key={status}
-              onClick={() => setFilterStatus(status)}
-              className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-                filterStatus === status
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              {status === 'all' ? `すべて (${applications.length})` : `${statusLabels[status]} (${applications.filter(a => a.status === status).length})`}
-            </button>
-          ))}
+        {/* FILTER TABS */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 28, flexWrap: 'wrap' }}>
+          {[['all','すべて'], ['pending','検討中'], ['interview','面接予定'], ['offer','内定'], ['rejected','不採用']].map(([val, label]) => {
+            const count = val === 'all' ? applications.length : applications.filter(a => a.status === val).length;
+            const active = filterStatus === val;
+            return (
+              <button key={val} onClick={() => setFilterStatus(val)}
+                style={{ border: active ? 'none' : '1px solid #EFE8DF', background: active ? '#F2620C' : '#fff', color: active ? '#fff' : '#57514A', borderRadius: 8, padding: '10px 18px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: active ? 700 : 400, fontSize: 13, cursor: 'pointer' }}>
+                {label}（{count}）
+              </button>
+            );
+          })}
         </div>
 
-        {filteredApplications.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
-            <p className="text-xl text-gray-600">応募者がいません</p>
+        {filtered.length === 0 ? (
+          <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: '60px', textAlign: 'center' }}>
+            <p style={{ color: '#938B81', fontSize: 15 }}>該当する応募者がいません</p>
           </div>
         ) : (
-          <div className="space-y-6">
-            {filteredApplications.map((app) => (
-              <div key={app.id} className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-blue-600">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                  <div className="md:col-span-2">
-                    <h3 className="text-2xl font-bold text-gray-900 mb-4">
-                      {app.students?.name || '不明'}
-                    </h3>
-
-                    <div className="space-y-3 text-gray-700">
-                      <p>
-                        <span className="font-medium">📧 メール:</span> {app.students?.email || '未設定'}
-                      </p>
-                      <p>
-                        <span className="font-medium">📱 電話:</span> {app.students?.phone_number || '未設定'}
-                      </p>
-                      <p>
-                        <span className="font-medium">🎓 学年:</span> {app.students?.grade || '未設定'}
-                      </p>
-                      <p>
-                        <span className="font-medium">📚 学部:</span> {app.students?.faculty || '未設定'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                      <p className="text-sm text-gray-600 mb-1">応募職種</p>
-                      <p className="font-bold text-gray-900">{app.jobs?.job_title || '不明'}</p>
-                    </div>
-
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <p className="text-sm text-gray-600 mb-1">応募日</p>
-                      <p className="font-bold text-gray-900">
-                        {new Date(app.created_at).toLocaleDateString('ja-JP')}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-t border-gray-200 pt-6">
-                  <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {filtered.map(app => {
+              const s = STATUS_MAP[app.status] || STATUS_MAP.pending;
+              return (
+                <div key={app.id} style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: '24px 28px', borderLeft: '4px solid #F2620C' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 24, marginBottom: 20 }}>
                     <div>
-                      <span className={`px-4 py-2 rounded-full text-sm font-bold ${statusColors[app.status]}`}>
-                        {statusLabels[app.status] || app.status}
-                      </span>
+                      <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 8 }}>{app.profile?.name || '未登録'}</div>
+                      <div style={{ display: 'flex', gap: 20, fontSize: 13, color: '#57514A' }}>
+                        <span>🎓 {app.profile?.university || '未設定'}</span>
+                        <span>📚 {app.profile?.grade || '未設定'}</span>
+                      </div>
                     </div>
-
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => handleStatusChange(app.id, 'approved')}
-                        disabled={app.status === 'approved'}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        ✅ 承認
-                      </button>
-                      <button
-                        onClick={() => handleStatusChange(app.id, 'rejected')}
-                        disabled={app.status === 'rejected'}
-                        className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        ❌ 不承認
-                      </button>
-                      <button
-                        onClick={() => handleStatusChange(app.id, 'pending')}
-                        disabled={app.status === 'pending'}
-                        className="px-4 py-2 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        🔄 審査中
-                      </button>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ background: s.bg, color: s.color, borderRadius: 999, padding: '6px 14px', fontWeight: 700, fontSize: 12, display: 'inline-block', marginBottom: 8 }}>{s.text}</div>
+                      <div style={{ fontSize: 12, color: '#938B81' }}>{new Date(app.created_at).toLocaleDateString('ja-JP')}</div>
                     </div>
                   </div>
+
+                  <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '12px 16px', marginBottom: 20 }}>
+                    <span style={{ fontSize: 12, color: '#938B81' }}>応募職種　</span>
+                    <span style={{ fontWeight: 700, fontSize: 14 }}>{app.jobs?.job_title || '不明'}</span>
+                  </div>
+
+                  <div style={{ borderTop: '1px solid #EFE8DF', paddingTop: 16, display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                    <button onClick={() => handleStatusChange(app.id, 'interview')}
+                      style={{ background: app.status === 'interview' ? '#EFF6FF' : '#fff', color: '#1D4ED8', border: '1px solid #BFDBFE', borderRadius: 8, padding: '9px 18px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                      面接予定
+                    </button>
+                    <button onClick={() => handleStatusChange(app.id, 'offer')}
+                      style={{ background: app.status === 'offer' ? '#F0FDF4' : '#fff', color: '#15803D', border: '1px solid #BBF7D0', borderRadius: 8, padding: '9px 18px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                      内定
+                    </button>
+                    <button onClick={() => handleStatusChange(app.id, 'rejected')}
+                      style={{ background: app.status === 'rejected' ? '#FEF2F2' : '#fff', color: '#B91C1C', border: '1px solid #FECACA', borderRadius: 8, padding: '9px 18px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                      不採用
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

@@ -54,23 +54,7 @@ export default function CompanyDashboard() {
   useEffect(() => {
     async function checkAuth() {
       const { data: { session } } = await supabase.auth.getSession();
-<div className="mb-6 flex justify-between items-center gap-3">
-  <h2 className="text-xl font-bold text-gray-800">掲載中の求人</h2>
-  <div className="flex gap-3">
-    <button
-      onClick={() => router.push('/dashboard/company/applicants')}
-      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-    >
-      👥 応募者一覧
-    </button>
-    <button
-      onClick={() => router.push('/dashboard/post-job')}
-      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-    >
-      新しい求人を投稿
-    </button>
-  </div>
-</div>
+      if (!session) { router.push('/auth/company-login'); return; }
       // user_type を確認
       const { data: userType } = await supabase
         .from('user_types')
