@@ -9,14 +9,15 @@ type EmailType =
   | 'application_received'   // 企業宛: 学生が応募した
   | 'status_interview'       // 学生宛: 面接予定になった
   | 'status_offer'           // 学生宛: 内定が出た
-  | 'status_rejected';       // 学生宛: 不採用になった
+  | 'status_rejected'        // 学生宛: 不採用になった
+  | 'student_welcome';       // 学生宛: 登録完了ウェルカム
 
 interface EmailPayload {
   type: EmailType;
   to: string;
   // 共通
-  jobTitle: string;
-  companyName: string;
+  jobTitle?: string;
+  companyName?: string;
   // 応募通知 (企業宛)
   studentName?: string;
   studentUniversity?: string;
@@ -86,6 +87,34 @@ function statusChangedHtml(p: EmailPayload) {
 </div>`;
 }
 
+function studentWelcomeHtml(p: EmailPayload) {
+  return `
+<div style="font-family:'Hiragino Kaku Gothic Pro',Meiryo,sans-serif;max-width:560px;margin:0 auto;color:#1C1813">
+  <div style="background:#F2620C;padding:20px 32px;border-radius:12px 12px 0 0">
+    <p style="color:#fff;font-size:13px;margin:0;letter-spacing:.08em">TOUKOBE INTERN</p>
+  </div>
+  <div style="background:#fff;border:1px solid #EFE8DF;border-top:none;padding:32px;border-radius:0 0 12px 12px">
+    <h2 style="font-size:20px;margin:0 0 16px">🎉 登録ありがとうございます！</h2>
+    <p style="font-size:14px;line-height:1.8;margin:0 0 8px;color:#57514A">
+      ${p.studentName ? `${p.studentName} さん、` : ''}トウコべインターンへようこそ！
+    </p>
+    <p style="font-size:14px;line-height:1.8;margin:0 0 24px;color:#57514A">
+      プロフィールの登録が完了しました。さっそく求人を探して、理想のインターンシップに応募してみましょう。
+    </p>
+    <a href="${SITE}/search" style="display:inline-block;background:#F2620C;color:#fff;text-decoration:none;border-radius:8px;padding:13px 28px;font-weight:700;font-size:14px">求人を探す →</a>
+    <div style="margin-top:28px;padding:20px;background:#FBF8F4;border-radius:10px">
+      <p style="font-size:13px;font-weight:700;margin:0 0 10px;color:#1C1813">📋 次にやること</p>
+      <ul style="font-size:13px;color:#57514A;margin:0;padding-left:18px;line-height:2">
+        <li>プロフィールを100%完成させると応募できるようになります</li>
+        <li>気になる求人はお気に入りに追加しておきましょう</li>
+        <li>企業からのメッセージは登録メールアドレスに届きます</li>
+      </ul>
+    </div>
+    <p style="font-size:12px;color:#B6ADA2;margin:24px 0 0">このメールはトウコべインターンから自動送信されています。</p>
+  </div>
+</div>`;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const payload: EmailPayload = await req.json();
@@ -100,10 +129,13 @@ export async function POST(req: NextRequest) {
       status_interview: `【面接予定】${payload.companyName}「${payload.jobTitle}」の選考結果`,
       status_offer: `【内定】${payload.companyName}「${payload.jobTitle}」の選考結果`,
       status_rejected: `【選考結果】${payload.companyName}「${payload.jobTitle}」の選考結果`,
+      student_welcome: 'トウコべインターンへようこそ！登録が完了しました',
     };
 
     const html = type === 'application_received'
       ? applicationReceivedHtml(payload)
+      : type === 'student_welcome'
+      ? studentWelcomeHtml(payload)
       : statusChangedHtml(payload);
 
     // onboarding@resend.dev はアカウント登録メール宛にしか送れないため
