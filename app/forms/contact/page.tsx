@@ -50,7 +50,7 @@ export default function ContactFormPage() {
       const res = await fetch('/api/form-submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ form_type: 'contact', company_name: '（お問い合わせ）', ...form }),
+        body: JSON.stringify({ form_type: 'contact', ...form }),
       });
       if (!res.ok) throw new Error();
       setDone(true);
