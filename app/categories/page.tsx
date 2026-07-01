@@ -1,6 +1,8 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useIsMobile } from '@/utils/useIsMobile';
 
 const cats = [
   { name: 'コンサルティング', en: 'Consulting', desc: '戦略・経営・業務改善など幅広い領域で活躍できる。' },
@@ -18,27 +20,33 @@ const cats = [
 
 export default function CategoriesPage() {
   const router = useRouter();
+  const isMobile = useIsMobile();
+
+  useEffect(() => {
+    document.title = '職種一覧 | トウコべインターン';
+    return () => { document.title = 'トウコべインターン | 難関大生に特化した長期インターン'; };
+  }, []);
 
   return (
     <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: "'Zen Kaku Gothic New', sans-serif", color: '#1C1813' }}>
       <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
       {/* NAV */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 48px', background: 'rgba(255,255,255,.92)', borderBottom: '1px solid #EFE8DF', position: 'sticky', top: 0, zIndex: 50 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '14px 16px' : '16px 48px', background: 'rgba(255,255,255,.92)', borderBottom: '1px solid #EFE8DF', position: 'sticky', top: 0, zIndex: 50 }}>
         <img src="/toukobe-intern-logo.png" alt="トウコべインターン" style={{ height: 38, width: 'auto', cursor: 'pointer' }} onClick={() => router.push('/')} />
         <span style={{ fontSize: 14, fontWeight: 700, color: '#fff', background: '#F2620C', borderRadius: 8, padding: '10px 22px', cursor: 'pointer' }} onClick={() => router.push('/auth/signup')}>無料で登録</span>
       </div>
 
       {/* HEADER */}
-      <div style={{ background: 'linear-gradient(160deg,#FFF6EE,#FFEFE2)', padding: '64px 48px 56px', textAlign: 'center' }}>
+      <div style={{ background: 'linear-gradient(160deg,#FFF6EE,#FFEFE2)', padding: isMobile ? '40px 20px 36px' : '64px 48px 56px', textAlign: 'center' }}>
         <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: '#F2620C', letterSpacing: '.18em', marginBottom: 12 }}>CATEGORIES</div>
-        <h1 style={{ fontWeight: 900, fontSize: 42, margin: '0 0 14px' }}>職種一覧</h1>
+        <h1 style={{ fontWeight: 900, fontSize: isMobile ? 28 : 42, margin: '0 0 14px' }}>職種一覧</h1>
         <p style={{ fontSize: 15, color: '#7A7268', margin: 0 }}>気になる職種から、長期インターンを探してみましょう。</p>
       </div>
 
       {/* GRID */}
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '60px 48px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20 }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: isMobile ? '32px 16px 48px' : '60px 48px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(3,1fr)', gap: isMobile ? 12 : 20 }}>
           {cats.map((c) => (
             <div
               key={c.name}

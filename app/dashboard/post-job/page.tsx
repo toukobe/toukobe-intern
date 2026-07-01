@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
+import { TOKYO_AREAS, PREFECTURES } from '@/utils/constants';
+import ImagePositionPicker from '@/components/ImagePositionPicker';
+import { useIsMobile } from '@/utils/useIsMobile';
 
 const JOB_CATEGORIES = ['コンサルティング','経営・企画','金融・ファイナンス','マーケティング','エンジニア','デザイナー','営業','ライター・メディア','経理','人事・広報','事務・アシスタント','その他'];
 const WORK_DAYS = ['週2から','週3から','週4から'];
@@ -18,10 +21,18 @@ const F = {
 
 export default function PostJobPage() {
   const router = useRouter();
+  const isMobile = useIsMobile();
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  useEffect(() => { document.title = '求人を掲載する | トウコべインターン'; return () => { document.title = 'トウコべインターン'; }; }, []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [locationSuggestions, setLocationSuggestions] = useState<string[]>([]);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [coverPosition, setCoverPosition] = useState('50% 50%');
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
   const [formData, setFormData] = useState({
     job_title: '', salary: '', location: '', job_description: '', requirements: '',
     job_categories: [] as string[], work_days: [] as string[], work_conditions: [] as string[], job_features: [] as string[],
@@ -39,17 +50,34 @@ export default function PostJobPage() {
     checkAuth();
   }, [router]);
 
+  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { showToast('5MB以下の画像を選択してください', 'error'); return; }
+    setCoverFile(file);
+    setCoverPreview(URL.createObjectURL(file));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true); setError(null);
     try {
       if (!companyId) return;
+      let cover_image_url: string | null = null;
+      if (coverFile) {
+        const ext = coverFile.name.split('.').pop();
+        const path = `${companyId}/${Date.now()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from('job-covers').upload(path, coverFile, { upsert: true });
+        if (upErr) throw upErr;
+        const { data: urlData } = supabase.storage.from('job-covers').getPublicUrl(path);
+        cover_image_url = urlData.publicUrl;
+      }
       const { error: jobError } = await supabase.from('jobs').insert([{
-        company_id: companyId, ...formData, status: 'pending',
+        company_id: companyId, ...formData, status: 'pending', cover_image_url, cover_image_position: coverPosition,
       }]);
       if (jobError) throw jobError;
-      alert('求人を投稿しました！');
-      router.push('/dashboard/company');
+      showToast('求人を投稿しました！');
+      setTimeout(() => router.push('/dashboard/company'), 1200);
     } catch (err) {
       setError('求人投稿に失敗しました: ' + (err as any).message);
     } finally {
@@ -66,7 +94,8 @@ export default function PostJobPage() {
 
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBF8F4', fontFamily: "'Zen Kaku Gothic New',sans-serif" }}>
-      <div style={{ color: '#57514A' }}>読み込み中...</div>
+      <div style={{ width: 36, height: 36, border: '2.5px solid #F2620C', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 
@@ -74,14 +103,20 @@ export default function PostJobPage() {
     <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: "'Zen Kaku Gothic New',sans-serif", color: '#1C1813' }}>
       <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: toast.type === 'error' ? '#FEF2F2' : '#F0FDF4', border: `1px solid ${toast.type === 'error' ? '#FECACA' : '#BBF7D0'}`, color: toast.type === 'error' ? '#B91C1C' : '#15803D', borderRadius: 12, padding: '14px 24px', fontWeight: 700, fontSize: 14, boxShadow: '0 8px 32px rgba(0,0,0,.12)', whiteSpace: 'nowrap' }}>
+          {toast.type === 'success' ? '✓ ' : '✕ '}{toast.msg}
+        </div>
+      )}
+
       {/* NAV */}
-      <div style={{ background: '#fff', borderBottom: '1px solid #EFE8DF', padding: '14px 48px', display: 'flex', alignItems: 'center', gap: 16, position: 'sticky', top: 0, zIndex: 50 }}>
+      <div style={{ background: '#fff', borderBottom: '1px solid #EFE8DF', padding: isMobile ? '14px 16px' : '14px 48px', display: 'flex', alignItems: 'center', gap: 16, position: 'sticky', top: 0, zIndex: 50 }}>
         <img src="/toukobe-intern-logo.png" alt="トウコべインターン" style={{ height: 34, width: 'auto', cursor: 'pointer' }} onClick={() => router.push('/')} />
         <div style={{ width: 1, height: 20, background: '#EFE8DF' }} />
         <span style={{ fontSize: 13, color: '#F2620C', fontWeight: 700, cursor: 'pointer' }} onClick={() => router.push('/dashboard/company')}>← ダッシュボードに戻る</span>
       </div>
 
-      <div style={{ maxWidth: 760, margin: '0 auto', padding: '48px 48px 80px' }}>
+      <div style={{ maxWidth: 760, margin: '0 auto', padding: isMobile ? '24px 16px 60px' : '48px 48px 80px' }}>
         {/* HEADER */}
         <div style={{ marginBottom: 32 }}>
           <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#F2620C', letterSpacing: '.18em', marginBottom: 10 }}>POST JOB</div>
@@ -97,6 +132,43 @@ export default function PostJobPage() {
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
 
+          {/* カバー画像 */}
+          <div style={F.section}>
+            <span style={F.sectionTitle}>カバー画像</span>
+            {coverPreview ? (
+              <div style={{ position: 'relative' }}>
+                <ImagePositionPicker src={coverPreview} position={coverPosition} onChange={setCoverPosition} height={200} />
+                <button
+                  type="button"
+                  onClick={() => { setCoverFile(null); setCoverPreview(null); setCoverPosition('50% 50%'); }}
+                  style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,.5)', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: 12, cursor: 'pointer', zIndex: 10 }}
+                >
+                  削除
+                </button>
+              </div>
+            ) : (
+              <div
+                style={{ width: '100%', height: 200, borderRadius: 12, background: '#F3EDE5', border: '2px dashed #EFE8DF', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                onClick={() => document.getElementById('cover-input')?.click()}
+              >
+                <div style={{ textAlign: 'center', color: '#938B81' }}>
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>🖼️</div>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>クリックして画像を選択</div>
+                  <div style={{ fontSize: 11, marginTop: 4 }}>JPG / PNG / WebP・5MB以内・推奨 1200×630px</div>
+                </div>
+              </div>
+            )}
+            {!coverPreview && (
+              <input id="cover-input" type="file" accept="image/png,image/jpeg,image/webp" onChange={handleCoverChange} style={{ display: 'none' }} />
+            )}
+            {coverPreview && (
+              <div style={{ marginTop: 8, display: 'flex', gap: 10, alignItems: 'center' }}>
+                <button type="button" onClick={() => document.getElementById('cover-input')?.click()} style={{ background: '#F3EDE5', border: 'none', borderRadius: 8, padding: '6px 14px', fontSize: 12, color: '#57514A', cursor: 'pointer', fontFamily: 'inherit' }}>画像を変更</button>
+                <input id="cover-input" type="file" accept="image/png,image/jpeg,image/webp" onChange={handleCoverChange} style={{ display: 'none' }} />
+              </div>
+            )}
+          </div>
+
           {/* 基本情報 */}
           <div style={F.section}>
             <span style={F.sectionTitle}>基本情報</span>
@@ -107,20 +179,63 @@ export default function PostJobPage() {
                   onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'}
                   onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
                 <div>
                   <label style={F.label}>給与 <span style={{ color: '#F2620C' }}>*</span></label>
                   <input style={F.input} value={formData.salary} onChange={e => setFormData({...formData, salary: e.target.value})} placeholder="例: 時給1,500〜2,000円" required
                     onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'}
                     onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} />
                 </div>
-                <div>
+                <div style={{ position: 'relative' }}>
                   <label style={F.label}>勤務地 <span style={{ color: '#F2620C' }}>*</span></label>
-                  <input style={F.input} value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} placeholder="例: 東京・渋谷、フルリモート" required
-                    onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'}
-                    onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} />
+                  <input
+                    style={F.input}
+                    value={formData.location}
+                    onChange={e => {
+                      const v = e.target.value;
+                      setFormData({...formData, location: v});
+                      setLocationSuggestions(v ? PREFECTURES.filter(p => p.includes(v)) : []);
+                    }}
+                    onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#F2620C'; setLocationSuggestions(formData.location ? PREFECTURES.filter(p => p.includes(formData.location)) : []); }}
+                    onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'; setTimeout(() => setLocationSuggestions([]), 150); }}
+                    placeholder="例: 東京都、大阪府" required
+                  />
+                  {locationSuggestions.length > 0 && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #EFE8DF', borderRadius: 10, boxShadow: '0 4px 16px rgba(0,0,0,.1)', zIndex: 50, maxHeight: 220, overflowY: 'auto', marginTop: 4 }}>
+                      {locationSuggestions.map(p => (
+                        <div
+                          key={p}
+                          onMouseDown={() => { setFormData({...formData, location: p}); setLocationSuggestions([]); }}
+                          style={{ padding: '10px 16px', fontSize: 14, cursor: 'pointer', borderBottom: '1px solid #F5F0EB' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = '#FFF6EE')}
+                          onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
+                        >{p}</div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
+              {/* 東京エリア選択 */}
+              {formData.location.includes('東京') && (
+                <div style={{ background: '#FFF6EE', border: '1px solid #FBD5C0', borderRadius: 10, padding: '14px 16px' }}>
+                  <div style={{ fontSize: 12, color: '#F2620C', fontWeight: 700, marginBottom: 10 }}>🗼 東京 詳細エリア（クリックで入力欄に追加）</div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {TOKYO_AREAS.map(a => (
+                      <button
+                        key={a}
+                        type="button"
+                        onClick={() => {
+                          const base = formData.location.replace(/（.*?）/, '').replace(/[\s　]*[^\s　東京都]*[区市].*$/, '').trim();
+                          setFormData({ ...formData, location: `東京都${a}` });
+                        }}
+                        style={{ fontSize: 11, padding: '4px 10px', borderRadius: 999, border: '1px solid #FBD5C0', background: formData.location.includes(a) ? '#F2620C' : '#fff', color: formData.location.includes(a) ? '#fff' : '#57514A', fontFamily: "'Zen Kaku Gothic New',sans-serif", cursor: 'pointer', transition: '.15s' }}
+                      >
+                        {a}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div>
                 <label style={F.label}>業務内容 <span style={{ color: '#F2620C' }}>*</span></label>
                 <textarea style={{ ...F.input, resize: 'vertical' }} value={formData.job_description} onChange={e => setFormData({...formData, job_description: e.target.value})} placeholder="具体的な業務内容を詳しく記載してください" rows={6} required
@@ -139,7 +254,7 @@ export default function PostJobPage() {
           {/* 職種カテゴリ */}
           <div style={F.section}>
             <span style={F.sectionTitle}>職種カテゴリ</span>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 10 }}>
               {JOB_CATEGORIES.map(cat => {
                 const selected = formData.job_categories.includes(cat);
                 return (

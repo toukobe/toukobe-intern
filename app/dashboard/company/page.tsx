@@ -3,10 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
+import { useUnreadMessages } from '@/utils/useNotifications';
+import ImagePositionPicker from '@/components/ImagePositionPicker';
+import { useIsMobile } from '@/utils/useIsMobile';
 
 interface User { id: string; email?: string; }
-interface Job { id: string; job_title: string; salary: string; location: string; status: string; }
-interface Company { id: string; company_name: string; industry: string; contact_email: string; description?: string; website?: string; employee_count?: string; location?: string; founded_year?: string; logo_url?: string; }
+interface Job { id: string; job_title: string; salary: string; location: string; status: string; cover_image_url?: string | null; cover_image_position?: string | null; }
+interface Company { id: string; company_name: string; industry: string; contact_email: string; description?: string; website?: string; employee_count?: string; location?: string; founded_year?: string; logo_url?: string; cover_url?: string; cover_position?: string; }
 
 const F = {
   label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#57514A', marginBottom: 8 } as React.CSSProperties,
@@ -22,13 +25,25 @@ const STATUS_LABEL: Record<string, { text: string; bg: string; color: string; bo
 
 export default function CompanyDashboard() {
   const router = useRouter();
+  const isMobile = useIsMobile();
   const [user, setUser] = useState<User | null>(null);
+  const unreadCount = useUnreadMessages(user?.id || null);
   const [company, setCompany] = useState<Company | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
+  useEffect(() => { document.title = 'ダッシュボード | トウコべインターン'; return () => { document.title = 'トウコべインターン'; }; }, []);
   const [showEdit, setShowEdit] = useState(false);
   const [editForm, setEditForm] = useState({ company_name: '', industry: '', contact_email: '', description: '', website: '', employee_count: '', location: '', founded_year: '' });
   const [logoUploading, setLogoUploading] = useState(false);
+  const [coverUploading, setCoverUploading] = useState(false);
+  const [coverPosition, setCoverPosition] = useState('50% 50%');
+  const [coverPositionSaved, setCoverPositionSaved] = useState(true);
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   useEffect(() => {
     async function init() {
@@ -40,9 +55,13 @@ export default function CompanyDashboard() {
       if (!ut?.company_id) { router.push('/auth/company-login'); return; }
 
       const { data: c } = await supabase.from('companies').select('*').eq('id', ut.company_id).single();
-      if (c) { setCompany(c); setEditForm({ company_name: c.company_name, industry: c.industry, contact_email: c.contact_email, description: c.description || '', website: c.website || '', employee_count: c.employee_count || '', location: c.location || '', founded_year: c.founded_year || '' }); }
+      if (c) {
+        setCompany(c);
+        setEditForm({ company_name: c.company_name || '', industry: c.industry || '', contact_email: c.contact_email || '', description: c.description || '', website: c.website || '', employee_count: c.employee_count || '', location: c.location || '', founded_year: c.founded_year || '' });
+        if (c.cover_position) setCoverPosition(c.cover_position);
+      }
 
-      const { data: j } = await supabase.from('jobs').select('id,job_title,salary,location,status').eq('company_id', ut.company_id).order('created_at', { ascending: false });
+      const { data: j } = await supabase.from('jobs').select('id,job_title,salary,location,status,cover_image_url,cover_image_position').eq('company_id', ut.company_id).order('created_at', { ascending: false });
       setJobs(j || []);
       setLoading(false);
     }
@@ -52,18 +71,17 @@ export default function CompanyDashboard() {
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !company) return;
-    if (file.size > 2 * 1024 * 1024) { alert('2MB以下の画像を選択してください'); return; }
+    if (file.size > 2 * 1024 * 1024) { showToast('2MB以下の画像を選択してください', 'error'); return; }
     setLogoUploading(true);
     try {
       const ext = file.name.split('.').pop();
-      const path = `${company.id}/logo.${ext}`;
-      const { error: upErr } = await supabase.storage.from('company-logos').upload(path, file, { upsert: true });
-      if (upErr) { alert('アップロードに失敗しました: ' + upErr.message); return; }
+      const path = `${company.id}/logo_${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('company-logos').upload(path, file);
+      if (upErr) { showToast('アップロードに失敗しました', 'error'); return; }
       const { data: urlData } = supabase.storage.from('company-logos').getPublicUrl(path);
-      // append timestamp to bust cache
-      const logoUrl = urlData.publicUrl + '?t=' + Date.now();
       await supabase.from('companies').update({ logo_url: urlData.publicUrl }).eq('id', company.id);
-      setCompany({ ...company, logo_url: logoUrl });
+      showToast('ロゴを更新しました');
+      setCompany({ ...company, logo_url: urlData.publicUrl });
     } finally {
       setLogoUploading(false);
     }
@@ -75,31 +93,66 @@ export default function CompanyDashboard() {
     setCompany({ ...company, logo_url: undefined });
   };
 
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !company) return;
+    if (file.size > 5 * 1024 * 1024) { showToast('5MB以下の画像を選択してください', 'error'); return; }
+    setCoverUploading(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${company.id}/cover_${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('company-logos').upload(path, file);
+      if (upErr) { showToast('アップロードに失敗しました', 'error'); return; }
+      const { data: urlData } = supabase.storage.from('company-logos').getPublicUrl(path);
+      await supabase.from('companies').update({ cover_url: urlData.publicUrl }).eq('id', company.id);
+      showToast('背景画像を更新しました');
+      setCompany({ ...company, cover_url: urlData.publicUrl });
+    } finally {
+      setCoverUploading(false);
+    }
+  };
+
+  const handleCoverPositionSave = async () => {
+    if (!company) return;
+    await supabase.from('companies').update({ cover_position: coverPosition } as any).eq('id', company.id);
+    setCompany({ ...company, cover_position: coverPosition });
+    setCoverPositionSaved(true);
+  };
+
+  const handleCoverDelete = async () => {
+    if (!company || !confirm('背景画像を削除しますか？')) return;
+    await supabase.from('companies').update({ cover_url: null }).eq('id', company.id);
+    setCompany({ ...company, cover_url: undefined });
+  };
+
   const handleUpdateCompany = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!company) return;
     const { error } = await supabase.from('companies').update(editForm).eq('id', company.id);
-    if (error) { alert('更新に失敗しました'); return; }
+    if (error) { showToast('更新に失敗しました', 'error'); return; }
     setCompany({ ...company, ...editForm });
     setShowEdit(false);
+    showToast('企業情報を更新しました');
   };
 
   const handleDeleteJob = async (jobId: string) => {
     if (!confirm('この求人を削除しますか？')) return;
     const { error } = await supabase.from('jobs').delete().eq('id', jobId);
-    if (error) { alert('削除に失敗しました'); return; }
+    if (error) { showToast('削除に失敗しました', 'error'); return; }
     setJobs(jobs.filter(j => j.id !== jobId));
+    showToast('求人を削除しました');
   };
 
   const handleStatusChange = async (jobId: string, newStatus: string) => {
     const { error } = await supabase.from('jobs').update({ status: newStatus }).eq('id', jobId);
-    if (error) { alert('更新に失敗しました'); return; }
+    if (error) { showToast('更新に失敗しました', 'error'); return; }
     setJobs(jobs.map(j => j.id === jobId ? { ...j, status: newStatus } : j));
   };
 
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBF8F4', fontFamily: "'Zen Kaku Gothic New',sans-serif" }}>
-      <div style={{ textAlign: 'center', color: '#57514A' }}>読み込み中...</div>
+      <div style={{ width: 36, height: 36, border: '2.5px solid #F2620C', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 
@@ -112,8 +165,15 @@ export default function CompanyDashboard() {
     <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: "'Zen Kaku Gothic New',sans-serif", color: '#1C1813' }}>
       <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
+      {/* TOAST */}
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: toast.type === 'error' ? '#FEF2F2' : '#F0FDF4', border: `1px solid ${toast.type === 'error' ? '#FECACA' : '#BBF7D0'}`, color: toast.type === 'error' ? '#B91C1C' : '#15803D', borderRadius: 12, padding: '14px 24px', fontWeight: 700, fontSize: 14, boxShadow: '0 8px 32px rgba(0,0,0,.12)', whiteSpace: 'nowrap' }}>
+          {toast.type === 'success' ? '✓ ' : '✕ '}{toast.msg}
+        </div>
+      )}
+
       {/* NAV */}
-      <div style={{ background: '#fff', borderBottom: '1px solid #EFE8DF', padding: '14px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 }}>
+      <div style={{ background: '#fff', borderBottom: '1px solid #EFE8DF', padding: isMobile ? '14px 16px' : '14px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
           <img src="/toukobe-intern-logo.png" alt="トウコべインターン" style={{ height: 34, width: 'auto', cursor: 'pointer' }} onClick={() => router.push('/')} />
           <div style={{ width: 1, height: 20, background: '#EFE8DF' }} />
@@ -123,14 +183,21 @@ export default function CompanyDashboard() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 12 }}>
-          <button onClick={() => router.push('/dashboard/company/applicants')} style={{ background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '10px 20px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>応募者管理</button>
+          <button onClick={() => router.push('/dashboard/company/applicants')} style={{ background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '10px 20px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer', position: 'relative' }}>
+            応募者管理
+            {unreadCount > 0 && (
+              <span style={{ position: 'absolute', top: -4, right: -4, minWidth: 16, height: 16, background: '#E11D48', color: '#fff', borderRadius: 999, fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', border: '2px solid #FFF1E8' }}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
           <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} style={{ background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 8, padding: '10px 20px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>ログアウト</button>
         </div>
       </div>
 
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '40px 48px' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: isMobile ? '24px 12px 60px' : '40px 48px' }}>
         {/* STATS */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16, marginBottom: 32 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 16, marginBottom: 32 }}>
           {[
             { label: '公開中の求人', value: published.length, color: '#15803D' },
             { label: '承認待ち', value: pending.length, color: '#B45309' },
@@ -139,7 +206,7 @@ export default function CompanyDashboard() {
           ].map((s) => (
             <div key={s.label} style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 14, padding: '24px 28px' }}>
               <div style={{ fontSize: 13, color: '#938B81', marginBottom: 8 }}>{s.label}</div>
-              <div style={{ fontWeight: 900, fontSize: 36, color: s.color }}>{s.value}</div>
+              <div style={{ fontWeight: 900, fontSize: isMobile ? 24 : 36, color: s.color }}>{s.value}</div>
             </div>
           ))}
         </div>
@@ -154,27 +221,30 @@ export default function CompanyDashboard() {
 
         {/* JOB LIST */}
         {jobs.length === 0 ? (
-          <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: '60px', textAlign: 'center' }}>
+          <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: isMobile ? '40px 20px' : '60px', textAlign: 'center' }}>
             <div style={{ fontSize: 40, marginBottom: 16 }}>📋</div>
             <p style={{ fontSize: 16, color: '#938B81', margin: '0 0 20px' }}>まだ求人がありません</p>
             <button onClick={() => router.push('/dashboard/post-job')} style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 28px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>求人を投稿する</button>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
             {jobs.map((job) => {
               const st = STATUS_LABEL[job.status] || STATUS_LABEL.draft;
               return (
                 <div key={job.id} style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                  {/* Status bar */}
-                  <div style={{ height: 4, background: job.status === 'published' ? '#22C55E' : job.status === 'pending' ? '#F59E0B' : '#D1D5DB' }} />
-                  <div style={{ padding: '20px 22px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    {/* Header: status badge */}
-                    <div style={{ marginBottom: 12 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 999, background: st.bg, color: st.color, border: `1px solid ${st.border}` }}>{st.text}</span>
-                    </div>
+                  {/* カバー画像 */}
+                  <div style={{ height: 120, position: 'relative', overflow: 'hidden', cursor: 'pointer', flexShrink: 0 }} onClick={() => router.push(`/jobs/${job.id}`)}>
+                    {job.cover_image_url
+                      ? <img src={job.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: job.cover_image_position || '50% 50%', display: 'block' }} />
+                      : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#F2620C,#FB8A3C)' }} />
+                    }
+                    {/* ステータスバッジ */}
+                    <span style={{ position: 'absolute', top: 10, left: 12, fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 999, background: st.bg, color: st.color, border: `1px solid ${st.border}` }}>{st.text}</span>
+                  </div>
+                  <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
                     {/* Title */}
                     <div
-                      style={{ fontWeight: 700, fontSize: 16, lineHeight: 1.5, marginBottom: 10, cursor: 'pointer', color: '#1C1813' }}
+                      style={{ fontWeight: 700, fontSize: 15, lineHeight: 1.5, marginBottom: 10, cursor: 'pointer', color: '#1C1813' }}
                       onClick={() => router.push(`/jobs/${job.id}`)}
                     >
                       {job.job_title}
@@ -226,7 +296,7 @@ export default function CompanyDashboard() {
               </button>
             </div>
           </div>
-          {/* LOGO UPLOAD */}
+          {/* LOGO + COVER UPLOAD */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 24, paddingBottom: 24, borderBottom: '1px solid #EFE8DF' }}>
             <div style={{ position: 'relative', flexShrink: 0 }}>
               {company?.logo_url ? (
@@ -250,9 +320,42 @@ export default function CompanyDashboard() {
             </div>
           </div>
 
+          {/* COVER IMAGE UPLOAD */}
+          <div style={{ marginBottom: 24, paddingBottom: 24, borderBottom: '1px solid #EFE8DF' }}>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>背景画像（カバー）</div>
+            <div style={{ fontSize: 12, color: '#938B81', marginBottom: 12 }}>PNG / JPG / WebP・5MB以内・推奨サイズ 1200×400px以上</div>
+            {company?.cover_url ? (
+              <div style={{ marginBottom: 10 }}>
+                <ImagePositionPicker
+                  src={company.cover_url}
+                  position={coverPosition}
+                  onChange={pos => { setCoverPosition(pos); setCoverPositionSaved(false); }}
+                  height={160}
+                />
+              </div>
+            ) : (
+              <div style={{ width: '100%', height: 120, borderRadius: 12, background: 'linear-gradient(135deg,#FFF1E8,#FFE4CC)', border: '2px dashed #FBD5C0', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12, flexDirection: 'column', gap: 8 }}>
+                <span style={{ fontSize: 28 }}>🖼️</span>
+                <span style={{ fontSize: 12, color: '#938B81' }}>背景画像が未設定です</span>
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <label style={{ background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '9px 18px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: coverUploading ? 'not-allowed' : 'pointer', opacity: coverUploading ? 0.6 : 1 }}>
+                {coverUploading ? 'アップロード中...' : '背景画像を変更'}
+                <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleCoverUpload} style={{ display: 'none' }} disabled={coverUploading} />
+              </label>
+              {company?.cover_url && !coverPositionSaved && (
+                <button onClick={handleCoverPositionSave} style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 14px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>位置を保存</button>
+              )}
+              {company?.cover_url && (
+                <button onClick={handleCoverDelete} style={{ background: '#FEF2F2', color: '#B91C1C', border: 'none', borderRadius: 8, padding: '9px 14px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>削除</button>
+              )}
+            </div>
+          </div>
+
           {!showEdit ? (
             <div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20, marginBottom: 20 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(3,1fr)', gap: 20, marginBottom: 20 }}>
                 {[{ label: '企業名', val: company?.company_name }, { label: '業種', val: company?.industry }, { label: 'メール', val: company?.contact_email }, { label: '所在地', val: company?.location || '未設定' }, { label: '従業員数', val: company?.employee_count ? `${company.employee_count}名` : '未設定' }, { label: '設立年', val: company?.founded_year || '未設定' }, { label: 'Webサイト', val: company?.website || '未設定' }].map(f => (
                   <div key={f.label}>
                     <div style={{ fontSize: 12, color: '#938B81', marginBottom: 4 }}>{f.label}</div>
@@ -274,7 +377,7 @@ export default function CompanyDashboard() {
             </div>
           ) : (
             <form onSubmit={handleUpdateCompany} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
                 <div><label style={F.label}>企業名 *</label><input style={F.input} value={editForm.company_name} onChange={e => setEditForm({ ...editForm, company_name: e.target.value })} required onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} /></div>
                 <div><label style={F.label}>業種 *</label><input style={F.input} value={editForm.industry} onChange={e => setEditForm({ ...editForm, industry: e.target.value })} required onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} /></div>
                 <div><label style={F.label}>メールアドレス *</label><input style={F.input} type="email" value={editForm.contact_email} onChange={e => setEditForm({ ...editForm, contact_email: e.target.value })} required onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} /></div>

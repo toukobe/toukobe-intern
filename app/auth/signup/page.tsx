@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
+import { useIsMobile } from '@/utils/useIsMobile';
 
 const S = {
   wrap: { minHeight: '100vh', background: 'linear-gradient(160deg,#FFF6EE 0%,#FFEFE2 55%,#FFE7D4 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: "'Zen Kaku Gothic New',sans-serif" } as React.CSSProperties,
@@ -23,7 +24,18 @@ function EyeIcon({ show }: { show: boolean }) {
 }
 
 export default function SignupPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(160deg,#FFF6EE 0%,#FFEFE2 55%,#FFE7D4 100%)' }}><div style={{ width: 36, height: 36, border: '2.5px solid #F2620C', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>}>
+      <SignupInner />
+    </Suspense>
+  );
+}
+
+function SignupInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get('redirect') || null;
+  const isMobile = useIsMobile();
   const [userType, setUserType] = useState<'student' | 'company' | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -34,15 +46,19 @@ export default function SignupPage() {
   const [industry, setIndustry] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [loading, setLoading] = useState(false);
+  useEffect(() => { document.title = '新規登録 | トウコべインターン'; return () => { document.title = 'トウコべインターン'; }; }, []);
   const [error, setError] = useState<string | null>(null);
   const [verifyStep, setVerifyStep] = useState(false);
 
   const handleGoogleSignup = async () => {
     setLoading(true);
     setError(null);
+    const callbackUrl = redirectTo
+      ? `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirectTo)}`
+      : `${window.location.origin}/auth/callback`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: callbackUrl },
     });
     if (error) { setError('Googleログインに失敗しました'); setLoading(false); }
   };
@@ -94,7 +110,7 @@ export default function SignupPage() {
   if (verifyStep) return (
     <div style={S.wrap}>
       <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-      <div style={S.card}>
+      <div style={{ ...S.card, padding: isMobile ? '32px 24px' : '48px 44px' }}>
         <div style={{ textAlign: 'center' }}>
           <img src="/toukobe-intern-logo.png" alt="トウコべインターン" style={{ height: 44, marginBottom: 24 }} />
           <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#FFF1E8', border: '2px solid #FBD5C0', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', fontSize: 28 }}>✉️</div>
@@ -118,7 +134,7 @@ export default function SignupPage() {
   if (!userType) return (
     <div style={S.wrap}>
       <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-      <div style={S.card}>
+      <div style={{ ...S.card, padding: isMobile ? '32px 24px' : '48px 44px' }}>
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
           <img src="/toukobe-intern-logo.png" alt="トウコべインターン" style={{ height: 44, width: 'auto', cursor: 'pointer' }} onClick={() => router.push('/')} />
           <h1 style={{ fontWeight: 900, fontSize: 26, margin: '20px 0 8px' }}>新規登録</h1>
@@ -161,7 +177,7 @@ export default function SignupPage() {
   return (
     <div style={S.wrap}>
       <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-      <div style={S.card}>
+      <div style={{ ...S.card, padding: isMobile ? '32px 24px' : '48px 44px' }}>
         <div style={{ marginBottom: 28 }}>
           <span style={{ fontSize: 13, color: '#F2620C', cursor: 'pointer', fontWeight: 600 }} onClick={() => setUserType(null)}>← 戻る</span>
         </div>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
+import { useIsMobile } from '@/utils/useIsMobile';
 
 const S = {
   wrap: { minHeight: '100vh', background: 'linear-gradient(160deg,#FFF6EE 0%,#FFEFE2 55%,#FFE7D4 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: "'Zen Kaku Gothic New',sans-serif" } as React.CSSProperties,
@@ -21,6 +22,7 @@ function EyeIcon({ show }: { show: boolean }) {
 
 export default function ResetPasswordPage() {
   const router = useRouter();
+  const isMobile = useIsMobile();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [showPw, setShowPw] = useState(false);
@@ -63,7 +65,7 @@ export default function ResetPasswordPage() {
   return (
     <div style={S.wrap}>
       <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-      <div style={S.card}>
+      <div style={{ ...S.card, padding: isMobile ? '32px 24px' : '48px 44px' }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <img src="/toukobe-intern-logo.png" alt="トウコべインターン" style={{ height: 44, cursor: 'pointer' }} onClick={() => router.push('/')} />
           <h1 style={{ fontWeight: 900, fontSize: 24, margin: '20px 0 6px' }}>新しいパスワードを設定</h1>

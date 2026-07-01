@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
+import { useIsMobile } from '@/utils/useIsMobile';
 
 interface JobDetail {
   id: string;
@@ -16,6 +17,8 @@ interface JobDetail {
   work_days: string[];
   work_conditions: string[];
   job_features: string[];
+  cover_image_url?: string;
+  cover_image_position?: string;
   companies: {
     company_name: string;
     industry: string;
@@ -26,6 +29,7 @@ interface JobDetail {
     website?: string;
     founded_year?: number;
     logo_url?: string;
+    cover_url?: string;
   } | null;
 }
 
@@ -41,6 +45,7 @@ interface UserType {
 export default function JobDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const isMobile = useIsMobile();
   const jobId = params.id as string;
 
   const [job, setJob] = useState<JobDetail | null>(null);
@@ -49,10 +54,14 @@ export default function JobDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState(false);
+  const [showApplyModal, setShowApplyModal] = useState(false);
   const [hasApplied, setHasApplied] = useState(false);
   const [isFavorited, setIsFavorited] = useState(false);
   const [favoriteId, setFavoriteId] = useState<string | null>(null);
   const [favLoading, setFavLoading] = useState(false);
+  const [relatedJobs, setRelatedJobs] = useState<{ id: string; job_title: string; salary: string; location: string; cover_image_url?: string; cover_image_position?: string; companies?: { company_name: string; logo_url?: string } | null }[]>([]);
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
 
   // Fetch job — no auth required
   useEffect(() => {
@@ -72,7 +81,9 @@ export default function JobDetailPage() {
             job_categories,
             work_days,
             work_conditions,
-            job_features
+            job_features,
+            cover_image_url,
+            cover_image_position
           `)
           .eq('id', jobId)
           .single();
@@ -89,13 +100,33 @@ export default function JobDetailPage() {
         if ((jobData as any).company_id) {
           const { data: c } = await supabase
             .from('companies')
-            .select('company_name, industry, contact_email, description, location, employee_count, website, founded_year, logo_url')
+            .select('company_name, industry, contact_email, description, location, employee_count, website, founded_year, logo_url, cover_url')
             .eq('id', (jobData as any).company_id)
             .maybeSingle();
           companyData = c;
         }
 
-        setJob({ ...(jobData as any), companies: companyData });
+        const mergedJob = { ...(jobData as any), companies: companyData };
+        setJob(mergedJob);
+
+        // おすすめ求人：同カテゴリから最大4件（自分除く）
+        const cats: string[] = (jobData as any).job_categories || [];
+        if (cats.length > 0) {
+          const { data: related } = await supabase
+            .from('jobs')
+            .select('id, job_title, salary, location, cover_image_url, cover_image_position, company_id')
+            .eq('status', 'published')
+            .neq('id', (jobData as any).id)
+            .contains('job_categories', [cats[0]])
+            .limit(4);
+          if (related && related.length > 0) {
+            const cIds = [...new Set(related.map((r: any) => r.company_id).filter(Boolean))];
+            const { data: relCos } = await supabase.from('companies').select('id, company_name, logo_url').in('id', cIds);
+            const coMap: Record<string, any> = {};
+            (relCos || []).forEach((c: any) => { coMap[c.id] = c; });
+            setRelatedJobs(related.map((r: any) => ({ ...r, companies: coMap[r.company_id] || null })));
+          }
+        }
       } catch (e) {
         console.error('Unexpected error:', e);
         setError('予期しないエラーが発生しました');
@@ -105,6 +136,14 @@ export default function JobDetailPage() {
     }
     fetchJobDetail();
   }, [jobId]);
+
+  // Update page title when job loads
+  useEffect(() => {
+    if (job) {
+      document.title = `${job.job_title}${job.companies?.company_name ? ` | ${job.companies.company_name}` : ''} | トウコべインターン`;
+    }
+    return () => { document.title = 'トウコべインターン'; };
+  }, [job]);
 
   // Check auth separately
   useEffect(() => {
@@ -186,30 +225,59 @@ export default function JobDetailPage() {
     }
     if (userType?.user_type !== 'student') return;
 
-    // Check profile completeness
+    // Check profile completeness (70% = 7/9 fields required)
     const { data: profile } = await supabase
       .from('student_profiles')
-      .select('name, university, grade')
+      .select('last_name, first_name, birth_date, university, department, grade, contact_email, skills, experience')
       .eq('user_id', user.id)
       .maybeSingle();
 
-    if (!profile || !profile.name || !profile.university || !profile.grade) {
-      alert('プロフィールを完成させてから応募してください');
-      router.push('/dashboard/student');
+    const profileFields = profile ? [
+      profile.last_name, profile.first_name, profile.birth_date,
+      profile.university, profile.department, profile.grade,
+      profile.contact_email,
+      Array.isArray(profile.skills) ? (profile.skills.length > 0 ? profile.skills[0] : null) : profile.skills,
+      profile.experience,
+    ] : [];
+    const filled = profileFields.filter(v => v !== null && v !== undefined && v !== '').length;
+    const pct = Math.round((filled / 9) * 100);
+
+    if (!profile || pct < 70) {
+      showToast(`プロフィールを70%以上入力してから応募してください（現在${pct}%）`, 'error');
+      setTimeout(() => router.push('/dashboard/student'), 1500);
       return;
     }
 
     setIsApplying(true);
     setError(null);
     try {
-      const { error } = await supabase
+      const { data: appData, error } = await supabase
         .from('applications')
-        .insert([{ user_id: user.id, job_id: jobId, status: 'pending' }]);
+        .insert([{ user_id: user.id, job_id: jobId, status: 'unread' }])
+        .select('id')
+        .single();
       if (error) {
         setError('応募に失敗しました');
       } else {
-        alert('応募しました！');
+        showToast('応募しました！');
         setHasApplied(true);
+        // 企業へ応募通知メール
+        if (job?.companies?.contact_email) {
+          fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'application_received',
+              to: job.companies.contact_email,
+              jobTitle: job.job_title,
+              companyName: job.companies.company_name || '',
+              studentName: profile ? `${profile.last_name || ''} ${profile.first_name || ''}`.trim() : '',
+              studentUniversity: profile?.university,
+              studentGrade: profile?.grade,
+              applicationId: appData?.id,
+            }),
+          }).catch(console.error);
+        }
       }
     } catch {
       setError('エラーが発生しました');
@@ -226,7 +294,6 @@ export default function JobDetailPage() {
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBF8F4', fontFamily: FF }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ width: 44, height: 44, border: '3px solid #F2620C', borderTopColor: 'transparent', borderRadius: '50%', margin: '0 auto 16px', animation: 'spin .8s linear infinite' }} />
-          <p style={{ color: '#57514A', fontSize: 15 }}>読み込み中...</p>
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       </div>
@@ -252,14 +319,23 @@ export default function JobDetailPage() {
     <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: FF, color: '#1C1813', paddingBottom: 100 }}>
       <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: toast.type === 'error' ? '#FEF2F2' : '#F0FDF4', border: `1px solid ${toast.type === 'error' ? '#FECACA' : '#BBF7D0'}`, color: toast.type === 'error' ? '#B91C1C' : '#15803D', borderRadius: 12, padding: '14px 24px', fontWeight: 700, fontSize: 14, boxShadow: '0 8px 32px rgba(0,0,0,.12)', whiteSpace: 'nowrap' }}>
+          {toast.type === 'success' ? '✓ ' : '✕ '}{toast.msg}
+        </div>
+      )}
+
       {/* NAV */}
-      <div style={{ background: 'rgba(255,255,255,.95)', borderBottom: '1px solid #EFE8DF', padding: '14px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 }}>
+      <div style={{ background: 'rgba(255,255,255,.95)', borderBottom: '1px solid #EFE8DF', padding: isMobile ? '14px 16px' : '14px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 }}>
         <img src="/toukobe-intern-logo.png" alt="トウコべインターン" style={{ height: 36, cursor: 'pointer' }} onClick={() => router.push('/')} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           {user ? (
             <>
               {isStudent && (
                 <button onClick={() => router.push('/dashboard/student')} style={{ background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '9px 18px', fontFamily: FF, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>マイページ</button>
+              )}
+              {userType?.user_type === 'company' && (
+                <button onClick={() => router.push('/dashboard/company')} style={{ background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '9px 18px', fontFamily: FF, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>ダッシュボード</button>
               )}
               <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} style={{ background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 8, padding: '9px 18px', fontFamily: FF, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>ログアウト</button>
             </>
@@ -272,7 +348,7 @@ export default function JobDetailPage() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 860, margin: '0 auto', padding: '32px 24px' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: isMobile ? '20px 12px 80px' : '32px 24px 100px' }}>
         {/* BREADCRUMB */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24, fontSize: 13, color: '#938B81' }}>
           <span style={{ cursor: 'pointer', color: '#F2620C' }} onClick={() => router.push('/')}>トップ</span>
@@ -282,170 +358,386 @@ export default function JobDetailPage() {
           <span style={{ color: '#57514A' }}>{job.job_title}</span>
         </div>
 
-        {/* HEADER CARD */}
-        <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 18, overflow: 'hidden', marginBottom: 20 }}>
-          <div style={{ height: 5, background: 'linear-gradient(90deg,#F2620C,#FB8A3C)' }} />
-          <div style={{ padding: '32px 36px' }}>
-            <div style={{ fontSize: 13, color: '#938B81', marginBottom: 8 }}>{job.companies?.company_name}</div>
-            <h1 style={{ fontWeight: 900, fontSize: 30, margin: '0 0 20px', lineHeight: 1.4 }}>{job.job_title}</h1>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 14, color: '#57514A' }}>
-              <span>📍 {job.location}</span>
-              <span>💰 {job.salary}</span>
-              {job.companies?.industry && <span>🏢 {job.companies.industry}</span>}
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 320px', gap: 24, alignItems: 'start' }}>
+
+          {/* ── LEFT COLUMN ── */}
+          <div style={{ minWidth: 0 }}>
+
+            {/* HEADER CARD */}
+            <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 18, marginBottom: 20, position: 'relative' }}>
+              {(() => {
+                const coverSrc = job.cover_image_url;
+                return coverSrc ? (
+                  <div style={{ height: 260, overflow: 'hidden', position: 'relative', borderRadius: '18px 18px 0 0' }}>
+                    <img src={coverSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: job.cover_image_position || '50% 50%', display: 'block' }} />
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 40%, rgba(0,0,0,.45) 100%)' }} />
+                  </div>
+                ) : (
+                  <div style={{ height: 180, background: 'linear-gradient(135deg,#F2620C,#FB8A3C)', position: 'relative', overflow: 'hidden', borderRadius: '18px 18px 0 0' }}>
+                    <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: .1 }} viewBox="0 0 860 180" preserveAspectRatio="xMidYMid slice">
+                      <circle cx="760" cy="-30" r="220" fill="#fff"/><circle cx="60" cy="200" r="160" fill="#fff"/>
+                    </svg>
+                  </div>
+                );
+              })()}
+              <div style={{ padding: isMobile ? '0 16px 24px' : '0 32px 32px' }}>
+                <div style={{ marginTop: -36, marginBottom: 16, position: 'relative', zIndex: 10 }}>
+                  {job.companies?.logo_url ? (
+                    <img src={job.companies.logo_url} alt={job.companies.company_name} style={{ width: 72, height: 72, borderRadius: 16, objectFit: 'contain', border: '3px solid #fff', background: '#fff', boxShadow: '0 4px 16px rgba(0,0,0,.14)', padding: 4, display: 'block' }} />
+                  ) : (
+                    <div style={{ width: 72, height: 72, borderRadius: 16, background: 'linear-gradient(135deg,#FFF1E8,#FFE0CC)', border: '3px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, boxShadow: '0 4px 16px rgba(0,0,0,.10)' }}>🏢</div>
+                  )}
+                </div>
+                <div style={{ fontSize: 13, color: '#938B81', marginBottom: 6, cursor: 'pointer' }} onClick={() => router.push(`/companies/${job.company_id}`)}>
+                  {job.companies?.company_name}
+                  {job.companies?.industry && <span style={{ marginLeft: 10, background: '#FFF1E8', color: '#F2620C', fontSize: 11, fontWeight: 700, borderRadius: 4, padding: '2px 8px' }}>{job.companies.industry}</span>}
+                </div>
+                <h1 style={{ fontWeight: 900, fontSize: isMobile ? 20 : 26, margin: '0 0 18px', lineHeight: 1.45 }}>{job.job_title}</h1>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, fontSize: 14, color: '#57514A', marginBottom: 14 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B6ADA2" strokeWidth="2"><path d="M12 21s-7-5.6-7-11a7 7 0 0 1 14 0c0 5.4-7 11-7 11Z"/><circle cx="12" cy="10" r="2.4"/></svg>
+                    {job.location}
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B6ADA2" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                    {job.salary}
+                  </span>
+                </div>
+                {job.job_categories && job.job_categories.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {job.job_categories.map(cat => (
+                      <span key={cat} style={{ fontSize: 12, background: '#FFF1E8', color: '#F2620C', border: '1px solid #FBD5C0', borderRadius: 6, padding: '4px 12px', fontWeight: 600 }}>{cat}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-            {job.job_categories && job.job_categories.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
-                {job.job_categories.map(cat => (
-                  <span key={cat} style={{ fontSize: 12, background: '#FFF1E8', color: '#F2620C', border: '1px solid #FBD5C0', borderRadius: 6, padding: '4px 12px', fontWeight: 600 }}>{cat}</span>
+
+            {/* 業務内容 */}
+            <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 14, padding: isMobile ? '20px 16px' : '28px 32px', marginBottom: 16 }}>
+              <h2 style={{ fontWeight: 900, fontSize: 18, margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ width: 4, height: 20, background: '#F2620C', borderRadius: 2, display: 'inline-block' }} />業務内容
+              </h2>
+              <p style={{ fontSize: 14, lineHeight: 1.9, color: '#3A352F', margin: 0, whiteSpace: 'pre-wrap' }}>{job.job_description}</p>
+            </div>
+
+            {/* 応募要件 */}
+            {job.requirements && (
+              <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 14, padding: isMobile ? '20px 16px' : '28px 32px', marginBottom: 16 }}>
+                <h2 style={{ fontWeight: 900, fontSize: 18, margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ width: 4, height: 20, background: '#F2620C', borderRadius: 2, display: 'inline-block' }} />応募要件
+                </h2>
+                <p style={{ fontSize: 14, lineHeight: 1.9, color: '#3A352F', margin: 0, whiteSpace: 'pre-wrap' }}>{job.requirements}</p>
+              </div>
+            )}
+
+            {/* 求人情報 */}
+            <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 14, padding: isMobile ? '20px 16px' : '28px 32px', marginBottom: 16 }}>
+              <h2 style={{ fontWeight: 900, fontSize: 18, margin: '0 0 20px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ width: 4, height: 20, background: '#F2620C', borderRadius: 2, display: 'inline-block' }} />求人情報
+              </h2>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
+                <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '16px 18px' }}>
+                  <div style={{ fontSize: 11, color: '#938B81', marginBottom: 6 }}>📍 勤務地</div>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>{job.location}</div>
+                </div>
+                <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '16px 18px' }}>
+                  <div style={{ fontSize: 11, color: '#938B81', marginBottom: 6 }}>💰 給与</div>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>{job.salary}</div>
+                </div>
+                {job.work_days && job.work_days.length > 0 && (
+                  <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '16px 18px' }}>
+                    <div style={{ fontSize: 11, color: '#938B81', marginBottom: 6 }}>⏰ 勤務日数</div>
+                    <div style={{ fontWeight: 700, fontSize: 15 }}>{job.work_days.join(', ')}</div>
+                  </div>
+                )}
+              </div>
+              {job.work_conditions && job.work_conditions.length > 0 && (
+                <div style={{ marginTop: 18 }}>
+                  <div style={{ fontSize: 12, color: '#938B81', marginBottom: 10 }}>🏢 勤務条件</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {job.work_conditions.map(c => (
+                      <span key={c} style={{ fontSize: 12, background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0', borderRadius: 6, padding: '4px 12px' }}>{c}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 企業情報 */}
+            {job.companies && (
+              <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 14, padding: isMobile ? '20px 16px' : '28px 32px' }}>
+                <h2 style={{ fontWeight: 900, fontSize: 18, margin: '0 0 20px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ width: 4, height: 20, background: '#F2620C', borderRadius: 2, display: 'inline-block' }} />企業情報
+                </h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
+                  {job.companies.logo_url ? (
+                    <img src={job.companies.logo_url} alt={job.companies.company_name} style={{ width: 52, height: 52, borderRadius: 12, objectFit: 'contain', border: '1px solid #EFE8DF', background: '#fff', padding: 4, flexShrink: 0 }} />
+                  ) : (
+                    <div style={{ width: 52, height: 52, borderRadius: 12, background: '#FFF1E8', border: '1px solid #FBD5C0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>🏢</div>
+                  )}
+                  <div>
+                    <div style={{ fontWeight: 900, fontSize: 17, color: '#1C1813' }}>{job.companies.company_name}</div>
+                    {job.companies.industry && <div style={{ fontSize: 13, color: '#938B81', marginTop: 2 }}>{job.companies.industry}</div>}
+                  </div>
+                </div>
+                {job.companies.description && (
+                  <p style={{ fontSize: 14, lineHeight: 1.85, color: '#57514A', margin: '0 0 18px', padding: '14px 16px', background: '#FBF8F4', borderRadius: 10 }}>{job.companies.description}</p>
+                )}
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 10, marginBottom: 18 }}>
+                  {job.companies.location && <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '12px 14px' }}><div style={{ fontSize: 11, color: '#938B81', marginBottom: 4 }}>📍 所在地</div><div style={{ fontWeight: 600, fontSize: 13 }}>{job.companies.location}</div></div>}
+                  {job.companies.employee_count && <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '12px 14px' }}><div style={{ fontSize: 11, color: '#938B81', marginBottom: 4 }}>👥 従業員数</div><div style={{ fontWeight: 600, fontSize: 13 }}>{job.companies.employee_count}</div></div>}
+                  {job.companies.founded_year && <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '12px 14px' }}><div style={{ fontSize: 11, color: '#938B81', marginBottom: 4 }}>📅 設立年</div><div style={{ fontWeight: 600, fontSize: 13 }}>{job.companies.founded_year}年</div></div>}
+                  {job.companies.website && <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '12px 14px' }}><div style={{ fontSize: 11, color: '#938B81', marginBottom: 4 }}>🌐 ウェブサイト</div><a href={job.companies.website} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600, fontSize: 13, color: '#F2620C', textDecoration: 'none' }}>サイトを見る →</a></div>}
+                </div>
+                <button onClick={() => router.push(`/companies/${job.company_id}`)} style={{ background: '#FFF1E8', color: '#F2620C', border: '1px solid #FBD5C0', borderRadius: 10, padding: '11px 20px', fontFamily: FF, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                  この企業の詳細・求人一覧を見る →
+                </button>
+              </div>
+            )}
+
+            {error && (
+              <div style={{ marginTop: 16, padding: '14px 18px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, color: '#B91C1C', fontSize: 14 }}>
+                {error}
+              </div>
+            )}
+          </div>
+
+          {/* ── RIGHT SIDEBAR ── */}
+          <div style={{ position: 'sticky', top: 24 }}>
+
+            {/* 企業カード */}
+            <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, overflow: 'hidden', marginBottom: 16 }}>
+              {/* ミニカバー */}
+              {job.companies?.cover_url ? (
+                <div style={{ height: 80, overflow: 'hidden' }}>
+                  <img src={job.companies.cover_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                </div>
+              ) : (
+                <div style={{ height: 70, background: 'linear-gradient(135deg,#F2620C,#FB8A3C)' }} />
+              )}
+              <div style={{ padding: '16px 20px 20px' }}>
+                {/* ロゴ */}
+                <div style={{ marginTop: -28, marginBottom: 12, position: 'relative', zIndex: 2 }}>
+                  {job.companies?.logo_url ? (
+                    <img src={job.companies.logo_url} alt="" style={{ width: 52, height: 52, borderRadius: 12, objectFit: 'contain', border: '3px solid #fff', background: '#fff', boxShadow: '0 2px 10px rgba(0,0,0,.12)', padding: 3, display: 'block' }} />
+                  ) : (
+                    <div style={{ width: 52, height: 52, borderRadius: 12, background: '#FFF1E8', border: '3px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, boxShadow: '0 2px 10px rgba(0,0,0,.1)' }}>🏢</div>
+                  )}
+                </div>
+                <div style={{ fontWeight: 800, fontSize: 15, color: '#1C1813', marginBottom: 4, cursor: 'pointer' }} onClick={() => router.push(`/companies/${job.company_id}`)}>
+                  {job.companies?.company_name}
+                </div>
+                {job.companies?.industry && <div style={{ fontSize: 12, color: '#938B81', marginBottom: 10 }}>{job.companies.industry}</div>}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: '#57514A', marginBottom: 18 }}>
+                  {job.companies?.location && <span>📍 {job.companies.location}</span>}
+                  {job.companies?.employee_count && <span>👥 {job.companies.employee_count}名</span>}
+                </div>
+
+                {/* CTA buttons */}
+                {!user && (
+                  <>
+                    <button onClick={() => router.push(`/auth/login?redirect=/jobs/${jobId}`)}
+                      style={{ width: '100%', background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '14px', fontFamily: FF, fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 4px 14px rgba(242,98,12,.28)', marginBottom: 10 }}>
+                      エントリーする
+                    </button>
+                    <button onClick={() => router.push(`/auth/login?redirect=/jobs/${jobId}`)}
+                      style={{ width: '100%', background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 10, padding: '12px', fontFamily: FF, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                      ♡ お気に入りに追加
+                    </button>
+                  </>
+                )}
+                {user && isStudent && !hasApplied && (
+                  <>
+                    <button onClick={() => setShowApplyModal(true)}
+                      style={{ width: '100%', background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '14px', fontFamily: FF, fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 4px 14px rgba(242,98,12,.28)', marginBottom: 10 }}>
+                      エントリーする
+                    </button>
+                    <button onClick={handleToggleFavorite} disabled={favLoading}
+                      style={{ width: '100%', background: isFavorited ? '#FFF1E8' : '#fff', color: isFavorited ? '#F2620C' : '#57514A', border: `1px solid ${isFavorited ? '#FBD5C0' : '#EFE8DF'}`, borderRadius: 10, padding: '12px', fontFamily: FF, fontWeight: 600, fontSize: 13, cursor: 'pointer', transition: '.15s' }}>
+                      {isFavorited ? '♥ お気に入り済み' : '♡ お気に入りに追加'}
+                    </button>
+                  </>
+                )}
+                {user && isStudent && hasApplied && (
+                  <div style={{ width: '100%', background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0', borderRadius: 10, padding: '14px', fontWeight: 700, fontSize: 14, textAlign: 'center' }}>
+                    ✓ 応募済み
+                  </div>
+                )}
+                {/* 企業詳細リンク */}
+                {job.company_id && (
+                  <button
+                    onClick={() => router.push(`/companies/${job.company_id}`)}
+                    style={{ width: '100%', background: '#FBF8F4', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 10, padding: '11px', fontFamily: FF, fontWeight: 600, fontSize: 12, cursor: 'pointer', marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#F3EDE5')}
+                    onMouseLeave={e => (e.currentTarget.style.background = '#FBF8F4')}
+                  >
+                    🏢 この企業の詳細・求人情報を見る
+                    <span style={{ color: '#C2B8AC' }}>›</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* この求人の特徴 */}
+            {((job.job_features && job.job_features.length > 0) || (job.work_conditions && job.work_conditions.length > 0)) && (
+              <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: '18px 20px', marginBottom: 16 }}>
+                <div style={{ fontWeight: 800, fontSize: 13, color: '#57514A', marginBottom: 12 }}>この求人の特徴</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                  {(job.work_conditions || []).map(c => (
+                    <span key={c} style={{ fontSize: 11, background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0', borderRadius: 5, padding: '3px 10px' }}>{c}</span>
+                  ))}
+                  {(job.job_features || []).map(f => (
+                    <span key={f} style={{ fontSize: 11, background: '#FFFBEB', color: '#B45309', border: '1px solid #FDE68A', borderRadius: 5, padding: '3px 10px' }}>{f}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* おすすめ求人 */}
+            {relatedJobs.length > 0 && (
+              <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: '18px 20px', marginBottom: 16 }}>
+                <div style={{ fontWeight: 800, fontSize: 13, color: '#57514A', marginBottom: 14 }}>おすすめの求人</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {relatedJobs.map(r => (
+                    <div
+                      key={r.id}
+                      onClick={() => router.push(`/jobs/${r.id}`)}
+                      style={{ display: 'flex', gap: 10, cursor: 'pointer', borderRadius: 10, padding: '8px 6px', transition: '.15s' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = '#FBF8F4')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      {/* サムネ */}
+                      <div style={{ width: 60, height: 44, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: 'linear-gradient(135deg,#F2620C,#FB8A3C)', position: 'relative' }}>
+                        {r.cover_image_url
+                          ? <img src={r.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: r.cover_image_position || '50% 50%', display: 'block' }} />
+                          : r.companies?.logo_url
+                            ? <img src={r.companies.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 6, display: 'block', background: '#fff' }} />
+                            : null
+                        }
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#1C1813', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as React.CSSProperties}>{r.job_title}</div>
+                        <div style={{ fontSize: 11, color: '#938B81', marginTop: 3 }}>{r.companies?.company_name}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 職種から探す */}
+            <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: '18px 20px', marginBottom: 16 }}>
+              <div style={{ fontWeight: 800, fontSize: 13, color: '#57514A', marginBottom: 14 }}>職種から探す</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {[
+                  { label: 'コンサルティング', icon: '💼' },
+                  { label: '経営・企画',        icon: '📊' },
+                  { label: '金融・ファイナンス', icon: '💹' },
+                  { label: 'マーケティング',    icon: '📣' },
+                  { label: 'エンジニア',        icon: '💻' },
+                  { label: 'デザイナー',        icon: '🎨' },
+                  { label: '営業',              icon: '🤝' },
+                  { label: 'ライター・メディア', icon: '✏️' },
+                  { label: '経理',              icon: '🧾' },
+                  { label: '人事・広報',        icon: '📢' },
+                  { label: 'その他',            icon: '📁' },
+                ].map(cat => (
+                  <button
+                    key={cat.label}
+                    onClick={() => router.push(`/search?category=${encodeURIComponent(cat.label)}`)}
+                    style={{ width: '100%', background: 'transparent', border: 'none', borderRadius: 8, padding: '9px 10px', fontFamily: FF, fontSize: 13, color: '#1C1813', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9, transition: '.12s', textAlign: 'left', fontWeight: job.job_categories?.includes(cat.label) ? 800 : 500 }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#FFF6EE')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <span style={{ fontSize: 15 }}>{cat.icon}</span>
+                    <span style={{ flex: 1 }}>{cat.label}</span>
+                    {job.job_categories?.includes(cat.label) && (
+                      <span style={{ fontSize: 10, background: '#F2620C', color: '#fff', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>この求人</span>
+                    )}
+                    <span style={{ color: '#C2B8AC', fontSize: 12 }}>›</span>
+                  </button>
                 ))}
               </div>
-            )}
+            </div>
+
+            {/* ナビリンク */}
+            <button
+              onClick={() => router.push('/search')}
+              style={{ width: '100%', background: '#fff', color: '#1C1813', border: '1px solid #EFE8DF', borderRadius: 12, padding: '13px 16px', fontFamily: FF, fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, transition: '.15s' }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#FBF8F4')}
+              onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
+            >
+              <span style={{ width: 32, height: 32, borderRadius: 8, background: '#FFF1E8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>🔍</span>
+              <span>求人を探す</span>
+              <span style={{ marginLeft: 'auto', color: '#C2B8AC' }}>›</span>
+            </button>
           </div>
+
         </div>
-
-        {/* DETAILS */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-          {/* 業務内容 */}
-          <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 14, padding: '28px 32px' }}>
-            <h2 style={{ fontWeight: 900, fontSize: 18, margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ width: 4, height: 20, background: '#F2620C', borderRadius: 2, display: 'inline-block' }} />
-              業務内容
-            </h2>
-            <p style={{ fontSize: 14, lineHeight: 1.9, color: '#3A352F', margin: 0, whiteSpace: 'pre-wrap' }}>{job.job_description}</p>
-          </div>
-
-          {/* 応募要件 */}
-          {job.requirements && (
-            <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 14, padding: '28px 32px' }}>
-              <h2 style={{ fontWeight: 900, fontSize: 18, margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ width: 4, height: 20, background: '#F2620C', borderRadius: 2, display: 'inline-block' }} />
-                応募要件
-              </h2>
-              <p style={{ fontSize: 14, lineHeight: 1.9, color: '#3A352F', margin: 0, whiteSpace: 'pre-wrap' }}>{job.requirements}</p>
-            </div>
-          )}
-
-          {/* 求人情報グリッド */}
-          <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 14, padding: '28px 32px' }}>
-            <h2 style={{ fontWeight: 900, fontSize: 18, margin: '0 0 20px', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ width: 4, height: 20, background: '#F2620C', borderRadius: 2, display: 'inline-block' }} />
-              求人情報
-            </h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '16px 18px' }}>
-                <div style={{ fontSize: 11, color: '#938B81', marginBottom: 6 }}>📍 勤務地</div>
-                <div style={{ fontWeight: 700, fontSize: 15 }}>{job.location}</div>
-              </div>
-              <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '16px 18px' }}>
-                <div style={{ fontSize: 11, color: '#938B81', marginBottom: 6 }}>💰 給与</div>
-                <div style={{ fontWeight: 700, fontSize: 15 }}>{job.salary}</div>
-              </div>
-              {job.work_days && job.work_days.length > 0 && (
-                <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '16px 18px' }}>
-                  <div style={{ fontSize: 11, color: '#938B81', marginBottom: 6 }}>⏰ 勤務日数</div>
-                  <div style={{ fontWeight: 700, fontSize: 15 }}>{job.work_days.join(', ')}</div>
-                </div>
-              )}
-            </div>
-
-            {job.work_conditions && job.work_conditions.length > 0 && (
-              <div style={{ marginTop: 18 }}>
-                <div style={{ fontSize: 12, color: '#938B81', marginBottom: 10 }}>🏢 勤務条件</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {job.work_conditions.map(c => (
-                    <span key={c} style={{ fontSize: 12, background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0', borderRadius: 6, padding: '4px 12px' }}>{c}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {job.job_features && job.job_features.length > 0 && (
-              <div style={{ marginTop: 18 }}>
-                <div style={{ fontSize: 12, color: '#938B81', marginBottom: 10 }}>⭐ 求人の特徴</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {job.job_features.map(f => (
-                    <span key={f} style={{ fontSize: 12, background: '#FFFBEB', color: '#B45309', border: '1px solid #FDE68A', borderRadius: 6, padding: '4px 12px' }}>{f}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 企業情報 */}
-          {job.company_id && (
-            <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 14, padding: '28px 32px' }}>
-              <h2 style={{ fontWeight: 900, fontSize: 18, margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ width: 4, height: 20, background: '#F2620C', borderRadius: 2, display: 'inline-block' }} />
-                企業情報
-              </h2>
-              {job.companies && (
-                <>
-                  {/* Company header */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
-                    {job.companies.logo_url ? (
-                      <img src={job.companies.logo_url} alt={job.companies.company_name} style={{ width: 56, height: 56, borderRadius: 12, objectFit: 'contain', border: '1px solid #EFE8DF', background: '#fff', padding: 4, flexShrink: 0 }} />
-                    ) : (
-                      <div style={{ width: 56, height: 56, borderRadius: 12, background: '#FFF1E8', border: '1px solid #FBD5C0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>🏢</div>
-                    )}
-                    <div>
-                      <div style={{ fontWeight: 900, fontSize: 18, color: '#1C1813' }}>{job.companies.company_name}</div>
-                      {job.companies.industry && <div style={{ fontSize: 13, color: '#938B81', marginTop: 3 }}>{job.companies.industry}</div>}
-                    </div>
-                  </div>
-
-                  {/* Description */}
-                  {job.companies.description && (
-                    <p style={{ fontSize: 14, lineHeight: 1.85, color: '#57514A', margin: '0 0 20px', padding: '16px 18px', background: '#FBF8F4', borderRadius: 10 }}>{job.companies.description}</p>
-                  )}
-
-                  {/* Info grid */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
-                    {job.companies.location && (
-                      <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '14px 16px' }}>
-                        <div style={{ fontSize: 11, color: '#938B81', marginBottom: 5 }}>📍 所在地</div>
-                        <div style={{ fontWeight: 600, fontSize: 13 }}>{job.companies.location}</div>
-                      </div>
-                    )}
-                    {job.companies.employee_count && (
-                      <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '14px 16px' }}>
-                        <div style={{ fontSize: 11, color: '#938B81', marginBottom: 5 }}>👥 従業員数</div>
-                        <div style={{ fontWeight: 600, fontSize: 13 }}>{job.companies.employee_count}</div>
-                      </div>
-                    )}
-                    {job.companies.founded_year && (
-                      <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '14px 16px' }}>
-                        <div style={{ fontSize: 11, color: '#938B81', marginBottom: 5 }}>📅 設立年</div>
-                        <div style={{ fontWeight: 600, fontSize: 13 }}>{job.companies.founded_year}年</div>
-                      </div>
-                    )}
-                    {job.companies.website && (
-                      <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '14px 16px' }}>
-                        <div style={{ fontSize: 11, color: '#938B81', marginBottom: 5 }}>🌐 ウェブサイト</div>
-                        <a href={job.companies.website} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600, fontSize: 13, color: '#F2620C', textDecoration: 'none' }}>サイトを見る →</a>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-              <button
-                onClick={() => router.push(`/companies/${job.company_id}`)}
-                style={{ background: '#FFF1E8', color: '#F2620C', border: '1px solid #FBD5C0', borderRadius: 10, padding: '12px 22px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-                この企業の詳細・求人一覧を見る →
-              </button>
-            </div>
-          )}
-        </div>
-
-        {error && (
-          <div style={{ marginTop: 16, padding: '14px 18px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, color: '#B91C1C', fontSize: 14 }}>
-            {error}
-          </div>
-        )}
       </div>
 
+      {/* 応募確認モーダル */}
+      {showApplyModal && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+          onClick={() => setShowApplyModal(false)}
+        >
+          <div
+            style={{ background: '#fff', borderRadius: 20, padding: '36px 32px', maxWidth: 460, width: '100%', boxShadow: '0 24px 64px rgba(0,0,0,.2)', fontFamily: FF }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* 企業ロゴ・求人名 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid #EFE8DF' }}>
+              {job.companies?.logo_url ? (
+                <img src={job.companies.logo_url} alt="" style={{ width: 52, height: 52, borderRadius: 12, objectFit: 'contain', border: '1px solid #EFE8DF', background: '#fff', padding: 4, flexShrink: 0 }} />
+              ) : (
+                <div style={{ width: 52, height: 52, borderRadius: 12, background: '#FFF1E8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>🏢</div>
+              )}
+              <div>
+                <div style={{ fontSize: 12, color: '#938B81', marginBottom: 3 }}>{job.companies?.company_name}</div>
+                <div style={{ fontWeight: 800, fontSize: 15, color: '#1C1813', lineHeight: 1.4 }}>{job.job_title}</div>
+              </div>
+            </div>
+
+            {/* 確認メッセージ */}
+            <div style={{ textAlign: 'center', marginBottom: 28 }}>
+              <div style={{ fontSize: 22, marginBottom: 12 }}>📩</div>
+              <div style={{ fontWeight: 900, fontSize: 20, color: '#1C1813', marginBottom: 10 }}>この求人に応募しますか？</div>
+              <p style={{ fontSize: 13, color: '#57514A', lineHeight: 1.8, margin: 0 }}>
+                応募すると企業の担当者に通知が届きます。<br />
+                プロフィールが企業に共有されます。
+              </p>
+            </div>
+
+            {/* 求人サマリー */}
+            <div style={{ background: '#FBF8F4', borderRadius: 12, padding: '14px 18px', marginBottom: 24, display: 'flex', gap: 20, fontSize: 13, color: '#57514A' }}>
+              <span>📍 {job.location}</span>
+              <span>💰 {job.salary}</span>
+            </div>
+
+            {/* ボタン */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button
+                onClick={async () => { setShowApplyModal(false); await handleApply(); }}
+                disabled={isApplying}
+                style={{ width: '100%', background: '#F2620C', color: '#fff', border: 'none', borderRadius: 12, padding: '15px', fontFamily: FF, fontWeight: 700, fontSize: 15, cursor: isApplying ? 'not-allowed' : 'pointer', opacity: isApplying ? 0.7 : 1, boxShadow: '0 4px 14px rgba(242,98,12,.3)' }}
+              >
+                {isApplying ? '応募中...' : '応募する'}
+              </button>
+              <button
+                onClick={() => setShowApplyModal(false)}
+                style={{ width: '100%', background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 12, padding: '14px', fontFamily: FF, fontWeight: 600, fontSize: 14, cursor: 'pointer' }}
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* STICKY BOTTOM CTA */}
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#fff', borderTop: '1px solid #EFE8DF', padding: '14px 48px', display: 'flex', alignItems: 'center', gap: 12, zIndex: 100, boxShadow: '0 -4px 20px rgba(28,24,19,.08)' }}>
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#fff', borderTop: '1px solid #EFE8DF', padding: isMobile ? '12px 16px' : '14px 48px', display: 'flex', alignItems: 'center', gap: 12, zIndex: 100, boxShadow: '0 -4px 20px rgba(28,24,19,.08)' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.job_title}</div>
           <div style={{ fontSize: 12, color: '#938B81' }}>{job.companies?.company_name}</div>
@@ -473,11 +765,10 @@ export default function JobDetailPage() {
           )}
           {user && isStudent && !hasApplied && (
             <button
-              onClick={handleApply}
-              disabled={isApplying}
-              style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '0 28px', height: 48, fontFamily: FF, fontWeight: 700, fontSize: 14, cursor: isApplying ? 'not-allowed' : 'pointer', opacity: isApplying ? 0.7 : 1, boxShadow: '0 4px 14px rgba(242,98,12,.3)' }}
+              onClick={() => setShowApplyModal(true)}
+              style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '0 28px', height: 48, fontFamily: FF, fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 4px 14px rgba(242,98,12,.3)' }}
             >
-              {isApplying ? '応募中...' : 'この求人に応募する'}
+              この求人に応募する
             </button>
           )}
           {user && isStudent && hasApplied && (

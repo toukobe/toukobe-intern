@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
+import { useIsMobile } from '@/utils/useIsMobile';
 
 const S = {
   wrap: { minHeight: '100vh', background: 'linear-gradient(160deg,#FFF6EE 0%,#FFEFE2 55%,#FFE7D4 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: "'Zen Kaku Gothic New',sans-serif" } as React.CSSProperties,
@@ -11,7 +12,9 @@ const S = {
 
 export default function SetupPage() {
   const router = useRouter();
+  const isMobile = useIsMobile();
   const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [companyName, setCompanyName] = useState('');
   const [industry, setIndustry] = useState('');
@@ -21,6 +24,7 @@ export default function SetupPage() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) { router.push('/auth/login'); return; }
       setUserId(session.user.id);
+      setUserEmail(session.user.email || '');
     });
   }, [router]);
 
@@ -35,7 +39,7 @@ export default function SetupPage() {
     e.preventDefault();
     if (!userId) return;
     setLoading(true);
-    const { data: c } = await supabase.from('companies').insert([{ company_name: companyName, industry, contact_email: '' }]).select().single();
+    const { data: c } = await supabase.from('companies').insert([{ company_name: companyName, industry, contact_email: userEmail }]).select().single();
     if (c) {
       await supabase.from('user_types').insert([{ user_id: userId, user_type: 'company', company_id: c.id }]);
       router.push('/dashboard/company');
@@ -46,7 +50,7 @@ export default function SetupPage() {
   if (step === 'company') return (
     <div style={S.wrap}>
       <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-      <div style={S.card}>
+      <div style={{ ...S.card, padding: isMobile ? '32px 24px' : '48px 44px' }}>
         <span style={{ fontSize: 13, color: '#F2620C', cursor: 'pointer', fontWeight: 600 }} onClick={() => setStep('pick')}>← 戻る</span>
         <div style={{ textAlign: 'center', marginTop: 20, marginBottom: 32 }}>
           <img src="/toukobe-intern-logo.png" alt="トウコべインターン" style={{ height: 44 }} />
@@ -73,7 +77,7 @@ export default function SetupPage() {
   return (
     <div style={S.wrap}>
       <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-      <div style={S.card}>
+      <div style={{ ...S.card, padding: isMobile ? '32px 24px' : '48px 44px' }}>
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
           <img src="/toukobe-intern-logo.png" alt="トウコべインターン" style={{ height: 44 }} />
           <h1 style={{ fontWeight: 900, fontSize: 24, margin: '20px 0 8px' }}>アカウントタイプを選択</h1>

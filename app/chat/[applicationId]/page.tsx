@@ -36,6 +36,9 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  useEffect(() => { document.title = 'メッセージ | トウコべインターン'; return () => { document.title = 'トウコべインターン'; }; }, []);
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Scroll to bottom when messages change
@@ -172,7 +175,7 @@ export default function ChatPage() {
       // Rollback optimistic
       setMessages(prev => prev.filter(m => m.id !== tempId));
       setInput(body);
-      alert('送信に失敗しました');
+      showToast('送信に失敗しました', 'error');
     } else if (data) {
       // Replace optimistic with real
       setMessages(prev => prev.map(m => m.id === tempId ? data as ChatMessage : m));
@@ -194,7 +197,6 @@ export default function ChatPage() {
       <div style={{ textAlign: 'center' }}>
         <div style={{ width: 40, height: 40, border: '3px solid #F2620C', borderTopColor: 'transparent', borderRadius: '50%', margin: '0 auto 14px', animation: 'spin .8s linear infinite' }} />
         <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-        <p style={{ color: '#57514A', fontSize: 14 }}>読み込み中...</p>
       </div>
     </div>
   );
@@ -231,6 +233,12 @@ export default function ChatPage() {
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#FBF8F4', fontFamily: FF, color: '#1C1813' }}>
       <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: toast.type === 'error' ? '#FEF2F2' : '#F0FDF4', border: `1px solid ${toast.type === 'error' ? '#FECACA' : '#BBF7D0'}`, color: toast.type === 'error' ? '#B91C1C' : '#15803D', borderRadius: 12, padding: '14px 24px', fontWeight: 700, fontSize: 14, boxShadow: '0 8px 32px rgba(0,0,0,.12)', whiteSpace: 'nowrap' }}>
+          {toast.type === 'success' ? '✓ ' : '✕ '}{toast.msg}
+        </div>
+      )}
 
       {/* HEADER */}
       <div style={{ background: '#fff', borderBottom: '1px solid #EFE8DF', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0, position: 'sticky', top: 0, zIndex: 50 }}>

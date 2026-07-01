@@ -19,6 +19,7 @@ export default function SignupProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [isNewProfile, setIsNewProfile] = useState(false);
   const [formData, setFormData] = useState({
     last_name: '', first_name: '', birth_date: '',
     university: '', department: '', grade: '', skills: '', experience: '',
@@ -35,6 +36,7 @@ export default function SignupProfilePage() {
 
       const { data } = await supabase
         .from('student_profiles').select('*').eq('user_id', session.user.id).maybeSingle();
+      if (!data) setIsNewProfile(true);
       setFormData(prev => ({
         ...prev,
         contact_email: session.user.email || '',
@@ -85,7 +87,7 @@ export default function SignupProfilePage() {
 
       // ウェルカムメール送信（初回登録時のみ、fire and forget）
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.email) {
+      if (isNewProfile && session?.user?.email) {
         fetch('/api/send-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

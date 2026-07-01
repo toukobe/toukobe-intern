@@ -3,14 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
-
-interface User {
-  id: string;
-  email?: string;
-}
+import { TOKYO_AREAS, PREFECTURES } from '@/utils/constants';
+import ImagePositionPicker from '@/components/ImagePositionPicker';
+import { useIsMobile } from '@/utils/useIsMobile';
 
 interface Job {
   id: string;
+  company_id: string;
   job_title: string;
   salary: string;
   location: string;
@@ -20,359 +19,360 @@ interface Job {
   work_days: string[];
   work_conditions: string[];
   job_features: string[];
+  cover_image_url?: string | null;
 }
 
-const JOB_CATEGORIES = [
-  'マーケティング',
-  'エンジニア',
-  'コンサルティング',
-  '経営・企画',
-  '営業',
-  '金融・ファイナンス',
-  'ライター・メディア',
-  '経理',
-  '人事・広報',
-  'デザイナー',
-  '事務・アシスタント',
-  'その他',
-];
+const JOB_CATEGORIES = ['コンサルティング','経営・企画','金融・ファイナンス','マーケティング','エンジニア','デザイナー','営業','ライター・メディア','経理','人事・広報','事務・アシスタント','その他'];
+const WORK_DAYS = ['週2から','週3から','週4から'];
+const WORK_CONDITIONS = ['フルリモート','一部リモート','フレックス勤務','土日勤務可'];
+const JOB_FEATURES = ['未経験OK','交通費支給','服装髪型自由'];
 
-const WORK_DAYS = ['週2から', '週3から', '週4から'];
-const WORK_CONDITIONS = ['フルリモート', '一部リモート', 'フレックス勤務', '土日勤務可'];
-const JOB_FEATURES = ['未経験OK', '交通費支給', '服装髪型自由'];
+const FF = "'Zen Kaku Gothic New', sans-serif";
+const F = {
+  label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#57514A', marginBottom: 8 } as React.CSSProperties,
+  input: { width: '100%', border: '1px solid #EFE8DF', borderRadius: 10, padding: '12px 16px', fontFamily: FF, fontSize: 14, color: '#1C1813', outline: 'none', boxSizing: 'border-box' as const, background: '#fff' },
+  section: { background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: '28px 32px', marginBottom: 20 } as React.CSSProperties,
+  sectionTitle: { fontWeight: 900, fontSize: 16, color: '#1C1813', marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid #EFE8DF', display: 'block' } as React.CSSProperties,
+};
 
 export default function EditJobPage() {
   const router = useRouter();
+  const isMobile = useIsMobile();
   const params = useParams();
   const jobId = params.id as string;
 
-  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  useEffect(() => { document.title = '求人を編集する | トウコべインターン'; return () => { document.title = 'トウコべインターン'; }; }, []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
+  const [locationSuggestions, setLocationSuggestions] = useState<string[]>([]);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [coverPosition, setCoverPosition] = useState('50% 50%');
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
   const [formData, setFormData] = useState<Job>({
-    id: '',
-    job_title: '',
-    salary: '',
-    location: '',
-    job_description: '',
-    requirements: '',
-    job_categories: [],
-    work_days: [],
-    work_conditions: [],
-    job_features: [],
+    id: '', company_id: '', job_title: '', salary: '', location: '',
+    job_description: '', requirements: '',
+    job_categories: [], work_days: [], work_conditions: [], job_features: [],
+    cover_image_url: null,
   });
 
   useEffect(() => {
-    async function checkAuthAndLoadJob() {
+    async function init() {
       const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { router.push('/auth/company-login'); return; }
 
-      if (!session) {
-        router.push('/auth/company-login');
-        return;
-      }
+      const { data: ut } = await supabase.from('user_types').select('company_id').eq('user_id', session.user.id).single();
+      if (!ut?.company_id) { router.push('/auth/company-login'); return; }
 
-      setUser(session.user as User);
-
-      // 求人を取得
       const { data: job, error: jobError } = await supabase
-        .from('jobs')
-        .select('*')
-        .eq('id', jobId)
-        .single();
+        .from('jobs').select('*').eq('id', jobId).single();
 
-      if (jobError) {
-        setError('求人が見つかりません');
-        setLoading(false);
-        return;
-      }
+      if (jobError || !job) { setError('求人が見つかりません'); setLoading(false); return; }
 
-      setFormData(job as Job);
+      if (job.company_id !== ut.company_id) { setError('この求人を編集する権限がありません'); setLoading(false); return; }
+
+      setFormData({
+        ...job,
+        job_categories: job.job_categories || [],
+        work_days: job.work_days || [],
+        work_conditions: job.work_conditions || [],
+        job_features: job.job_features || [],
+      } as Job);
+      if (job.cover_image_url) setCoverPreview(job.cover_image_url);
+      if ((job as any).cover_image_position) setCoverPosition((job as any).cover_image_position);
       setLoading(false);
     }
-
-    checkAuthAndLoadJob();
+    init();
   }, [jobId, router]);
+
+  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { showToast('5MB以下の画像を選択してください', 'error'); return; }
+    setCoverFile(file);
+    setCoverPreview(URL.createObjectURL(file));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
-    setError(null);
-
+    setSaving(true); setError(null);
     try {
-      const { error: updateError } = await supabase
-        .from('jobs')
-        .update({
-          job_title: formData.job_title,
-          salary: formData.salary,
-          location: formData.location,
-          job_description: formData.job_description,
-          requirements: formData.requirements,
-          job_categories: formData.job_categories,
-          work_days: formData.work_days,
-          work_conditions: formData.work_conditions,
-          job_features: formData.job_features,
-        })
-        .eq('id', jobId);
+      let cover_image_url = formData.cover_image_url ?? null;
+
+      if (coverFile) {
+        const ext = coverFile.name.split('.').pop();
+        const path = `${formData.company_id}/${jobId}.${ext}`;
+        const { error: upErr } = await supabase.storage.from('job-covers').upload(path, coverFile, { upsert: true });
+        if (upErr) throw upErr;
+        const { data: urlData } = supabase.storage.from('job-covers').getPublicUrl(path);
+        cover_image_url = urlData.publicUrl + '?t=' + Date.now();
+        // DBには timestamp なしで保存
+        cover_image_url = urlData.publicUrl;
+      }
+
+      const { error: updateError } = await supabase.from('jobs').update({
+        job_title: formData.job_title,
+        salary: formData.salary,
+        location: formData.location,
+        job_description: formData.job_description,
+        requirements: formData.requirements,
+        job_categories: formData.job_categories,
+        work_days: formData.work_days,
+        work_conditions: formData.work_conditions,
+        job_features: formData.job_features,
+        cover_image_url,
+        cover_image_position: coverPosition,
+      }).eq('id', jobId);
 
       if (updateError) throw updateError;
-
-      alert('求人を更新しました！');
-      router.push('/dashboard/company');
+      showToast('求人を更新しました！');
+      setTimeout(() => router.push('/dashboard/company'), 1200);
     } catch (err) {
       setError('求人更新に失敗しました: ' + (err as any).message);
-      console.error(err);
     } finally {
       setSaving(false);
     }
   };
 
-  const toggleCategory = (category: string) => {
-    setFormData({
-      ...formData,
-      job_categories: formData.job_categories.includes(category)
-        ? formData.job_categories.filter((c) => c !== category)
-        : [...formData.job_categories, category],
-    });
+  const toggle = (field: 'job_categories'|'work_days'|'work_conditions'|'job_features', val: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: prev[field].includes(val) ? prev[field].filter(v => v !== val) : [...prev[field], val],
+    }));
   };
 
-  const toggleWorkDay = (day: string) => {
-    setFormData({
-      ...formData,
-      work_days: formData.work_days.includes(day)
-        ? formData.work_days.filter((d) => d !== day)
-        : [...formData.work_days, day],
-    });
-  };
-
-  const toggleWorkCondition = (condition: string) => {
-    setFormData({
-      ...formData,
-      work_conditions: formData.work_conditions.includes(condition)
-        ? formData.work_conditions.filter((c) => c !== condition)
-        : [...formData.work_conditions, condition],
-    });
-  };
-
-  const toggleJobFeature = (feature: string) => {
-    setFormData({
-      ...formData,
-      job_features: formData.job_features.includes(feature)
-        ? formData.job_features.filter((f) => f !== feature)
-        : [...formData.job_features, feature],
-    });
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-xl font-medium text-gray-600">読み込み中...</p>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBF8F4', fontFamily: FF }}>
+      <div style={{ width: 36, height: 36, border: '2.5px solid #F2620C', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* ナビゲーション */}
-      <nav className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <button
-            onClick={() => router.push('/dashboard/company')}
-            className="text-2xl font-bold text-blue-600 hover:text-blue-700"
-          >
-            ← ダッシュボードに戻る
-          </button>
+    <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: FF, color: '#1C1813' }}>
+      <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: toast.type === 'error' ? '#FEF2F2' : '#F0FDF4', border: `1px solid ${toast.type === 'error' ? '#FECACA' : '#BBF7D0'}`, color: toast.type === 'error' ? '#B91C1C' : '#15803D', borderRadius: 12, padding: '14px 24px', fontWeight: 700, fontSize: 14, boxShadow: '0 8px 32px rgba(0,0,0,.12)', whiteSpace: 'nowrap' }}>
+          {toast.type === 'success' ? '✓ ' : '✕ '}{toast.msg}
         </div>
-      </nav>
+      )}
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="bg-white rounded-2xl shadow-lg p-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">求人を編集</h1>
-          <p className="text-gray-600 mb-8">求人情報を更新してください</p>
+      {/* NAV */}
+      <div style={{ background: '#fff', borderBottom: '1px solid #EFE8DF', padding: isMobile ? '14px 16px' : '14px 48px', display: 'flex', alignItems: 'center', gap: 16, position: 'sticky', top: 0, zIndex: 50 }}>
+        <img src="/toukobe-intern-logo.png" alt="トウコべインターン" style={{ height: 34, width: 'auto', cursor: 'pointer' }} onClick={() => router.push('/')} />
+        <div style={{ width: 1, height: 20, background: '#EFE8DF' }} />
+        <span style={{ fontSize: 13, color: '#F2620C', fontWeight: 700, cursor: 'pointer' }} onClick={() => router.push('/dashboard/company')}>← ダッシュボードに戻る</span>
+      </div>
 
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-700">{error}</p>
-            </div>
-          )}
+      <div style={{ maxWidth: 760, margin: '0 auto', padding: isMobile ? '24px 16px 60px' : '48px 48px 80px' }}>
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#F2620C', letterSpacing: '.18em', marginBottom: 10 }}>EDIT JOB</div>
+          <h1 style={{ fontWeight: 900, fontSize: 30, margin: 0 }}>求人を編集</h1>
+          <p style={{ fontSize: 13, color: '#938B81', marginTop: 8 }}>求人情報を更新してください</p>
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-8">
-            {/* 基本情報 */}
-            <div className="border-b border-gray-200 pb-8">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6">基本情報</h2>
+        {error && (
+          <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '14px 18px', marginBottom: 20 }}>
+            <p style={{ color: '#B91C1C', fontSize: 13, margin: 0 }}>{error}</p>
+          </div>
+        )}
 
-              <div className="space-y-6">
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+
+          {/* カバー画像 */}
+          <div style={F.section}>
+            <span style={F.sectionTitle}>カバー画像</span>
+            {coverPreview ? (
+              <div style={{ position: 'relative' }}>
+                <ImagePositionPicker src={coverPreview} position={coverPosition} onChange={setCoverPosition} height={200} />
+                <button
+                  type="button"
+                  onClick={() => { setCoverFile(null); setCoverPreview(null); setCoverPosition('50% 50%'); setFormData(prev => ({ ...prev, cover_image_url: null })); }}
+                  style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,.5)', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: 12, cursor: 'pointer', zIndex: 10 }}
+                >
+                  削除
+                </button>
+              </div>
+            ) : (
+              <div
+                style={{ width: '100%', height: 200, borderRadius: 12, background: '#F3EDE5', border: '2px dashed #EFE8DF', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                onClick={() => document.getElementById('cover-input')?.click()}
+              >
+                <div style={{ textAlign: 'center', color: '#938B81' }}>
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>🖼️</div>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>クリックして画像を選択</div>
+                  <div style={{ fontSize: 11, marginTop: 4 }}>JPG / PNG / WebP・5MB以内・推奨 1200×630px</div>
+                </div>
+              </div>
+            )}
+            {!coverPreview && (
+              <input id="cover-input" type="file" accept="image/png,image/jpeg,image/webp" onChange={handleCoverChange} style={{ display: 'none' }} />
+            )}
+            {coverPreview && (
+              <div style={{ marginTop: 8, display: 'flex', gap: 10, alignItems: 'center' }}>
+                <button type="button" onClick={() => document.getElementById('cover-input')?.click()} style={{ background: '#F3EDE5', border: 'none', borderRadius: 8, padding: '6px 14px', fontSize: 12, color: '#57514A', cursor: 'pointer', fontFamily: FF }}>画像を変更</button>
+                <input id="cover-input" type="file" accept="image/png,image/jpeg,image/webp" onChange={handleCoverChange} style={{ display: 'none' }} />
+              </div>
+            )}
+          </div>
+
+          {/* 基本情報 */}
+          <div style={F.section}>
+            <span style={F.sectionTitle}>基本情報</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label style={F.label}>職種名 <span style={{ color: '#F2620C' }}>*</span></label>
+                <input style={F.input} value={formData.job_title} onChange={e => setFormData({...formData, job_title: e.target.value})} required
+                  onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'}
+                  onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    職種名 <span className="text-red-500">*</span>
-                  </label>
+                  <label style={F.label}>給与 <span style={{ color: '#F2620C' }}>*</span></label>
+                  <input style={F.input} value={formData.salary} onChange={e => setFormData({...formData, salary: e.target.value})} required
+                    onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'}
+                    onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} />
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <label style={F.label}>勤務地 <span style={{ color: '#F2620C' }}>*</span></label>
                   <input
-                    type="text"
-                    value={formData.job_title}
-                    onChange={(e) =>
-                      setFormData({ ...formData, job_title: e.target.value })
-                    }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
+                    style={F.input}
+                    value={formData.location}
+                    onChange={e => {
+                      const v = e.target.value;
+                      setFormData({...formData, location: v});
+                      setLocationSuggestions(v ? PREFECTURES.filter(p => p.includes(v)) : []);
+                    }}
+                    onFocus={e => { (e.target as HTMLInputElement).style.borderColor = '#F2620C'; setLocationSuggestions(formData.location ? PREFECTURES.filter(p => p.includes(formData.location)) : []); }}
+                    onBlur={e => { (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'; setTimeout(() => setLocationSuggestions([]), 150); }}
+                    placeholder="例: 東京都、大阪府" required
                   />
+                  {locationSuggestions.length > 0 && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #EFE8DF', borderRadius: 10, boxShadow: '0 4px 16px rgba(0,0,0,.1)', zIndex: 50, maxHeight: 220, overflowY: 'auto', marginTop: 4 }}>
+                      {locationSuggestions.map(p => (
+                        <div
+                          key={p}
+                          onMouseDown={() => { setFormData({...formData, location: p}); setLocationSuggestions([]); }}
+                          style={{ padding: '10px 16px', fontSize: 14, cursor: 'pointer', borderBottom: '1px solid #F5F0EB' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = '#FFF6EE')}
+                          onMouseLeave={e => (e.currentTarget.style.background = '#fff')}
+                        >{p}</div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      給与 <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.salary}
-                      onChange={(e) =>
-                        setFormData({ ...formData, salary: e.target.value })
-                      }
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
+              </div>
+              {/* 東京エリア選択 */}
+              {formData.location.includes('東京') && (
+                <div style={{ background: '#FFF6EE', border: '1px solid #FBD5C0', borderRadius: 10, padding: '14px 16px' }}>
+                  <div style={{ fontSize: 12, color: '#F2620C', fontWeight: 700, marginBottom: 10 }}>🗼 東京 詳細エリア（クリックで自動入力）</div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {TOKYO_AREAS.map(a => (
+                      <button
+                        key={a}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, location: `東京都${a}` })}
+                        style={{ fontSize: 11, padding: '4px 10px', borderRadius: 999, border: '1px solid #FBD5C0', background: formData.location.includes(a) ? '#F2620C' : '#fff', color: formData.location.includes(a) ? '#fff' : '#57514A', fontFamily: FF, cursor: 'pointer', transition: '.15s' }}
+                      >
+                        {a}
+                      </button>
+                    ))}
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      勤務地 <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.location}
-                      onChange={(e) =>
-                        setFormData({ ...formData, location: e.target.value })
-                      }
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    />
-                  </div>
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    業務内容 <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    value={formData.job_description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, job_description: e.target.value })
-                    }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    rows={6}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    応募要件 <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    value={formData.requirements}
-                    onChange={(e) =>
-                      setFormData({ ...formData, requirements: e.target.value })
-                    }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    rows={6}
-                    required
-                  />
-                </div>
+              )}
+              <div>
+                <label style={F.label}>業務内容 <span style={{ color: '#F2620C' }}>*</span></label>
+                <textarea style={{ ...F.input, resize: 'vertical' }} value={formData.job_description} onChange={e => setFormData({...formData, job_description: e.target.value})} rows={6} required
+                  onFocus={e => (e.target as HTMLTextAreaElement).style.borderColor = '#F2620C'}
+                  onBlur={e => (e.target as HTMLTextAreaElement).style.borderColor = '#EFE8DF'} />
+              </div>
+              <div>
+                <label style={F.label}>応募要件 <span style={{ color: '#F2620C' }}>*</span></label>
+                <textarea style={{ ...F.input, resize: 'vertical' }} value={formData.requirements} onChange={e => setFormData({...formData, requirements: e.target.value})} rows={5} required
+                  onFocus={e => (e.target as HTMLTextAreaElement).style.borderColor = '#F2620C'}
+                  onBlur={e => (e.target as HTMLTextAreaElement).style.borderColor = '#EFE8DF'} />
               </div>
             </div>
+          </div>
 
-            {/* 職種カテゴリ */}
-            <div className="border-b border-gray-200 pb-8">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6">職種カテゴリ</h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {JOB_CATEGORIES.map((category) => (
-                  <label key={category} className="flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.job_categories.includes(category)}
-                      onChange={() => toggleCategory(category)}
-                      className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                    />
-                    <span className="ml-3 text-gray-700">{category}</span>
-                  </label>
-                ))}
+          {/* 職種カテゴリ */}
+          <div style={F.section}>
+            <span style={F.sectionTitle}>職種カテゴリ</span>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 10 }}>
+              {JOB_CATEGORIES.map(cat => {
+                const selected = formData.job_categories.includes(cat);
+                return (
+                  <button key={cat} type="button" onClick={() => toggle('job_categories', cat)}
+                    style={{ border: selected ? '2px solid #F2620C' : '1px solid #EFE8DF', background: selected ? '#FFF1E8' : '#fff', color: selected ? '#F2620C' : '#57514A', borderRadius: 8, padding: '10px 14px', fontFamily: FF, fontWeight: selected ? 700 : 400, fontSize: 13, cursor: 'pointer', textAlign: 'left' }}>
+                    {cat}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 勤務条件 */}
+          <div style={F.section}>
+            <span style={F.sectionTitle}>勤務日数・条件</span>
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 12, color: '#938B81', marginBottom: 10 }}>勤務日数</div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                {WORK_DAYS.map(d => {
+                  const sel = formData.work_days.includes(d);
+                  return (
+                    <button key={d} type="button" onClick={() => toggle('work_days', d)}
+                      style={{ border: sel ? '2px solid #F2620C' : '1px solid #EFE8DF', background: sel ? '#FFF1E8' : '#fff', color: sel ? '#F2620C' : '#57514A', borderRadius: 8, padding: '10px 20px', fontFamily: FF, fontWeight: sel ? 700 : 400, fontSize: 13, cursor: 'pointer' }}>
+                      {d}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-
-            {/* 勤務日数 */}
-            <div className="border-b border-gray-200 pb-8">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6">勤務日数</h2>
-              <div className="space-y-3">
-                {WORK_DAYS.map((day) => (
-                  <label key={day} className="flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.work_days.includes(day)}
-                      onChange={() => toggleWorkDay(day)}
-                      className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                    />
-                    <span className="ml-3 text-gray-700">{day}</span>
-                  </label>
-                ))}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 12, color: '#938B81', marginBottom: 10 }}>勤務形態</div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                {WORK_CONDITIONS.map(c => {
+                  const sel = formData.work_conditions.includes(c);
+                  return (
+                    <button key={c} type="button" onClick={() => toggle('work_conditions', c)}
+                      style={{ border: sel ? '2px solid #F2620C' : '1px solid #EFE8DF', background: sel ? '#FFF1E8' : '#fff', color: sel ? '#F2620C' : '#57514A', borderRadius: 8, padding: '10px 20px', fontFamily: FF, fontWeight: sel ? 700 : 400, fontSize: 13, cursor: 'pointer' }}>
+                      {c}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-
-            {/* 勤務条件 */}
-            <div className="border-b border-gray-200 pb-8">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6">勤務条件</h2>
-              <div className="space-y-3">
-                {WORK_CONDITIONS.map((condition) => (
-                  <label key={condition} className="flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.work_conditions.includes(condition)}
-                      onChange={() => toggleWorkCondition(condition)}
-                      className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                    />
-                    <span className="ml-3 text-gray-700">{condition}</span>
-                  </label>
-                ))}
+            <div>
+              <div style={{ fontSize: 12, color: '#938B81', marginBottom: 10 }}>求人の特徴</div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                {JOB_FEATURES.map(f => {
+                  const sel = formData.job_features.includes(f);
+                  return (
+                    <button key={f} type="button" onClick={() => toggle('job_features', f)}
+                      style={{ border: sel ? '2px solid #F2620C' : '1px solid #EFE8DF', background: sel ? '#FFF1E8' : '#fff', color: sel ? '#F2620C' : '#57514A', borderRadius: 8, padding: '10px 20px', fontFamily: FF, fontWeight: sel ? 700 : 400, fontSize: 13, cursor: 'pointer' }}>
+                      {f}
+                    </button>
+                  );
+                })}
               </div>
             </div>
+          </div>
 
-            {/* 求人特徴 */}
-            <div className="border-b border-gray-200 pb-8">
-              <h2 className="text-2xl font-bold text-gray-800 mb-6">求人特徴</h2>
-              <div className="space-y-3">
-                {JOB_FEATURES.map((feature) => (
-                  <label key={feature} className="flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.job_features.includes(feature)}
-                      onChange={() => toggleJobFeature(feature)}
-                      className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                    />
-                    <span className="ml-3 text-gray-700">{feature}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* ボタン */}
-            <div className="flex gap-4">
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition-colors disabled:opacity-50"
-              >
-                {saving ? '更新中...' : '求人を更新'}
-              </button>
-              <button
-                type="button"
-                onClick={() => router.push('/dashboard/company')}
-                className="flex-1 bg-gray-200 text-gray-800 py-3 rounded-lg font-bold hover:bg-gray-300 transition-colors"
-              >
-                キャンセル
-              </button>
-            </div>
-          </form>
-        </div>
+          {/* ボタン */}
+          <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+            <button type="submit" disabled={saving}
+              style={{ flex: 1, background: saving ? '#D9B99B' : '#F2620C', color: '#fff', border: 'none', borderRadius: 12, padding: '16px', fontFamily: FF, fontWeight: 900, fontSize: 15, cursor: saving ? 'not-allowed' : 'pointer' }}>
+              {saving ? '更新中...' : '求人を更新する'}
+            </button>
+            <button type="button" onClick={() => router.push('/dashboard/company')}
+              style={{ flex: 1, background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 12, padding: '16px', fontFamily: FF, fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
+              キャンセル
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

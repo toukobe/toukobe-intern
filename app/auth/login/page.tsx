@@ -1,8 +1,9 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
+import { useIsMobile } from '@/utils/useIsMobile';
 
 const S = {
   wrap: { minHeight: '100vh', background: 'linear-gradient(160deg,#FFF6EE 0%,#FFEFE2 55%,#FFE7D4 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: "'Zen Kaku Gothic New',sans-serif" } as React.CSSProperties,
@@ -24,6 +25,7 @@ function EyeIcon({ show }: { show: boolean }) {
 
 function LoginContent() {
   const router = useRouter();
+  const isMobile = useIsMobile();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect') || null;
   const [email, setEmail] = useState('');
@@ -31,6 +33,7 @@ function LoginContent() {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useEffect(() => { document.title = 'ログイン | トウコべインターン'; return () => { document.title = 'トウコべインターン'; }; }, []);
 
   const handleGoogleLogin = async () => {
     setLoading(true);
@@ -54,11 +57,11 @@ function LoginContent() {
       if (error) { setError('メールアドレスまたはパスワードが正しくありません'); return; }
 
       // Redirect to appropriate dashboard
+      if (data.user.email === 'ru_matsumoto@manabiph.com') { router.push('/dashboard/admin'); return; }
       const { data: ut } = await supabase.from('user_types').select('user_type').eq('user_id', data.user.id).maybeSingle();
       if (!ut) { router.push('/auth/setup'); return; }
       if (ut.user_type === 'company') { router.push('/dashboard/company'); }
       else if (ut.user_type === 'student') { router.push(redirectTo || '/dashboard/student'); }
-      else if (data.user.email === 'ru_matsumoto@manabiph.com') { router.push('/dashboard/admin'); }
       else { router.push('/'); }
     } catch { setError('ログインに失敗しました'); }
     finally { setLoading(false); }
@@ -67,7 +70,7 @@ function LoginContent() {
   return (
     <div style={S.wrap}>
       <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
-      <div style={S.card}>
+      <div style={{ ...S.card, padding: isMobile ? '32px 24px' : '48px 44px' }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <img src="/toukobe-intern-logo.png" alt="トウコべインターン" style={{ height: 44, width: 'auto', cursor: 'pointer' }} onClick={() => router.push('/')} />
           <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, letterSpacing: '.3em', color: '#B59A86', marginTop: 4 }}>STUDENT LOGIN</div>
@@ -138,7 +141,7 @@ function LoginContent() {
         <div style={{ marginTop: 24, textAlign: 'center' }}>
           <p style={{ fontSize: 13, color: '#938B81', margin: '0 0 12px' }}>
             アカウントがまだありませんか？{' '}
-            <span style={{ color: '#F2620C', fontWeight: 700, cursor: 'pointer' }} onClick={() => router.push('/auth/signup')}>無料で登録</span>
+            <span style={{ color: '#F2620C', fontWeight: 700, cursor: 'pointer' }} onClick={() => router.push(redirectTo ? `/auth/signup?redirect=${encodeURIComponent(redirectTo)}` : '/auth/signup')}>無料で登録</span>
           </p>
           <p style={{ fontSize: 12, color: '#B6ADA2', margin: 0 }}>
             企業の方は{' '}
@@ -151,7 +154,12 @@ function LoginContent() {
 }
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(160deg,#FFF6EE 0%,#FFEFE2 55%,#FFE7D4 100%)' }}>
+        <div style={{ width: 36, height: 36, border: '2.5px solid #F2620C', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    }>
       <LoginContent />
     </Suspense>
   );

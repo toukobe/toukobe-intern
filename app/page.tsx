@@ -10,8 +10,12 @@ interface Job {
   salary: string;
   location: string;
   job_categories?: string[];
+  cover_image_url?: string;
+  cover_image_position?: string;
   companies: {
     company_name: string;
+    logo_url?: string;
+    cover_url?: string;
   } | null;
 }
 
@@ -88,7 +92,7 @@ export default function Home() {
       try {
         const { data, error } = await supabase
           .from('jobs')
-          .select(`id, job_title, salary, location, companies (company_name)`);
+          .select(`id, job_title, salary, location, cover_image_url, cover_image_position, companies (company_name, logo_url, cover_url)`);
         if (error) {
           console.error('データの取得に失敗しました:', error);
         } else {
@@ -343,20 +347,31 @@ export default function Home() {
                   onClick={() => router.push(`/jobs/${j.id}`)}
                   style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column', transition: '.2s', cursor: 'pointer' }}
                 >
-                  <div style={{ height: 5, background: 'linear-gradient(90deg,#F2620C,#FB8A3C)' }} />
-                  <div style={{ padding: 26 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                      <div style={{ width: 46, height: 46, borderRadius: 11, background: '#FFF1E8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <span style={{ fontWeight: 900, fontSize: 18, color: '#F2620C' }}>{j.job_title.charAt(0)}</span>
+                  {/* カバー画像エリア */}
+                  <div style={{ height: 148, position: 'relative', overflow: 'hidden', background: '#F3EEE7', flexShrink: 0 }}>
+                    {(j.cover_image_url || j.companies?.cover_url) ? (
+                      <img
+                        src={j.cover_image_url || j.companies?.cover_url || ''}
+                        alt=""
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: j.cover_image_position || '50% 50%', display: 'block' }}
+                      />
+                    ) : (
+                      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg,#F2620C,#FB8A3C)', opacity: 0.18 }} />
+                    )}
+                    {j.companies?.logo_url && (
+                      <div style={{ position: 'absolute', bottom: 12, left: 16, width: 40, height: 40, borderRadius: 10, background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                        <img src={j.companies.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                       </div>
-                      <div style={{ fontSize: 12, color: '#938B81' }}>{j.companies?.company_name || '企業名不明'}</div>
-                    </div>
-                    <h4 style={{ fontWeight: 700, fontSize: 18, margin: '0 0 16px', lineHeight: 1.55 }}>{j.job_title}</h4>
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
+                    )}
+                  </div>
+                  <div style={{ padding: 22 }}>
+                    <div style={{ fontSize: 12, color: '#938B81', marginBottom: 8 }}>{j.companies?.company_name || '企業名不明'}</div>
+                    <h4 style={{ fontWeight: 700, fontSize: 17, margin: '0 0 16px', lineHeight: 1.55 }}>{j.job_title}</h4>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 11.5, color: '#F2620C', background: '#FFF1E8', padding: '5px 11px', borderRadius: 6 }}>長期インターン</span>
                       <span style={{ fontSize: 11.5, color: '#57514A', background: '#F3EEE7', padding: '5px 11px', borderRadius: 6 }}>週3〜</span>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 9, fontSize: 13, color: '#57514A', paddingTop: 16, borderTop: '1px solid #F0EAE2' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 9, fontSize: 13, color: '#57514A', paddingTop: 14, borderTop: '1px solid #F0EAE2' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B6ADA2" strokeWidth="2"><path d="M12 21s-7-5.6-7-11a7 7 0 0 1 14 0c0 5.4-7 11-7 11Z" /><circle cx="12" cy="10" r="2.4" /></svg>
                         {j.location || '未設定'}
@@ -394,11 +409,26 @@ export default function Home() {
                   onClick={() => router.push(`/jobs/${j.id}`)}
                   style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column', transition: '.2s', cursor: 'pointer' }}
                 >
-                  <div style={{ height: 4, background: 'linear-gradient(90deg,#F2620C,#FB8A3C)' }} />
-                  <div style={{ padding: '20px 22px' }}>
-                    <div style={{ fontSize: 11, color: '#938B81', marginBottom: 8 }}>{j.companies?.company_name || '企業名不明'}</div>
-                    <h4 style={{ fontWeight: 700, fontSize: 16, margin: '0 0 14px', lineHeight: 1.5 }}>{j.job_title}</h4>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 7, fontSize: 13, color: '#57514A', paddingTop: 14, borderTop: '1px solid #F0EAE2' }}>
+                  <div style={{ height: 110, position: 'relative', overflow: 'hidden', background: '#F3EEE7', flexShrink: 0 }}>
+                    {(j.cover_image_url || j.companies?.cover_url) ? (
+                      <img
+                        src={j.cover_image_url || j.companies?.cover_url || ''}
+                        alt=""
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: j.cover_image_position || '50% 50%', display: 'block' }}
+                      />
+                    ) : (
+                      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg,#F2620C,#FB8A3C)', opacity: 0.18 }} />
+                    )}
+                    {j.companies?.logo_url && (
+                      <div style={{ position: 'absolute', bottom: 10, left: 12, width: 34, height: 34, borderRadius: 8, background: '#fff', boxShadow: '0 2px 6px rgba(0,0,0,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                        <img src={j.companies.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ padding: '16px 20px 20px' }}>
+                    <div style={{ fontSize: 11, color: '#938B81', marginBottom: 7 }}>{j.companies?.company_name || '企業名不明'}</div>
+                    <h4 style={{ fontWeight: 700, fontSize: 15, margin: '0 0 14px', lineHeight: 1.5 }}>{j.job_title}</h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 7, fontSize: 13, color: '#57514A', paddingTop: 12, borderTop: '1px solid #F0EAE2' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B6ADA2" strokeWidth="2"><path d="M12 21s-7-5.6-7-11a7 7 0 0 1 14 0c0 5.4-7 11-7 11Z" /><circle cx="12" cy="10" r="2.4" /></svg>
                         {j.location || '未設定'}

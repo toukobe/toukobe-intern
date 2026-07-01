@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useIsMobile } from '@/utils/useIsMobile';
 
 const articles = [
   {
@@ -128,31 +129,32 @@ const articles = [
 
 export default function PrivacyPolicyPage() {
   const router = useRouter();
+  const isMobile = useIsMobile();
 
   return (
     <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: "'Zen Kaku Gothic New', sans-serif", color: '#1C1813' }}>
       <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
       {/* NAV */}
-      <div style={{ background: '#fff', borderBottom: '1px solid #EFE8DF', padding: '14px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 }}>
+      <div style={{ background: '#fff', borderBottom: '1px solid #EFE8DF', padding: isMobile ? '14px 16px' : '14px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 }}>
         <img src="/toukobe-intern-logo.png" alt="トウコべインターン" style={{ height: 38, width: 'auto', cursor: 'pointer' }} onClick={() => router.push('/')} />
         <span style={{ fontSize: 14, fontWeight: 700, color: '#fff', background: '#F2620C', borderRadius: 8, padding: '10px 22px', cursor: 'pointer' }} onClick={() => router.push('/auth/signup')}>無料で登録</span>
       </div>
 
       {/* HEADER */}
-      <div style={{ background: 'linear-gradient(160deg,#FFF6EE,#FFEFE2)', padding: '64px 48px 56px', textAlign: 'center' }}>
+      <div style={{ background: 'linear-gradient(160deg,#FFF6EE,#FFEFE2)', padding: isMobile ? '40px 20px 36px' : '64px 48px 56px', textAlign: 'center' }}>
         <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#F2620C', letterSpacing: '.2em', marginBottom: 12 }}>PRIVACY POLICY</div>
-        <h1 style={{ fontWeight: 900, fontSize: 38, margin: '0 0 12px' }}>プライバシーポリシー</h1>
+        <h1 style={{ fontWeight: 900, fontSize: isMobile ? 26 : 38, margin: '0 0 12px' }}>プライバシーポリシー</h1>
         <p style={{ fontSize: 13, color: '#938B81', margin: 0, fontFamily: "'IBM Plex Mono', monospace" }}>v1.0 ／ 制定日：2026年7月1日</p>
       </div>
 
       {/* BODY */}
-      <div style={{ maxWidth: 820, margin: '0 auto', padding: '60px 48px' }}>
+      <div style={{ maxWidth: 820, margin: '0 auto', padding: isMobile ? '32px 16px 60px' : '60px 48px' }}>
 
         {/* TOC */}
-        <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: '28px 32px', marginBottom: 48 }}>
+        <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: isMobile ? '20px 16px' : '28px 32px', marginBottom: 48 }}>
           <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#F2620C', letterSpacing: '.14em', marginBottom: 14 }}>TABLE OF CONTENTS</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 24px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '8px 24px' }}>
             {articles.map((a) => (
               <a key={a.title} href={`#${a.title}`} style={{ fontSize: 13, color: '#57514A', textDecoration: 'none', display: 'flex', gap: 8, alignItems: 'baseline' }}>
                 <span style={{ color: '#F2620C', fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, flexShrink: 0 }}>→</span>
@@ -165,7 +167,7 @@ export default function PrivacyPolicyPage() {
         {/* ARTICLES */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 40 }}>
           {articles.map((a) => (
-            <div key={a.title} id={a.title} style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: '32px 36px' }}>
+            <div key={a.title} id={a.title} style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: isMobile ? '20px 16px' : '32px 36px' }}>
               <h2 style={{ fontWeight: 900, fontSize: 18, margin: '0 0 18px', paddingBottom: 14, borderBottom: '2px solid #F2620C', display: 'inline-block' }}>{a.title}</h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {a.content.map((p, i) => (
