@@ -88,8 +88,8 @@ export default function HowItWorksPage() {
         </div>
 
         {/* CTA */}
-        <div style={{ textAlign: 'center', marginTop: 72, padding: '52px', background: 'linear-gradient(160deg,#FFF6EE,#FFEFE2)', borderRadius: 24 }}>
-          <h2 style={{ fontWeight: 900, fontSize: 28, margin: '0 0 14px' }}>まずは無料で登録してみよう</h2>
+        <div style={{ textAlign: 'center', marginTop: 72, padding: isMobile ? '32px 20px' : '52px', background: 'linear-gradient(160deg,#FFF6EE,#FFEFE2)', borderRadius: 24 }}>
+          <h2 style={{ fontWeight: 900, fontSize: isMobile ? 22 : 28, margin: '0 0 14px' }}>まずは無料で登録してみよう</h2>
           <p style={{ fontSize: 14, color: '#7A7268', margin: '0 0 28px' }}>3分で登録完了。難関大生限定の求人にアクセスできます。</p>
           <button onClick={() => router.push('/auth/signup')} style={{ background: '#F2620C', color: '#fff', border: 'none', padding: '16px 48px', borderRadius: 12, fontFamily: "'Zen Kaku Gothic New', sans-serif", fontWeight: 700, fontSize: 16, cursor: 'pointer', boxShadow: '0 4px 14px rgba(242,98,12,.3)' }}>
             無料で登録する
@@ -99,7 +99,7 @@ export default function HowItWorksPage() {
         {/* FAQ */}
         <div style={{ marginTop: 72 }}>
           <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: '#F2620C', letterSpacing: '.18em', marginBottom: 12, textAlign: 'center' }}>FAQ</div>
-          <h2 style={{ fontWeight: 900, fontSize: 28, margin: '0 0 36px', textAlign: 'center' }}>よくある質問</h2>
+          <h2 style={{ fontWeight: 900, fontSize: isMobile ? 22 : 28, margin: '0 0 36px', textAlign: 'center' }}>よくある質問</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {faqs.map((f, i) => (
               <div key={i} style={{ background: '#FBF8F4', border: '1px solid #EFE8DF', borderRadius: 14, padding: '24px 28px' }}>

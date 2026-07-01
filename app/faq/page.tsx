@@ -108,7 +108,7 @@ export default function FaqPage() {
       {/* HERO */}
       <div style={{ background: 'linear-gradient(160deg,#FFF6EE,#FFEFE2)', padding: '56px 24px 48px', textAlign: 'center' }}>
         <div style={{ fontFamily: MONO, fontSize: 12, color: '#F2620C', letterSpacing: '.18em', marginBottom: 12 }}>FAQ</div>
-        <h1 style={{ fontWeight: 900, fontSize: 34, margin: '0 0 12px' }}>よくある質問</h1>
+        <h1 style={{ fontWeight: 900, fontSize: isMobile ? 26 : 34, margin: '0 0 12px' }}>よくある質問</h1>
         <p style={{ fontSize: 14, color: '#57514A', margin: 0 }}>お問い合わせの前にご確認ください</p>
       </div>
 

@@ -75,7 +75,7 @@ export default function ForCompaniesPage() {
         <div style={{ maxWidth: 800, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 48 }}>
             <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: '#F2620C', letterSpacing: '.18em', marginBottom: 12 }}>FLOW</div>
-            <h2 style={{ fontWeight: 900, fontSize: 32, margin: 0 }}>掲載までの流れ</h2>
+            <h2 style={{ fontWeight: 900, fontSize: isMobile ? 24 : 32, margin: 0 }}>掲載までの流れ</h2>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
             {flow.map((s, i) => (

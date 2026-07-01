@@ -51,13 +51,13 @@ export default function CategoriesPage() {
             <div
               key={c.name}
               onClick={() => router.push(`/search?category=${encodeURIComponent(c.name)}`)}
-              style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: '28px 26px', cursor: 'pointer', transition: '.2s' }}
+              style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: isMobile ? '16px 14px' : '28px 26px', cursor: 'pointer', transition: '.2s' }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = '#F2620C'; (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)'; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = '#EFE8DF'; (e.currentTarget as HTMLDivElement).style.transform = 'none'; }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: 17 }}>{c.name}</div>
+                  <div style={{ fontWeight: 700, fontSize: isMobile ? 14 : 17 }}>{c.name}</div>
                   <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, color: '#B6ADA2', marginTop: 4 }}>{c.en}</div>
                 </div>
                 <span style={{ width: 34, height: 34, borderRadius: '50%', background: '#FFF1E8', color: '#F2620C', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 }}>→</span>
