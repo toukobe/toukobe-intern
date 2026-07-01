@@ -22,6 +22,7 @@ export default function SignupProfilePage() {
   const [formData, setFormData] = useState({
     last_name: '', first_name: '', birth_date: '',
     university: '', department: '', grade: '', skills: '', experience: '',
+    contact_email: '',
   });
 
   const GRADES = ['学部1年生','学部2年生','学部3年生','学部4年生','修士1年生','修士2年生','博士1年生','博士2年生','博士3年生','卒業済み','その他'];
@@ -34,8 +35,10 @@ export default function SignupProfilePage() {
 
       const { data } = await supabase
         .from('student_profiles').select('*').eq('user_id', session.user.id).maybeSingle();
-      if (data) {
-        setFormData({
+      setFormData(prev => ({
+        ...prev,
+        contact_email: session.user.email || '',
+        ...(data ? {
           last_name: data.last_name || '',
           first_name: data.first_name || '',
           birth_date: data.birth_date || '',
@@ -44,8 +47,9 @@ export default function SignupProfilePage() {
           grade: data.grade || '',
           skills: (data.skills || []).join(', '),
           experience: data.experience || '',
-        });
-      }
+          contact_email: data.contact_email || session.user.email || '',
+        } : {}),
+      }));
       setLoading(false);
     }
     checkAuth();
@@ -75,6 +79,7 @@ export default function SignupProfilePage() {
           grade: formData.grade,
           skills,
           experience: formData.experience,
+          contact_email: formData.contact_email,
         }, { onConflict: 'user_id' });
       if (profileError) throw profileError;
 
@@ -171,6 +176,15 @@ export default function SignupProfilePage() {
               <option value="">選択してください</option>
               {GRADES.map(g => <option key={g}>{g}</option>)}
             </select>
+          </div>
+
+          {/* 連絡用メール */}
+          <div>
+            <label style={F.label}>連絡用メールアドレス <span style={{ color: '#F2620C' }}>*</span></label>
+            <input type="email" style={F.input} value={formData.contact_email} onChange={e => setFormData({ ...formData, contact_email: e.target.value })} placeholder="example@university.ac.jp" required
+              onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'}
+              onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} />
+            <p style={{ fontSize: 12, color: '#938B81', margin: '6px 0 0' }}>企業からの選考連絡・面接案内がこのアドレスに届きます</p>
           </div>
 
           {/* スキル */}
