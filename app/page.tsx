@@ -162,6 +162,7 @@ export default function Home() {
         .job-card:hover { box-shadow: 0 14px 36px rgba(28,24,19,.10) !important; transform: translateY(-3px) !important; }
         .nav-link:hover { color: #F2620C !important; }
         @keyframes spin { to { transform: rotate(360deg); } }
+        .title-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
       `}</style>
 
       {/* NAV */}
@@ -355,7 +356,7 @@ export default function Home() {
             <div style={{ textAlign: 'center', padding: '60px 0', color: '#938B81', fontSize: 15 }}>求人を読み込んでいます...</div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(3,1fr)', gap: isMobile ? 12 : 24 }}>
-              {jobs.slice(0, 3).map((j) => (
+              {jobs.slice(0, isMobile ? 2 : 3).map((j) => (
                 <div
                   key={j.id}
                   className="job-card"
@@ -376,7 +377,7 @@ export default function Home() {
                   </div>
                   <div style={{ padding: isMobile ? '12px 14px 16px' : 22 }}>
                     <div style={{ fontSize: isMobile ? 10 : 12, color: '#938B81', marginBottom: isMobile ? 5 : 8 }}>{j.companies?.company_name || '企業名不明'}</div>
-                    <h4 style={{ fontWeight: 700, fontSize: isMobile ? 13 : 17, margin: isMobile ? '0 0 10px' : '0 0 16px', lineHeight: 1.5 }}>{j.job_title}</h4>
+                    <h4 className={isMobile ? 'title-clamp' : ''} style={{ fontWeight: 700, fontSize: isMobile ? 13 : 17, margin: isMobile ? '0 0 10px' : '0 0 16px', lineHeight: 1.5 }}>{j.job_title}</h4>
                     {!isMobile && <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 11.5, color: '#F2620C', background: '#FFF1E8', padding: '5px 11px', borderRadius: 6 }}>長期インターン</span>
                       <span style={{ fontSize: 11.5, color: '#57514A', background: '#F3EEE7', padding: '5px 11px', borderRadius: 6 }}>週3〜</span>
@@ -397,7 +398,7 @@ export default function Home() {
       </div>
 
       {/* ALL JOBS */}
-      {filteredJobs.length > 3 && (
+      {filteredJobs.length > (isMobile ? 2 : 3) && (
         <div style={{ background: '#fff' }}>
           <div style={{ maxWidth: 1280, margin: '0 auto', padding: isMobile ? '0 20px 48px' : '0 48px 76px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isMobile ? 16 : 24 }}>
@@ -407,7 +408,7 @@ export default function Home() {
               <button onClick={() => { setSearchQuery(''); setSelectedCategory(''); setSelectedLocation(''); }} style={{ fontSize: 12, color: '#938B81', background: 'none', border: '1px solid #EFE8DF', borderRadius: 8, padding: '7px 12px', cursor: 'pointer', whiteSpace: 'nowrap' }}>リセット</button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(3,1fr)', gap: isMobile ? 12 : 20 }}>
-              {filteredJobs.slice(3).map((j) => (
+              {filteredJobs.slice(isMobile ? 2 : 3, isMobile ? 8 : undefined).map((j) => (
                 <div
                   key={j.id}
                   className="job-card"
@@ -432,7 +433,7 @@ export default function Home() {
                   </div>
                   <div style={{ padding: '16px 20px 20px' }}>
                     <div style={{ fontSize: 11, color: '#938B81', marginBottom: 7 }}>{j.companies?.company_name || '企業名不明'}</div>
-                    <h4 style={{ fontWeight: 700, fontSize: 15, margin: '0 0 14px', lineHeight: 1.5 }}>{j.job_title}</h4>
+                    <h4 className={isMobile ? 'title-clamp' : ''} style={{ fontWeight: 700, fontSize: isMobile ? 13 : 15, margin: '0 0 12px', lineHeight: 1.5 }}>{j.job_title}</h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 7, fontSize: 13, color: '#57514A', paddingTop: 12, borderTop: '1px solid #F0EAE2' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B6ADA2" strokeWidth="2"><path d="M12 21s-7-5.6-7-11a7 7 0 0 1 14 0c0 5.4-7 11-7 11Z" /><circle cx="12" cy="10" r="2.4" /></svg>
@@ -444,6 +445,13 @@ export default function Home() {
                 </div>
               ))}
             </div>
+            {isMobile && filteredJobs.length > 8 && (
+              <div style={{ textAlign: 'center', marginTop: 20 }}>
+                <button onClick={() => router.push('/search')} style={{ background: '#fff', color: '#F2620C', border: '1.5px solid #F2620C', borderRadius: 10, padding: '13px 40px', fontFamily: "'Zen Kaku Gothic New', sans-serif", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+                  求人をもっと見る（{filteredJobs.length}件）
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
