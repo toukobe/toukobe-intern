@@ -36,7 +36,7 @@ export default function ForCompaniesPage() {
         <img src="/toukobe-intern-logo.png" alt="トウコべインターン" style={{ height: 38, width: 'auto', cursor: 'pointer' }} onClick={() => router.push('/')} />
         <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
           <span style={{ fontSize: 14, color: '#3A352F', fontWeight: 500, cursor: 'pointer' }} onClick={() => router.push('/auth/company-login')}>企業ログイン</span>
-          <a href="https://toukobe.github.io/toucobeinter-form/sales_contract_form.html" target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, fontWeight: 700, color: '#fff', background: '#F2620C', borderRadius: 8, padding: '10px 22px', cursor: 'pointer', textDecoration: 'none' }}>資料請求</a>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#fff', background: '#F2620C', borderRadius: 8, padding: '10px 22px', cursor: 'pointer' }} onClick={() => router.push('/forms/material')}>資料請求</span>
         </div>
       </div>
 
@@ -47,9 +47,9 @@ export default function ForCompaniesPage() {
           <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: '#FBA94C', letterSpacing: '.18em', marginBottom: 14 }}>FOR COMPANIES</div>
           <h1 style={{ fontWeight: 900, fontSize: isMobile ? 30 : 48, color: '#fff', margin: '0 0 20px', lineHeight: 1.35 }}>難関大生に、<br />ダイレクトに出会う。</h1>
           <p style={{ fontSize: 16, color: '#C9C0B6', margin: '0 0 40px', lineHeight: 1.8 }}>東大・京大・早慶などの優秀な学生が集まる長期インターンプラットフォームです。</p>
-          <a href="https://toukobe.github.io/toucobeinter-form/sales_contract_form.html" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', background: '#F2620C', color: '#fff', textDecoration: 'none', padding: '18px 52px', borderRadius: 12, fontFamily: "'Zen Kaku Gothic New', sans-serif", fontWeight: 700, fontSize: 16, cursor: 'pointer', boxShadow: '0 6px 18px rgba(242,98,12,.4)' }}>
+          <button onClick={() => router.push('/forms/material')} style={{ background: '#F2620C', color: '#fff', border: 'none', padding: '18px 52px', borderRadius: 12, fontFamily: "'Zen Kaku Gothic New', sans-serif", fontWeight: 700, fontSize: 16, cursor: 'pointer', boxShadow: '0 6px 18px rgba(242,98,12,.4)' }}>
             資料を請求する
-          </a>
+          </button>
         </div>
       </div>
 

@@ -107,7 +107,7 @@ export default function CompanyLoginPage() {
         <div style={{ marginTop: 24, textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 10 }}>
           <p style={{ fontSize: 13, color: '#57514A', margin: 0 }}>
             新規掲載をご希望の方は{' '}
-            <a href="https://toukobe.github.io/toucobeinter-form/sales_contract_form.html" target="_blank" rel="noopener noreferrer" style={{ color: '#F2620C', fontWeight: 700, textDecoration: 'none' }}>資料請求・お問い合わせ</a>
+            <span style={{ color: '#F2620C', fontWeight: 700, cursor: 'pointer' }} onClick={() => router.push('/forms/contact')}>資料請求・お問い合わせ</span>
           </p>
           <p style={{ fontSize: 12, color: '#B6ADA2', margin: 0 }}>
             学生の方は{' '}

@@ -14,6 +14,7 @@ const FORM_LABELS: Record<string, string> = {
   early: '早期申し込み契約フォーム',
   normal: '通常申し込み契約フォーム',
   material: '資料請求フォーム',
+  contact: 'お問い合わせ',
 };
 
 function row(label: string, value: string | null | undefined) {

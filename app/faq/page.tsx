@@ -160,9 +160,9 @@ export default function FaqPage() {
             <button onClick={() => router.push('/auth/signup')} style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '13px 32px', fontFamily: FF, fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 4px 14px rgba(242,98,12,.3)' }}>
               学生登録（無料）
             </button>
-            <a href="https://toukobe.github.io/toucobeinter-form/sales_contract_form.html" target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', background: 'transparent', color: '#fff', border: '1px solid rgba(255,255,255,.3)', borderRadius: 10, padding: '13px 32px', fontFamily: FF, fontWeight: 700, fontSize: 14, cursor: 'pointer', textDecoration: 'none' }}>
+            <button onClick={() => router.push('/forms/contact')} style={{ background: 'transparent', color: '#fff', border: '1px solid rgba(255,255,255,.3)', borderRadius: 10, padding: '13px 32px', fontFamily: FF, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
               企業の方はこちら
-            </a>
+            </button>
           </div>
         </div>
       </div>
