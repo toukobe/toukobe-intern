@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     siteName: "トウコべインターン",
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "トウコべインターン",
     description: "難関大生に特化した長期インターンマッチングサービス",
   },

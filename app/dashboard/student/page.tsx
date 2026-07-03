@@ -79,26 +79,30 @@ export default function StudentDashboard() {
 
   useEffect(() => {
     async function init() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.push('/auth/login'); return; }
-      setUser(session.user as User);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) { router.push('/auth/login'); return; }
+        setUser(session.user as User);
 
-      const { data: p } = await supabase.from('student_profiles').select('*').eq('user_id', session.user.id).maybeSingle();
-      if (p) {
-        setProfile(p);
-        // Pre-fill contact_email with auth email if not set
-        setEditForm({ ...p, contact_email: p.contact_email || session.user.email || '' });
-      } else {
-        setEditForm({ contact_email: session.user.email || '' });
+        const { data: p } = await supabase.from('student_profiles').select('*').eq('user_id', session.user.id).maybeSingle();
+        if (p) {
+          setProfile(p);
+          // Pre-fill contact_email with auth email if not set
+          setEditForm({ ...p, contact_email: p.contact_email || session.user.email || '' });
+        } else {
+          setEditForm({ contact_email: session.user.email || '' });
+        }
+
+        // Fetch applications without nested join
+        await fetchApplications(session.user.id);
+        await fetchFavorites(session.user.id);
+
+        await fetchChatThreads(session.user.id);
+        setLoading(false);
+      } catch (e) {
+        console.error('student dashboard init error:', e);
+        setLoading(false);
       }
-
-      // Fetch applications without nested join
-      await fetchApplications(session.user.id);
-      await fetchFavorites(session.user.id);
-
-      await fetchChatThreads(session.user.id);
-
-      setLoading(false);
     }
     init();
   }, [router]);
