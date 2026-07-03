@@ -18,10 +18,20 @@
 
 ## 🔴 環境変数の追加（未設定）
 
-`.env.local` および本番環境に `SUPABASE_SERVICE_ROLE_KEY` を追加してください（Supabase ダッシュボード → Project Settings → API → service_role key）。
+Supabase は新しいAPIキー体系（Publishable / Secret）に移行済み。ダッシュボード → Project Settings → API Keys → **Secret keys** の `sb_secret_...` をコピーして（👁アイコンで表示）、`.env.local` と本番環境に追加してください:
 
-- 管理者ダッシュボードの「企業を追加」機能（`/api/admin/create-company`）が、`supabase.auth.admin.createUser` をクライアント側で anon キーのまま呼び出しており、常に失敗するバグを修正しました。
-- 修正後はサーバー側の新規APIルート（service role キー使用）経由でユーザー作成するようにしたため、このキーが設定されるまで「企業を追加」機能は動作しません。
+```
+SUPABASE_SERVICE_ROLE_KEY=sb_secret_...
+```
+
+- 新しい Secret key は旧 service_role キーの後継で、supabase-js にそのまま渡せます（コード変更不要）。
+- このキーが設定されるまで、管理者ダッシュボードの「企業を追加」機能（`/api/admin/create-company`）は動作しません（サーバー側で `auth.admin.createUser` に使用）。
+
+### 🔴 本番環境のメール設定
+現在 `.env.local` は `RESEND_FROM_EMAIL=onboarding@resend.dev`（テストモード）のため、**全メールが管理者宛に転送され、件名に [テスト] が付きます**。本番では:
+
+1. Resend ダッシュボードで `toukobe-intern.com` のドメイン認証（DNSレコード追加）
+2. 本番環境変数に `RESEND_FROM_EMAIL=noreply@toukobe-intern.com` と `RESEND_API_KEY` を設定
 
 ---
 
@@ -110,12 +120,10 @@ ALTER PUBLICATION supabase_realtime ADD TABLE jobs;
 
 ## 🟡 未完成の機能（コードだけでは完結しない）
 
-### 資料請求フォーム
-- `/for-companies` ページと LP の「資料請求する」ボタンが押せるが、送信先が未設定
-- **対応方法の選択肢**:
-  - A. Supabase の `contact_requests` テーブルにINSERTする簡易フォームを作る
-  - B. Google Forms や Typeform の URL に飛ばす
-  - C. `mailto:` リンクにする
+### ~~資料請求フォーム~~
+- ✅ 実装済み: `/forms/material`（資料請求）・`/forms/contact`（お問い合わせ）・`/forms/early`・`/forms/normal` の4フォームを作成済み
+- ✅ 送信内容は `form_submissions` テーブルに保存され、管理者ページ（`/dashboard/admin` → フォーム申し込みタブ）で確認・ステータス管理・メモ・CSV出力が可能
+- ✅ 送信時に管理者宛通知メール + 送信者宛確認メールを自動送信（`/api/form-submit`）
 
 ### ~~企業新規登録フロー~~
 - ✅ `/auth/signup` ページに企業登録フローあり（会社名・業種・連絡用メール入力）
