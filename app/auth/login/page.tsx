@@ -32,7 +32,12 @@ function LoginContent() {
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(() => {
+    const e = searchParams.get('error');
+    if (e === 'oauth') return 'Googleログインがキャンセルされたか、失敗しました。もう一度お試しください。';
+    if (e === 'callback_failed') return 'ログイン処理に失敗しました。もう一度お試しください。';
+    return null;
+  });
   useEffect(() => { document.title = 'ログイン | トウコべインターン'; return () => { document.title = 'トウコべインターン'; }; }, []);
 
   const handleGoogleLogin = async () => {

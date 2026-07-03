@@ -66,6 +66,24 @@ CREATE POLICY "public_read_covers" ON storage.objects
 
 ---
 
+## 🔴 Googleログインに必要なSupabase設定（コード修正済み・要ダッシュボード確認）
+
+コード側のバグ（OAuthコールバックをサーバーRoute Handlerで処理していてセッションがブラウザに保存されない問題）は 2026-07-02 に修正済み。`/auth/callback` はクライアントページになりました。
+
+以下のダッシュボード設定が揃っていないとGoogleログインは動きません:
+
+1. **Supabase → Authentication → Providers → Google** を有効化し、Google Cloud Console で発行した Client ID / Client Secret を設定
+2. **Google Cloud Console → OAuth クライアント** の「承認済みのリダイレクトURI」に `https://<プロジェクトref>.supabase.co/auth/v1/callback` を追加
+3. **Supabase → Authentication → URL Configuration**:
+   - Site URL: `https://toukobe-intern.com`
+   - Redirect URLs に以下を追加:
+     - `https://toukobe-intern.com/auth/callback`
+     - `https://toukobe-intern.com/auth/callback?*`（redirect付きログイン用）
+     - `http://localhost:3000/auth/callback`（開発用）
+     - `http://localhost:3000/auth/callback?*`
+
+---
+
 ## 🟡 Supabase Realtime の有効化
 
 通知バッジ（未読メッセージ数のリアルタイム更新）に必要です。
