@@ -28,8 +28,7 @@ export default function CategoriesPage() {
   }, []);
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: "'Zen Kaku Gothic New', sans-serif", color: '#1C1813' }}>
-      <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: "var(--font-sans)", color: '#1C1813' }}>
 
       {/* NAV */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '14px 16px' : '16px 48px', background: 'rgba(255,255,255,.92)', borderBottom: '1px solid #EFE8DF', position: 'sticky', top: 0, zIndex: 50 }}>
@@ -39,7 +38,7 @@ export default function CategoriesPage() {
 
       {/* HEADER */}
       <div style={{ background: 'linear-gradient(160deg,#FFF6EE,#FFEFE2)', padding: isMobile ? '40px 20px 36px' : '64px 48px 56px', textAlign: 'center' }}>
-        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: '#F2620C', letterSpacing: '.18em', marginBottom: 12 }}>CATEGORIES</div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: '#F2620C', letterSpacing: '.18em', marginBottom: 12 }}>CATEGORIES</div>
         <h1 style={{ fontWeight: 900, fontSize: isMobile ? 28 : 42, margin: '0 0 14px' }}>職種一覧</h1>
         <p style={{ fontSize: 15, color: '#7A7268', margin: 0 }}>気になる職種から、長期インターンを探してみましょう。</p>
       </div>
@@ -58,7 +57,7 @@ export default function CategoriesPage() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: isMobile ? 14 : 17 }}>{c.name}</div>
-                  <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, color: '#B6ADA2', marginTop: 4 }}>{c.en}</div>
+                  <div style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: '#B6ADA2', marginTop: 4 }}>{c.en}</div>
                 </div>
                 <span style={{ width: 34, height: 34, borderRadius: '50%', background: '#FFF1E8', color: '#F2620C', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 }}>→</span>
               </div>

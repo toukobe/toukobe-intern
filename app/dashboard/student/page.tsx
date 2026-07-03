@@ -36,7 +36,7 @@ type Tab = 'profile' | 'applications' | 'favorites' | 'messages';
 
 const F = {
   label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#57514A', marginBottom: 8 } as React.CSSProperties,
-  input: { width: '100%', border: '1px solid #EFE8DF', borderRadius: 10, padding: '12px 16px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontSize: 14, color: '#1C1813', outline: 'none', boxSizing: 'border-box' as const },
+  input: { width: '100%', border: '1px solid #EFE8DF', borderRadius: 10, padding: '12px 16px', fontFamily: "var(--font-sans)", fontSize: 14, color: '#1C1813', outline: 'none', boxSizing: 'border-box' as const },
 };
 
 const APP_STATUS: Record<string, { text: string; bg: string; color: string }> = {
@@ -172,25 +172,28 @@ export default function StudentDashboard() {
       .eq('user_id', userId);
     if (!apps || apps.length === 0) { setChatThreads([]); return; }
 
-    const threads: ChatThread[] = [];
-    for (const app of apps) {
+    const jobIds = [...new Set(apps.map(a => a.job_id).filter(Boolean))];
+    const { data: jobs } = jobIds.length > 0
+      ? await supabase.from('jobs').select('id, job_title, company_id').in('id', jobIds)
+      : { data: [] };
+    const jobMap: Record<string, { job_title: string; company_id: string }> = {};
+    (jobs || []).forEach((j: any) => { jobMap[j.id] = j; });
+
+    const companyIds = [...new Set((jobs || []).map((j: any) => j.company_id).filter(Boolean))];
+    const { data: companies } = companyIds.length > 0
+      ? await supabase.from('companies').select('id, company_name').in('id', companyIds)
+      : { data: [] };
+    const companyMap: Record<string, string> = {};
+    (companies || []).forEach((c: any) => { companyMap[c.id] = c.company_name; });
+
+    const threads = (await Promise.all(apps.map(async app => {
       const { data: msgs } = await supabase
         .from('chat_messages')
         .select('body, created_at, sender_id, is_read')
         .eq('application_id', app.id)
         .order('created_at', { ascending: false })
         .limit(1);
-      if (!msgs || msgs.length === 0) continue;
-
-      const { data: job } = await supabase
-        .from('jobs')
-        .select('job_title, company_id')
-        .eq('id', app.job_id)
-        .single();
-
-      const { data: company } = job?.company_id
-        ? await supabase.from('companies').select('company_name').eq('id', job.company_id).single()
-        : { data: null };
+      if (!msgs || msgs.length === 0) return null;
 
       const { count: unread } = await supabase
         .from('chat_messages')
@@ -199,15 +202,17 @@ export default function StudentDashboard() {
         .neq('sender_id', userId)
         .eq('is_read', false);
 
-      threads.push({
+      const job = jobMap[app.job_id];
+      return {
         application_id: app.id,
         job_title: job?.job_title || '不明',
-        company_name: company?.company_name || '不明',
+        company_name: (job && companyMap[job.company_id]) || '不明',
         last_body: msgs[0].body,
         last_at: msgs[0].created_at,
         unread: unread || 0,
-      });
-    }
+      } as ChatThread;
+    }))).filter((t): t is ChatThread => t !== null);
+
     threads.sort((a, b) => new Date(b.last_at).getTime() - new Date(a.last_at).getTime());
     setChatThreads(threads);
   };
@@ -235,7 +240,7 @@ export default function StudentDashboard() {
   };
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBF8F4', fontFamily: "'Zen Kaku Gothic New',sans-serif" }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBF8F4', fontFamily: "var(--font-sans)" }}>
       <div style={{ width: 36, height: 36, border: '2.5px solid #F2620C', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
@@ -249,8 +254,7 @@ export default function StudentDashboard() {
   ];
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: "'Zen Kaku Gothic New',sans-serif", color: '#1C1813' }}>
-      <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: "var(--font-sans)", color: '#1C1813' }}>
 
       {/* TOAST */}
       {toast && (
@@ -269,7 +273,7 @@ export default function StudentDashboard() {
             {!isMobile && <div style={{ fontSize: 12, color: '#938B81' }}>{profile?.university} {profile?.grade}</div>}
           </div>
         </div>
-        <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} style={{ background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 8, padding: isMobile ? '8px 14px' : '10px 20px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>ログアウト</button>
+        <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} style={{ background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 8, padding: isMobile ? '8px 14px' : '10px 20px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>ログアウト</button>
       </div>
 
       <div style={{ maxWidth: 900, margin: '0 auto', padding: isMobile ? '20px 16px' : '40px 48px' }}>
@@ -279,7 +283,7 @@ export default function StudentDashboard() {
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              style={{ flex: 1, border: 'none', borderRadius: 8, padding: isMobile ? '10px 4px' : '11px 8px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: isMobile ? 11 : 13, cursor: 'pointer', transition: '.2s', background: tab === t.key ? '#F2620C' : 'transparent', color: tab === t.key ? '#fff' : '#57514A', position: 'relative' }}
+              style={{ flex: 1, border: 'none', borderRadius: 8, padding: isMobile ? '10px 4px' : '11px 8px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: isMobile ? 11 : 13, cursor: 'pointer', transition: '.2s', background: tab === t.key ? '#F2620C' : 'transparent', color: tab === t.key ? '#fff' : '#57514A', position: 'relative' }}
             >
               {t.label}
               {t.count !== undefined && t.count > 0 && (
@@ -302,7 +306,7 @@ export default function StudentDashboard() {
             <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: isMobile ? '16px' : '20px 24px', marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <span style={{ fontWeight: 700, fontSize: 13 }}>プロフィール完成度</span>
-                <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, fontSize: 14, color: pct >= 80 ? '#15803D' : '#F2620C' }}>{pct}%</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: 14, color: pct >= 80 ? '#15803D' : '#F2620C' }}>{pct}%</span>
               </div>
               <div style={{ background: '#F3EEE7', borderRadius: 999, height: 8, overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${pct}%`, background: pct >= 80 ? '#22C55E' : '#F2620C', borderRadius: 999, transition: 'width .4s ease' }} />
@@ -315,7 +319,7 @@ export default function StudentDashboard() {
           <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: isMobile ? '20px 16px' : '32px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
               <h2 style={{ fontWeight: 900, fontSize: 20, margin: 0 }}>プロフィール</h2>
-              <button onClick={() => setEditing(!editing)} style={{ background: editing ? '#F3EEE7' : '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '10px 20px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+              <button onClick={() => setEditing(!editing)} style={{ background: editing ? '#F3EEE7' : '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '10px 20px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                 {editing ? 'キャンセル' : '編集'}
               </button>
             </div>
@@ -349,7 +353,7 @@ export default function StudentDashboard() {
                 </div>
                 <div><label style={F.label}>スキル（カンマ区切り）</label><input style={F.input} value={Array.isArray(editForm.skills) ? editForm.skills.join(', ') : ''} onChange={e => setEditForm({ ...editForm, skills: e.target.value.split(',').map(s => s.trim()) })} placeholder="Python, Excel, 英語" onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} /></div>
                 <div><label style={F.label}>経歴・自己紹介</label><textarea style={{ ...F.input, resize: 'vertical' }} value={editForm.experience || ''} onChange={e => setEditForm({ ...editForm, experience: e.target.value })} rows={5} onFocus={e => (e.target as HTMLTextAreaElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLTextAreaElement).style.borderColor = '#EFE8DF'} /></div>
-                <button type="submit" style={{ alignSelf: isMobile ? 'stretch' : 'flex-start', background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 32px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>更新する</button>
+                <button type="submit" style={{ alignSelf: isMobile ? 'stretch' : 'flex-start', background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 32px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>更新する</button>
               </form>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
@@ -391,7 +395,7 @@ export default function StudentDashboard() {
             {applications.length === 0 ? (
               <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: isMobile ? '40px 20px' : '60px', textAlign: 'center' }}>
                 <p style={{ color: '#938B81', marginBottom: 16 }}>応募がまだありません</p>
-                <button onClick={() => router.push('/')} style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 28px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>求人を探す</button>
+                <button onClick={() => router.push('/')} style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 28px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>求人を探す</button>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -411,8 +415,8 @@ export default function StudentDashboard() {
                         <span style={{ fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 999, background: st.bg, color: st.color, whiteSpace: 'nowrap' }}>{st.text}</span>
                       </div>
                       <div style={{ display: 'flex', gap: 10, marginTop: 16, paddingTop: 16, borderTop: '1px solid #F0EAE2' }}>
-                        <button onClick={() => router.push(`/jobs/${app.job_id}`)} style={{ flex: 1, background: '#F3EEE7', color: '#57514A', border: 'none', borderRadius: 8, padding: '10px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>詳細を見る</button>
-                        <button onClick={() => router.push(`/chat/${app.id}`)} style={{ flex: 1, background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '10px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>💬 メッセージ</button>
+                        <button onClick={() => router.push(`/jobs/${app.job_id}`)} style={{ flex: 1, background: '#F3EEE7', color: '#57514A', border: 'none', borderRadius: 8, padding: '10px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>詳細を見る</button>
+                        <button onClick={() => router.push(`/chat/${app.id}`)} style={{ flex: 1, background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '10px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>💬 メッセージ</button>
                       </div>
                       <div style={{ fontSize: 11, color: '#B6ADA2', marginTop: 10 }}>応募日：{new Date(app.created_at).toLocaleDateString('ja-JP')}</div>
                     </div>
@@ -430,7 +434,7 @@ export default function StudentDashboard() {
             {favorites.length === 0 ? (
               <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: isMobile ? '40px 20px' : '60px', textAlign: 'center' }}>
                 <p style={{ color: '#938B81', marginBottom: 16 }}>お気に入りがまだありません</p>
-                <button onClick={() => router.push('/')} style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 28px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>求人を探す</button>
+                <button onClick={() => router.push('/')} style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 28px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>求人を探す</button>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -440,8 +444,8 @@ export default function StudentDashboard() {
                     <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>{fav.job_title}</div>
                     <div style={{ fontSize: 13, color: '#57514A', marginBottom: 16 }}>📍 {fav.location} ｜ 💰 {fav.salary}</div>
                     <div style={{ display: 'flex', gap: 10, paddingTop: 16, borderTop: '1px solid #F0EAE2' }}>
-                      <button onClick={() => router.push(`/jobs/${fav.job_id}`)} style={{ flex: 1, background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '10px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>詳細を見る</button>
-                      <button onClick={() => handleRemoveFavorite(fav.id)} style={{ flex: 1, background: '#FEF2F2', color: '#B91C1C', border: 'none', borderRadius: 8, padding: '10px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>削除</button>
+                      <button onClick={() => router.push(`/jobs/${fav.job_id}`)} style={{ flex: 1, background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '10px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>詳細を見る</button>
+                      <button onClick={() => handleRemoveFavorite(fav.id)} style={{ flex: 1, background: '#FEF2F2', color: '#B91C1C', border: 'none', borderRadius: 8, padding: '10px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>削除</button>
                     </div>
                   </div>
                 ))}

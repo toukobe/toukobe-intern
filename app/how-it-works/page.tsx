@@ -53,8 +53,7 @@ export default function HowItWorksPage() {
   }, []);
 
   return (
-    <div style={{ minHeight: '100vh', background: '#fff', fontFamily: "'Zen Kaku Gothic New', sans-serif", color: '#1C1813' }}>
-      <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <div style={{ minHeight: '100vh', background: '#fff', fontFamily: "var(--font-sans)", color: '#1C1813' }}>
 
       {/* NAV */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '14px 16px' : '16px 48px', background: 'rgba(255,255,255,.92)', borderBottom: '1px solid #EFE8DF', position: 'sticky', top: 0, zIndex: 50 }}>
@@ -64,7 +63,7 @@ export default function HowItWorksPage() {
 
       {/* HEADER */}
       <div style={{ background: 'linear-gradient(160deg,#FFF6EE,#FFEFE2)', padding: isMobile ? '40px 20px 36px' : '64px 48px 56px', textAlign: 'center' }}>
-        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: '#F2620C', letterSpacing: '.18em', marginBottom: 12 }}>HOW IT WORKS</div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: '#F2620C', letterSpacing: '.18em', marginBottom: 12 }}>HOW IT WORKS</div>
         <h1 style={{ fontWeight: 900, fontSize: isMobile ? 28 : 42, margin: '0 0 14px' }}>ご利用の流れ</h1>
         <p style={{ fontSize: 15, color: '#7A7268', margin: 0 }}>登録から就業開始まで、最短2週間。</p>
       </div>
@@ -75,13 +74,13 @@ export default function HowItWorksPage() {
           {steps.map((s, i) => (
             <div key={s.no} style={{ display: 'flex', gap: 32, position: 'relative' }}>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
-                <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#F2620C', color: '#fff', fontWeight: 900, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 14px rgba(242,98,12,.3)', fontFamily: "'IBM Plex Mono', monospace" }}>{s.no}</div>
+                <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#F2620C', color: '#fff', fontWeight: 900, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 14px rgba(242,98,12,.3)', fontFamily: "var(--font-mono)" }}>{s.no}</div>
                 {i < steps.length - 1 && <div style={{ width: 2, flex: 1, background: '#EFE8DF', margin: '8px 0' }} />}
               </div>
               <div style={{ paddingBottom: i < steps.length - 1 ? 48 : 0, paddingTop: 10, flex: 1 }}>
                 <h3 style={{ fontWeight: 700, fontSize: 20, margin: '0 0 10px' }}>{s.title}</h3>
                 <p style={{ fontSize: 14, lineHeight: 1.9, color: '#57514A', margin: '0 0 10px' }}>{s.desc}</p>
-                <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#F2620C', background: '#FFF1E8', padding: '4px 10px', borderRadius: 6 }}>{s.note}</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: '#F2620C', background: '#FFF1E8', padding: '4px 10px', borderRadius: 6 }}>{s.note}</span>
               </div>
             </div>
           ))}
@@ -91,14 +90,14 @@ export default function HowItWorksPage() {
         <div style={{ textAlign: 'center', marginTop: 72, padding: isMobile ? '32px 20px' : '52px', background: 'linear-gradient(160deg,#FFF6EE,#FFEFE2)', borderRadius: 24 }}>
           <h2 style={{ fontWeight: 900, fontSize: isMobile ? 22 : 28, margin: '0 0 14px' }}>まずは無料で登録してみよう</h2>
           <p style={{ fontSize: 14, color: '#7A7268', margin: '0 0 28px' }}>3分で登録完了。難関大生限定の求人にアクセスできます。</p>
-          <button onClick={() => router.push('/auth/signup')} style={{ background: '#F2620C', color: '#fff', border: 'none', padding: '16px 48px', borderRadius: 12, fontFamily: "'Zen Kaku Gothic New', sans-serif", fontWeight: 700, fontSize: 16, cursor: 'pointer', boxShadow: '0 4px 14px rgba(242,98,12,.3)' }}>
+          <button onClick={() => router.push('/auth/signup')} style={{ background: '#F2620C', color: '#fff', border: 'none', padding: '16px 48px', borderRadius: 12, fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 16, cursor: 'pointer', boxShadow: '0 4px 14px rgba(242,98,12,.3)' }}>
             無料で登録する
           </button>
         </div>
 
         {/* FAQ */}
         <div style={{ marginTop: 72 }}>
-          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, color: '#F2620C', letterSpacing: '.18em', marginBottom: 12, textAlign: 'center' }}>FAQ</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: '#F2620C', letterSpacing: '.18em', marginBottom: 12, textAlign: 'center' }}>FAQ</div>
           <h2 style={{ fontWeight: 900, fontSize: isMobile ? 22 : 28, margin: '0 0 36px', textAlign: 'center' }}>よくある質問</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {faqs.map((f, i) => (

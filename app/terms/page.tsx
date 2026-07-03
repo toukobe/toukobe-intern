@@ -151,8 +151,7 @@ export default function TermsPage() {
   const isMobile = useIsMobile();
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: "'Zen Kaku Gothic New', sans-serif", color: '#1C1813' }}>
-      <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: "var(--font-sans)", color: '#1C1813' }}>
 
       {/* NAV */}
       <div style={{ background: '#fff', borderBottom: '1px solid #EFE8DF', padding: isMobile ? '14px 16px' : '14px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 }}>
@@ -162,9 +161,9 @@ export default function TermsPage() {
 
       {/* HEADER */}
       <div style={{ background: 'linear-gradient(160deg,#FFF6EE,#FFEFE2)', padding: isMobile ? '40px 20px 36px' : '64px 48px 56px', textAlign: 'center' }}>
-        <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#F2620C', letterSpacing: '.2em', marginBottom: 12 }}>TERMS OF SERVICE</div>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: '#F2620C', letterSpacing: '.2em', marginBottom: 12 }}>TERMS OF SERVICE</div>
         <h1 style={{ fontWeight: 900, fontSize: isMobile ? 26 : 38, margin: '0 0 12px' }}>利用規約（学生版）</h1>
-        <p style={{ fontSize: 13, color: '#938B81', margin: 0, fontFamily: "'IBM Plex Mono', monospace" }}>v1.0 ／ 制定日：2026年7月1日</p>
+        <p style={{ fontSize: 13, color: '#938B81', margin: 0, fontFamily: "var(--font-mono)" }}>v1.0 ／ 制定日：2026年7月1日</p>
       </div>
 
       {/* BODY */}
@@ -172,11 +171,11 @@ export default function TermsPage() {
 
         {/* TOC */}
         <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: isMobile ? '20px 16px' : '28px 32px', marginBottom: 48 }}>
-          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#F2620C', letterSpacing: '.14em', marginBottom: 14 }}>TABLE OF CONTENTS</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: '#F2620C', letterSpacing: '.14em', marginBottom: 14 }}>TABLE OF CONTENTS</div>
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '8px 24px' }}>
             {articles.map((a) => (
               <a key={a.title} href={`#${a.title}`} style={{ fontSize: 13, color: '#57514A', textDecoration: 'none', display: 'flex', gap: 8, alignItems: 'baseline' }}>
-                <span style={{ color: '#F2620C', fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, flexShrink: 0 }}>→</span>
+                <span style={{ color: '#F2620C', fontFamily: "var(--font-mono)", fontSize: 11, flexShrink: 0 }}>→</span>
                 {a.title}
               </a>
             ))}
@@ -219,7 +218,7 @@ export default function TermsPage() {
 
       {/* FOOTER */}
       <div style={{ background: '#15110D', padding: '32px 48px', marginTop: 40, textAlign: 'center' }}>
-        <p style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#665D53', margin: 0 }}>© 2026 トウコべインターン. All rights reserved.</p>
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: '#665D53', margin: 0 }}>© 2026 トウコべインターン. All rights reserved.</p>
       </div>
     </div>
   );

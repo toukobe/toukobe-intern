@@ -27,7 +27,7 @@ const WORK_DAYS = ['週2から','週3から','週4から'];
 const WORK_CONDITIONS = ['フルリモート','一部リモート','フレックス勤務','土日勤務可'];
 const JOB_FEATURES = ['未経験OK','交通費支給','服装髪型自由'];
 
-const FF = "'Zen Kaku Gothic New', sans-serif";
+const FF = "var(--font-sans)";
 const F = {
   label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#57514A', marginBottom: 8 } as React.CSSProperties,
   input: { width: '100%', border: '1px solid #EFE8DF', borderRadius: 10, padding: '12px 16px', fontFamily: FF, fontSize: 14, color: '#1C1813', outline: 'none', boxSizing: 'border-box' as const, background: '#fff' },
@@ -104,11 +104,13 @@ export default function EditJobPage() {
       if (coverFile) {
         const ext = coverFile.name.split('.').pop();
         const path = `${formData.company_id}/${jobId}.${ext}`;
+        const oldPath = formData.cover_image_url ? formData.cover_image_url.split('/job-covers/')[1]?.split('?')[0] : null;
+        if (oldPath && oldPath !== path) {
+          await supabase.storage.from('job-covers').remove([oldPath]);
+        }
         const { error: upErr } = await supabase.storage.from('job-covers').upload(path, coverFile, { upsert: true });
         if (upErr) throw upErr;
         const { data: urlData } = supabase.storage.from('job-covers').getPublicUrl(path);
-        cover_image_url = urlData.publicUrl + '?t=' + Date.now();
-        // DBには timestamp なしで保存
         cover_image_url = urlData.publicUrl;
       }
 
@@ -152,7 +154,6 @@ export default function EditJobPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: FF, color: '#1C1813' }}>
-      <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
       {toast && (
         <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: toast.type === 'error' ? '#FEF2F2' : '#F0FDF4', border: `1px solid ${toast.type === 'error' ? '#FECACA' : '#BBF7D0'}`, color: toast.type === 'error' ? '#B91C1C' : '#15803D', borderRadius: 12, padding: '14px 24px', fontWeight: 700, fontSize: 14, boxShadow: '0 8px 32px rgba(0,0,0,.12)', whiteSpace: 'nowrap' }}>
@@ -169,7 +170,7 @@ export default function EditJobPage() {
 
       <div style={{ maxWidth: 760, margin: '0 auto', padding: isMobile ? '24px 16px 60px' : '48px 48px 80px' }}>
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#F2620C', letterSpacing: '.18em', marginBottom: 10 }}>EDIT JOB</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: '#F2620C', letterSpacing: '.18em', marginBottom: 10 }}>EDIT JOB</div>
           <h1 style={{ fontWeight: 900, fontSize: 30, margin: 0 }}>求人を編集</h1>
           <p style={{ fontSize: 13, color: '#938B81', marginTop: 8 }}>求人情報を更新してください</p>
         </div>

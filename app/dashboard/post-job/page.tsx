@@ -14,7 +14,7 @@ const JOB_FEATURES = ['未経験OK','交通費支給','服装髪型自由'];
 
 const F = {
   label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#57514A', marginBottom: 8 } as React.CSSProperties,
-  input: { width: '100%', border: '1px solid #EFE8DF', borderRadius: 10, padding: '12px 16px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontSize: 14, color: '#1C1813', outline: 'none', boxSizing: 'border-box' as const, background: '#fff' },
+  input: { width: '100%', border: '1px solid #EFE8DF', borderRadius: 10, padding: '12px 16px', fontFamily: "var(--font-sans)", fontSize: 14, color: '#1C1813', outline: 'none', boxSizing: 'border-box' as const, background: '#fff' },
   section: { background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: '28px 32px', marginBottom: 20 } as React.CSSProperties,
   sectionTitle: { fontWeight: 900, fontSize: 16, color: '#1C1813', marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid #EFE8DF', display: 'block' } as React.CSSProperties,
 };
@@ -93,15 +93,14 @@ export default function PostJobPage() {
   };
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBF8F4', fontFamily: "'Zen Kaku Gothic New',sans-serif" }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBF8F4', fontFamily: "var(--font-sans)" }}>
       <div style={{ width: 36, height: 36, border: '2.5px solid #F2620C', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: "'Zen Kaku Gothic New',sans-serif", color: '#1C1813' }}>
-      <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: "var(--font-sans)", color: '#1C1813' }}>
 
       {toast && (
         <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: toast.type === 'error' ? '#FEF2F2' : '#F0FDF4', border: `1px solid ${toast.type === 'error' ? '#FECACA' : '#BBF7D0'}`, color: toast.type === 'error' ? '#B91C1C' : '#15803D', borderRadius: 12, padding: '14px 24px', fontWeight: 700, fontSize: 14, boxShadow: '0 8px 32px rgba(0,0,0,.12)', whiteSpace: 'nowrap' }}>
@@ -119,7 +118,7 @@ export default function PostJobPage() {
       <div style={{ maxWidth: 760, margin: '0 auto', padding: isMobile ? '24px 16px 60px' : '48px 48px 80px' }}>
         {/* HEADER */}
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#F2620C', letterSpacing: '.18em', marginBottom: 10 }}>POST JOB</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: '#F2620C', letterSpacing: '.18em', marginBottom: 10 }}>POST JOB</div>
           <h1 style={{ fontWeight: 900, fontSize: 30, margin: 0 }}>求人を投稿</h1>
           <p style={{ fontSize: 13, color: '#938B81', marginTop: 8 }}>新しいインターン求人情報を入力してください</p>
         </div>
@@ -228,7 +227,7 @@ export default function PostJobPage() {
                           const base = formData.location.replace(/（.*?）/, '').replace(/[\s　]*[^\s　東京都]*[区市].*$/, '').trim();
                           setFormData({ ...formData, location: `東京都${a}` });
                         }}
-                        style={{ fontSize: 11, padding: '4px 10px', borderRadius: 999, border: '1px solid #FBD5C0', background: formData.location.includes(a) ? '#F2620C' : '#fff', color: formData.location.includes(a) ? '#fff' : '#57514A', fontFamily: "'Zen Kaku Gothic New',sans-serif", cursor: 'pointer', transition: '.15s' }}
+                        style={{ fontSize: 11, padding: '4px 10px', borderRadius: 999, border: '1px solid #FBD5C0', background: formData.location.includes(a) ? '#F2620C' : '#fff', color: formData.location.includes(a) ? '#fff' : '#57514A', fontFamily: "var(--font-sans)", cursor: 'pointer', transition: '.15s' }}
                       >
                         {a}
                       </button>
@@ -259,7 +258,7 @@ export default function PostJobPage() {
                 const selected = formData.job_categories.includes(cat);
                 return (
                   <button key={cat} type="button" onClick={() => toggle('job_categories', cat)}
-                    style={{ border: selected ? '2px solid #F2620C' : '1px solid #EFE8DF', background: selected ? '#FFF1E8' : '#fff', color: selected ? '#F2620C' : '#57514A', borderRadius: 8, padding: '10px 14px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: selected ? 700 : 400, fontSize: 13, cursor: 'pointer', textAlign: 'left' }}>
+                    style={{ border: selected ? '2px solid #F2620C' : '1px solid #EFE8DF', background: selected ? '#FFF1E8' : '#fff', color: selected ? '#F2620C' : '#57514A', borderRadius: 8, padding: '10px 14px', fontFamily: "var(--font-sans)", fontWeight: selected ? 700 : 400, fontSize: 13, cursor: 'pointer', textAlign: 'left' }}>
                     {cat}
                   </button>
                 );
@@ -277,7 +276,7 @@ export default function PostJobPage() {
                   const sel = formData.work_days.includes(d);
                   return (
                     <button key={d} type="button" onClick={() => toggle('work_days', d)}
-                      style={{ border: sel ? '2px solid #F2620C' : '1px solid #EFE8DF', background: sel ? '#FFF1E8' : '#fff', color: sel ? '#F2620C' : '#57514A', borderRadius: 8, padding: '10px 20px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: sel ? 700 : 400, fontSize: 13, cursor: 'pointer' }}>
+                      style={{ border: sel ? '2px solid #F2620C' : '1px solid #EFE8DF', background: sel ? '#FFF1E8' : '#fff', color: sel ? '#F2620C' : '#57514A', borderRadius: 8, padding: '10px 20px', fontFamily: "var(--font-sans)", fontWeight: sel ? 700 : 400, fontSize: 13, cursor: 'pointer' }}>
                       {d}
                     </button>
                   );
@@ -291,7 +290,7 @@ export default function PostJobPage() {
                   const sel = formData.work_conditions.includes(c);
                   return (
                     <button key={c} type="button" onClick={() => toggle('work_conditions', c)}
-                      style={{ border: sel ? '2px solid #F2620C' : '1px solid #EFE8DF', background: sel ? '#FFF1E8' : '#fff', color: sel ? '#F2620C' : '#57514A', borderRadius: 8, padding: '10px 20px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: sel ? 700 : 400, fontSize: 13, cursor: 'pointer' }}>
+                      style={{ border: sel ? '2px solid #F2620C' : '1px solid #EFE8DF', background: sel ? '#FFF1E8' : '#fff', color: sel ? '#F2620C' : '#57514A', borderRadius: 8, padding: '10px 20px', fontFamily: "var(--font-sans)", fontWeight: sel ? 700 : 400, fontSize: 13, cursor: 'pointer' }}>
                       {c}
                     </button>
                   );
@@ -305,7 +304,7 @@ export default function PostJobPage() {
                   const sel = formData.job_features.includes(f);
                   return (
                     <button key={f} type="button" onClick={() => toggle('job_features', f)}
-                      style={{ border: sel ? '2px solid #F2620C' : '1px solid #EFE8DF', background: sel ? '#FFF1E8' : '#fff', color: sel ? '#F2620C' : '#57514A', borderRadius: 8, padding: '10px 20px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: sel ? 700 : 400, fontSize: 13, cursor: 'pointer' }}>
+                      style={{ border: sel ? '2px solid #F2620C' : '1px solid #EFE8DF', background: sel ? '#FFF1E8' : '#fff', color: sel ? '#F2620C' : '#57514A', borderRadius: 8, padding: '10px 20px', fontFamily: "var(--font-sans)", fontWeight: sel ? 700 : 400, fontSize: 13, cursor: 'pointer' }}>
                       {f}
                     </button>
                   );
@@ -317,11 +316,11 @@ export default function PostJobPage() {
           {/* BUTTONS */}
           <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
             <button type="submit" disabled={saving}
-              style={{ flex: 1, background: saving ? '#D9B99B' : '#F2620C', color: '#fff', border: 'none', borderRadius: 12, padding: '16px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 900, fontSize: 15, cursor: saving ? 'not-allowed' : 'pointer' }}>
+              style={{ flex: 1, background: saving ? '#D9B99B' : '#F2620C', color: '#fff', border: 'none', borderRadius: 12, padding: '16px', fontFamily: "var(--font-sans)", fontWeight: 900, fontSize: 15, cursor: saving ? 'not-allowed' : 'pointer' }}>
               {saving ? '投稿中...' : '求人を投稿する'}
             </button>
             <button type="button" onClick={() => router.push('/dashboard/company')}
-              style={{ flex: 1, background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 12, padding: '16px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
+              style={{ flex: 1, background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 12, padding: '16px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
               キャンセル
             </button>
           </div>

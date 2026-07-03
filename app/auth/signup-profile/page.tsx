@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 import { useIsMobile } from '@/utils/useIsMobile';
 
-const FF = "'Zen Kaku Gothic New', sans-serif";
+const FF = "var(--font-sans)";
 const F = {
   label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#57514A', marginBottom: 8 } as React.CSSProperties,
   input: { width: '100%', border: '1px solid #EFE8DF', borderRadius: 10, padding: '12px 16px', fontFamily: FF, fontSize: 14, color: '#1C1813', outline: 'none', boxSizing: 'border-box' as const, background: '#fff' },
@@ -90,7 +90,7 @@ export default function SignupProfilePage() {
       if (isNewProfile && session?.user?.email) {
         fetch('/api/send-email', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
           body: JSON.stringify({
             type: 'student_welcome',
             to: session.user.email,
@@ -116,7 +116,6 @@ export default function SignupProfilePage() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg,#FFF6EE 0%,#FFEFE2 55%,#FFE7D4 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '20px 12px' : '32px 24px', fontFamily: FF }}>
-      <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
       <div style={{ background: '#fff', borderRadius: 20, boxShadow: '0 24px 60px rgba(28,24,19,.12)', padding: isMobile ? '32px 24px' : '48px 44px', width: '100%', maxWidth: 520 }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <img src="/toukobe-intern-logo.png" alt="トウコべインターン" style={{ height: 40, width: 'auto', cursor: 'pointer' }} onClick={() => router.push('/')} />

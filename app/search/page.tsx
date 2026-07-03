@@ -29,7 +29,7 @@ interface UserType {
   user_type: string;
 }
 
-const FF = "'Zen Kaku Gothic New', sans-serif";
+const FF = "var(--font-sans)";
 
 const categoryList = [
   'マーケティング', 'エンジニア', 'コンサルティング', '経営・企画',
@@ -72,43 +72,40 @@ function SearchContent() {
     checkAuth();
   }, []);
 
+  // 学生ユーザーのお気に入りを初期ロード
   useEffect(() => {
-    const q = searchParams.get('q') || '';
+    if (!user || userType?.user_type !== 'student') return;
+    supabase
+      .from('favorites')
+      .select('id, job_id')
+      .eq('user_id', user.id)
+      .then(({ data }) => {
+        if (data) {
+          setFavorites(new Set(data.map((f: { job_id: string }) => f.job_id)));
+          setFavoriteIds(new Map(data.map((f: { id: string; job_id: string }) => [f.job_id, f.id])));
+        }
+      });
+  }, [user, userType]);
+
+  // URLパラメータの変化に追従して検索を実行
+  useEffect(() => {
+    const kw = searchParams.get('q') || '';
     const cat = searchParams.get('category') || '';
     const loc = searchParams.get('location') || '';
     const area = searchParams.get('area') || '';
     const cond = searchParams.get('condition') || '';
     const feat = searchParams.get('feature') || '';
     const active = searchParams.get('active') === '1';
-    setKeyword(q);
+    setKeyword(kw);
     setCategory(cat);
     setLocation(loc);
     setTokyoArea(area);
     setCondition(cond);
     setFeature(feat);
     setActiveOnly(active);
-    fetchJobs(q, cat, loc, area, cond, feat, active);
+    fetchJobs(kw, cat, loc, area, cond, feat, active);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
-
-  useEffect(() => {
-    if (!user || userType?.user_type !== 'student') return;
-    async function fetchFavorites() {
-      const { data } = await supabase.from('favorites').select('id, job_id').eq('user_id', user!.id);
-      if (data) {
-        const favSet = new Set(data.map(f => f.job_id as string));
-        const favMap = new Map(data.map(f => [f.job_id as string, f.id as string]));
-        setFavorites(favSet);
-        setFavoriteIds(favMap);
-      }
-    }
-    fetchFavorites();
-  }, [user, userType]);
-
-  useEffect(() => {
-    const parts = [keyword, category, location].filter(Boolean);
-    document.title = parts.length > 0 ? `${parts.join(' · ')} の求人 | トウコべインターン` : '求人検索 | トウコべインターン';
-    return () => { document.title = 'トウコべインターン | 難関大生に特化した長期インターン'; };
-  }, [keyword, category, location]);
 
   const fetchJobs = async (kw: string, cat: string, loc: string, area: string = '', cond: string = '', feat: string = '', active: boolean = false) => {
     setLoading(true);
@@ -125,7 +122,6 @@ function SearchContent() {
       // 東京の詳細地域が選ばれていればそちらで絞り込む
       if (area) query = query.ilike('location', `%${area}%`);
       else if (loc) query = query.ilike('location', `%${loc}%`);
-      if (kw) query = query.or(`job_title.ilike.%${kw}%,job_description.ilike.%${kw}%`);
 
       const { data: jobRows, error } = await query;
       if (error) throw error;
@@ -220,7 +216,6 @@ function SearchContent() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: FF, color: '#1C1813' }}>
-      <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
       {/* NAV */}
       <div style={{ background: 'rgba(255,255,255,.95)', borderBottom: '1px solid #EFE8DF', position: 'sticky', top: 0, zIndex: 50 }}>
@@ -235,7 +230,7 @@ function SearchContent() {
                   { label: '使い方', href: '/how-it-works' },
                   { label: '企業の方へ', href: '/for-companies' },
                 ].map(item => (
-                  <span key={item.href} onClick={() => router.push(item.href)} style={{ fontSize: 13, color: item.href === '/search' ? '#F2620C' : '#57514A', fontWeight: item.href === '/search' ? 700 : 500, cursor: 'pointer', textDecoration: item.href === '/search' ? 'underline' : 'none', textUnderlineOffset: 3 }}>{item.label}</span>
+                  <span key={item.href} className="nav-link" onClick={() => router.push(item.href)} style={{ fontSize: 13, color: item.href === '/search' ? '#F2620C' : '#57514A', fontWeight: item.href === '/search' ? 700 : 500, cursor: 'pointer', textDecoration: item.href === '/search' ? 'underline' : 'none', textUnderlineOffset: 3 }}>{item.label}</span>
                 ))}
               </nav>
             )}
@@ -324,7 +319,7 @@ function SearchContent() {
                 </select>
                 <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#C2B8AC', pointerEvents: 'none', fontSize: 10 }}>▼</span>
               </div>
-              <button type="submit" style={{ background: '#F2620C', color: '#fff', border: 'none', padding: isMobile ? '14px' : '14px 32px', width: isMobile ? '100%' : 'auto', borderRadius: 10, fontFamily: FF, fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap', boxShadow: '0 4px 12px rgba(242,98,12,.28)' }}>
+              <button type="submit" className="btn-primary" style={{ background: '#F2620C', color: '#fff', border: 'none', padding: isMobile ? '14px' : '14px 32px', width: isMobile ? '100%' : 'auto', borderRadius: 10, fontFamily: FF, fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap', boxShadow: '0 4px 12px rgba(242,98,12,.28)' }}>
                 検索
               </button>
             </div>
@@ -422,16 +417,15 @@ function SearchContent() {
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap: 20 }}>
               {[0,1,2,3,4,5].map(i => (
                 <div key={i} style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, overflow: 'hidden' }}>
-                  <div style={{ height: 120, background: 'linear-gradient(90deg,#f0f0f0 25%,#e8e8e8 50%,#f0f0f0 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite' }} />
+                  <div className="skeleton" style={{ height: 120, borderRadius: 0 }} />
                   <div style={{ padding: '16px 18px 20px' }}>
-                    <div style={{ height: 11, background: '#f0f0f0', borderRadius: 5, marginBottom: 10, width: '50%' }} />
-                    <div style={{ height: 16, background: '#f0f0f0', borderRadius: 5, marginBottom: 8, width: '80%' }} />
-                    <div style={{ height: 13, background: '#f0f0f0', borderRadius: 5, width: '35%' }} />
+                    <div className="skeleton" style={{ height: 11, marginBottom: 10, width: '50%' }} />
+                    <div className="skeleton" style={{ height: 16, marginBottom: 8, width: '80%' }} />
+                    <div className="skeleton" style={{ height: 13, width: '35%' }} />
                   </div>
                 </div>
               ))}
             </div>
-            <style>{`@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`}</style>
           </>
         ) : jobs.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '80px 0' }}>
@@ -488,7 +482,7 @@ function SearchContent() {
             <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', gap: isMobile ? 10 : 0, marginBottom: 24 }}>
               <h2 style={{ fontWeight: 900, fontSize: 20, margin: 0 }}>
                 検索結果
-                <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 14, color: '#938B81', fontWeight: 400, marginLeft: 10 }}>{jobs.length} 件</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: '#938B81', fontWeight: 400, marginLeft: 10 }}>{jobs.length} 件</span>
               </h2>
               <button
                 onClick={() => { setKeyword(''); setCategory(''); setLocation(''); setTokyoArea(''); setCondition(''); setFeature(''); setActiveOnly(false); router.push('/search'); }}
@@ -504,9 +498,8 @@ function SearchContent() {
                 return (
                   <div
                     key={j.id}
-                    style={{ background: j.status === 'paused' ? '#F5F3F1' : '#fff', border: `1px solid ${j.status === 'paused' ? '#D8D2CA' : '#EFE8DF'}`, borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column', transition: '.2s', cursor: 'pointer', position: 'relative', opacity: j.status === 'paused' ? 0.72 : 1 }}
-                    onMouseEnter={e => { if (j.status !== 'paused') { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 14px 36px rgba(28,24,19,.10)'; (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-3px)'; } }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = 'none'; (e.currentTarget as HTMLDivElement).style.transform = 'none'; }}
+                    className={j.status === 'paused' ? undefined : 'job-card'}
+                    style={{ background: j.status === 'paused' ? '#F5F3F1' : '#fff', border: `1px solid ${j.status === 'paused' ? '#D8D2CA' : '#EFE8DF'}`, borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: 'pointer', position: 'relative', opacity: j.status === 'paused' ? 0.72 : 1 }}
                   >
                     {/* カバー画像エリア */}
                     {(() => {
@@ -517,7 +510,7 @@ function SearchContent() {
                         <div style={{ height: 120, position: 'relative', overflow: 'hidden', flexShrink: 0 }}
                           onClick={() => router.push(`/jobs/${j.id}`)}>
                           {j.cover_image_url || j.companies?.cover_url
-                            ? <img src={j.cover_image_url || j.companies?.cover_url || ''} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:j.cover_image_position || '50% 50%', display:'block' }} />
+                            ? <img className="job-cover" src={j.cover_image_url || j.companies?.cover_url || ''} alt="" loading="lazy" decoding="async" style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:j.cover_image_position || '50% 50%', display:'block' }} />
                             : <>
                                 <div style={{ position:'absolute', inset:0, background:`linear-gradient(135deg,${c1},${c2})` }} />
                                 <svg style={{ position:'absolute', inset:0, width:'100%', height:'100%', opacity:.13 }} viewBox="0 0 320 120" preserveAspectRatio="xMidYMid slice">
@@ -598,7 +591,7 @@ function SearchContent() {
 export default function SearchPage() {
   return (
     <Suspense fallback={
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBF8F4', fontFamily: "'Zen Kaku Gothic New', sans-serif" }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBF8F4', fontFamily: "var(--font-sans)" }}>
         <div style={{ width: 36, height: 36, border: '2.5px solid #F2620C', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>

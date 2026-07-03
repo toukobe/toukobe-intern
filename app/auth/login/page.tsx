@@ -6,11 +6,11 @@ import { supabase } from '@/utils/supabase';
 import { useIsMobile } from '@/utils/useIsMobile';
 
 const S = {
-  wrap: { minHeight: '100vh', background: 'linear-gradient(160deg,#FFF6EE 0%,#FFEFE2 55%,#FFE7D4 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: "'Zen Kaku Gothic New',sans-serif" } as React.CSSProperties,
+  wrap: { minHeight: '100vh', background: 'linear-gradient(160deg,#FFF6EE 0%,#FFEFE2 55%,#FFE7D4 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: "var(--font-sans)" } as React.CSSProperties,
   card: { background: '#fff', borderRadius: 20, boxShadow: '0 24px 60px rgba(28,24,19,.12)', padding: '48px 44px', width: '100%', maxWidth: 440 } as React.CSSProperties,
   label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#57514A', marginBottom: 8 } as React.CSSProperties,
-  input: { width: '100%', border: '1px solid #EFE8DF', borderRadius: 10, padding: '13px 16px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontSize: 14, color: '#1C1813', outline: 'none', boxSizing: 'border-box' as const, transition: 'border-color .2s' },
-  btn: { width: '100%', background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '15px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 15, cursor: 'pointer', boxShadow: '0 4px 14px rgba(242,98,12,.28)' } as React.CSSProperties,
+  input: { width: '100%', border: '1px solid #EFE8DF', borderRadius: 10, padding: '13px 16px', fontFamily: "var(--font-sans)", fontSize: 14, color: '#1C1813', outline: 'none', boxSizing: 'border-box' as const, transition: 'border-color .2s' },
+  btn: { width: '100%', background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '15px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 15, cursor: 'pointer', boxShadow: '0 4px 14px rgba(242,98,12,.28)' } as React.CSSProperties,
   err: { background: '#FFF1EE', border: '1px solid #FBCFBE', borderRadius: 10, padding: '12px 16px', fontSize: 13, color: '#C2390A', marginBottom: 20 } as React.CSSProperties,
   divider: { display: 'flex', alignItems: 'center', gap: 12, margin: '22px 0' } as React.CSSProperties,
 };
@@ -69,11 +69,10 @@ function LoginContent() {
 
   return (
     <div style={S.wrap}>
-      <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
       <div style={{ ...S.card, padding: isMobile ? '32px 24px' : '48px 44px' }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <img src="/toukobe-intern-logo.png" alt="トウコべインターン" style={{ height: 44, width: 'auto', cursor: 'pointer' }} onClick={() => router.push('/')} />
-          <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 10, letterSpacing: '.3em', color: '#B59A86', marginTop: 4 }}>STUDENT LOGIN</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: '.3em', color: '#B59A86', marginTop: 4 }}>STUDENT LOGIN</div>
           <h1 style={{ fontWeight: 900, fontSize: 26, margin: '20px 0 6px' }}>ログイン</h1>
           <p style={{ fontSize: 13, color: '#938B81', margin: 0 }}>アカウントにサインインしてください</p>
         </div>
@@ -82,7 +81,7 @@ function LoginContent() {
         <button
           onClick={handleGoogleLogin}
           disabled={loading}
-          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: '#fff', border: '1px solid #EFE8DF', borderRadius: 10, padding: '13px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontSize: 14, fontWeight: 600, color: '#1C1813', cursor: 'pointer', marginBottom: 4, opacity: loading ? 0.6 : 1 }}
+          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: '#fff', border: '1px solid #EFE8DF', borderRadius: 10, padding: '13px', fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 600, color: '#1C1813', cursor: 'pointer', marginBottom: 4, opacity: loading ? 0.6 : 1 }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>

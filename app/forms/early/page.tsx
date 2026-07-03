@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIsMobile } from '@/utils/useIsMobile';
 
-const FF = "'Zen Kaku Gothic New', sans-serif";
+const FF = "var(--font-sans)";
 
 const S = {
   label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 } as React.CSSProperties,
@@ -56,7 +56,6 @@ export default function EarlyFormPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#FFF6EE', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '24px 16px' : '48px 24px', fontFamily: FF }}>
-      <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&display=swap" rel="stylesheet" />
 
       <div style={{ width: '100%', maxWidth: 560, background: '#fff', borderRadius: 20, boxShadow: '0 8px 40px rgba(0,0,0,.10)', padding: isMobile ? '32px 20px' : '48px 44px' }}>
         {/* Header */}

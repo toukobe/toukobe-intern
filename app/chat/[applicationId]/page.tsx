@@ -22,7 +22,7 @@ interface AppInfo {
   company_id: string;
 }
 
-const FF = "'Zen Kaku Gothic New', sans-serif";
+const FF = "var(--font-sans)";
 
 export default function ChatPage() {
   const { applicationId } = useParams() as { applicationId: string };
@@ -232,7 +232,6 @@ export default function ChatPage() {
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#FBF8F4', fontFamily: FF, color: '#1C1813' }}>
-      <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
       {toast && (
         <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: toast.type === 'error' ? '#FEF2F2' : '#F0FDF4', border: `1px solid ${toast.type === 'error' ? '#FECACA' : '#BBF7D0'}`, color: toast.type === 'error' ? '#B91C1C' : '#15803D', borderRadius: 12, padding: '14px 24px', fontWeight: 700, fontSize: 14, boxShadow: '0 8px 32px rgba(0,0,0,.12)', whiteSpace: 'nowrap' }}>
@@ -270,7 +269,7 @@ export default function ChatPage() {
             {/* Date separator */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0' }}>
               <div style={{ flex: 1, height: 1, background: '#EFE8DF' }} />
-              <span style={{ fontSize: 11, color: '#B6ADA2', whiteSpace: 'nowrap', fontFamily: "'IBM Plex Mono',monospace" }}>{group.date}</span>
+              <span style={{ fontSize: 11, color: '#B6ADA2', whiteSpace: 'nowrap', fontFamily: "var(--font-mono)" }}>{group.date}</span>
               <div style={{ flex: 1, height: 1, background: '#EFE8DF' }} />
             </div>
 

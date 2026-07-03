@@ -18,6 +18,7 @@ export default function ApplicantsPage() {
   const isMobile = useIsMobile();
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string>('');
+  const [companyJobIds, setCompanyJobIds] = useState<string[]>([]);
   const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => { document.title = '応募者管理 | トウコべインターン'; return () => { document.title = 'トウコべインターン'; }; }, []);
@@ -45,6 +46,7 @@ export default function ApplicantsPage() {
       try {
         const { data: jobs } = await supabase.from('jobs').select('id').eq('company_id', companyId);
         const jobIds = jobs?.map(j => j.id) || [];
+        setCompanyJobIds(jobIds);
         if (jobIds.length === 0) { setApplications([]); setLoading(false); return; }
 
         const { data: appsData } = await supabase
@@ -72,7 +74,9 @@ export default function ApplicantsPage() {
   }, [companyId]);
 
   const handleStatusChange = async (applicationId: string, newStatus: string) => {
-    const { error } = await supabase.from('applications').update({ status: newStatus }).eq('id', applicationId);
+    const app = applications.find(a => a.id === applicationId);
+    if (!app || !companyJobIds.includes(app.job_id)) { showToast('更新に失敗しました', 'error'); return; }
+    const { error } = await supabase.from('applications').update({ status: newStatus }).eq('id', applicationId).in('job_id', companyJobIds);
     if (error) { showToast('更新に失敗しました', 'error'); return; }
     setApplications(applications.map(app => app.id === applicationId ? { ...app, status: newStatus } : app));
 
@@ -80,12 +84,12 @@ export default function ApplicantsPage() {
     const notifyStatuses: Record<string, string> = { interview: 'status_interview', offer: 'status_offer', rejected: 'status_rejected' };
     const emailType = notifyStatuses[newStatus];
     if (emailType) {
-      const app = applications.find(a => a.id === applicationId);
       const contactEmail = app?.profile?.contact_email;
       if (contactEmail) {
+        const { data: { session } } = await supabase.auth.getSession();
         fetch('/api/send-email', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
           body: JSON.stringify({
             type: emailType,
             to: contactEmail,
@@ -101,15 +105,14 @@ export default function ApplicantsPage() {
   const filtered = filterStatus === 'all' ? applications : applications.filter(a => a.status === filterStatus);
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBF8F4', fontFamily: "'Zen Kaku Gothic New',sans-serif" }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBF8F4', fontFamily: "var(--font-sans)" }}>
       <div style={{ width: 36, height: 36, border: '2.5px solid #F2620C', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: "'Zen Kaku Gothic New',sans-serif", color: '#1C1813' }}>
-      <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: "var(--font-sans)", color: '#1C1813' }}>
 
       {toast && (
         <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: toast.type === 'error' ? '#FEF2F2' : '#F0FDF4', border: `1px solid ${toast.type === 'error' ? '#FECACA' : '#BBF7D0'}`, color: toast.type === 'error' ? '#B91C1C' : '#15803D', borderRadius: 12, padding: '14px 24px', fontWeight: 700, fontSize: 14, boxShadow: '0 8px 32px rgba(0,0,0,.12)', whiteSpace: 'nowrap' }}>
@@ -126,7 +129,7 @@ export default function ApplicantsPage() {
 
       <div style={{ maxWidth: 960, margin: '0 auto', padding: isMobile ? '24px 12px 60px' : '48px 48px 80px' }}>
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: '#F2620C', letterSpacing: '.18em', marginBottom: 10 }}>APPLICANTS</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: '#F2620C', letterSpacing: '.18em', marginBottom: 10 }}>APPLICANTS</div>
           <h1 style={{ fontWeight: 900, fontSize: 30, margin: '0 0 4px' }}>応募者管理</h1>
           <p style={{ fontSize: 13, color: '#938B81', margin: 0 }}>全 {applications.length} 件の応募</p>
         </div>
@@ -144,7 +147,7 @@ export default function ApplicantsPage() {
             const active = filterStatus === val;
             return (
               <button key={val} onClick={() => setFilterStatus(val)}
-                style={{ border: active ? 'none' : '1px solid #EFE8DF', background: active ? '#F2620C' : '#fff', color: active ? '#fff' : '#57514A', borderRadius: 8, padding: '10px 18px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: active ? 700 : 400, fontSize: 13, cursor: 'pointer' }}>
+                style={{ border: active ? 'none' : '1px solid #EFE8DF', background: active ? '#F2620C' : '#fff', color: active ? '#fff' : '#57514A', borderRadius: 8, padding: '10px 18px', fontFamily: "var(--font-sans)", fontWeight: active ? 700 : 400, fontSize: 13, cursor: 'pointer' }}>
                 {label}（{count}）
               </button>
             );
@@ -182,25 +185,25 @@ export default function ApplicantsPage() {
 
                   <div style={{ borderTop: '1px solid #EFE8DF', paddingTop: 16, display: 'flex', gap: 8, justifyContent: isMobile ? 'stretch' : 'flex-end', flexWrap: 'wrap' }}>
                     <button onClick={() => router.push(`/chat/${app.id}`)}
-                      style={{ background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '9px 18px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                      style={{ background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '9px 18px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                       💬 メッセージ
                     </button>
                     {app.status !== 'pending' && (
                       <button onClick={() => handleStatusChange(app.id, 'pending')}
-                        style={{ background: app.status === 'pending' ? '#FFFBEB' : '#fff', color: '#B45309', border: '1px solid #FDE68A', borderRadius: 8, padding: '9px 18px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                        style={{ background: app.status === 'pending' ? '#FFFBEB' : '#fff', color: '#B45309', border: '1px solid #FDE68A', borderRadius: 8, padding: '9px 18px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                         検討中
                       </button>
                     )}
                     <button onClick={() => handleStatusChange(app.id, 'interview')}
-                      style={{ background: app.status === 'interview' ? '#EFF6FF' : '#fff', color: '#1D4ED8', border: '1px solid #BFDBFE', borderRadius: 8, padding: '9px 18px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                      style={{ background: app.status === 'interview' ? '#EFF6FF' : '#fff', color: '#1D4ED8', border: '1px solid #BFDBFE', borderRadius: 8, padding: '9px 18px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                       面接予定
                     </button>
                     <button onClick={() => handleStatusChange(app.id, 'offer')}
-                      style={{ background: app.status === 'offer' ? '#F0FDF4' : '#fff', color: '#15803D', border: '1px solid #BBF7D0', borderRadius: 8, padding: '9px 18px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                      style={{ background: app.status === 'offer' ? '#F0FDF4' : '#fff', color: '#15803D', border: '1px solid #BBF7D0', borderRadius: 8, padding: '9px 18px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                       内定
                     </button>
                     <button onClick={() => handleStatusChange(app.id, 'rejected')}
-                      style={{ background: app.status === 'rejected' ? '#FEF2F2' : '#fff', color: '#B91C1C', border: '1px solid #FECACA', borderRadius: 8, padding: '9px 18px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                      style={{ background: app.status === 'rejected' ? '#FEF2F2' : '#fff', color: '#B91C1C', border: '1px solid #FECACA', borderRadius: 8, padding: '9px 18px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                       不採用
                     </button>
                   </div>

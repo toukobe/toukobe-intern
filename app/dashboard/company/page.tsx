@@ -13,7 +13,7 @@ interface Company { id: string; company_name: string; industry: string; contact_
 
 const F = {
   label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#57514A', marginBottom: 8 } as React.CSSProperties,
-  input: { width: '100%', border: '1px solid #EFE8DF', borderRadius: 10, padding: '12px 16px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontSize: 14, color: '#1C1813', outline: 'none', boxSizing: 'border-box' as const },
+  input: { width: '100%', border: '1px solid #EFE8DF', borderRadius: 10, padding: '12px 16px', fontFamily: "var(--font-sans)", fontSize: 14, color: '#1C1813', outline: 'none', boxSizing: 'border-box' as const },
 };
 
 const STATUS_LABEL: Record<string, { text: string; bg: string; color: string; border: string }> = {
@@ -150,7 +150,7 @@ export default function CompanyDashboard() {
   };
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBF8F4', fontFamily: "'Zen Kaku Gothic New',sans-serif" }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBF8F4', fontFamily: "var(--font-sans)" }}>
       <div style={{ width: 36, height: 36, border: '2.5px solid #F2620C', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
@@ -162,8 +162,7 @@ export default function CompanyDashboard() {
   const draft = jobs.filter(j => j.status === 'draft');
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: "'Zen Kaku Gothic New',sans-serif", color: '#1C1813' }}>
-      <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: "var(--font-sans)", color: '#1C1813' }}>
 
       {/* TOAST */}
       {toast && (
@@ -183,7 +182,7 @@ export default function CompanyDashboard() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 12 }}>
-          <button onClick={() => router.push('/dashboard/company/applicants')} style={{ background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '10px 20px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer', position: 'relative' }}>
+          <button onClick={() => router.push('/dashboard/company/applicants')} style={{ background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '10px 20px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer', position: 'relative' }}>
             応募者管理
             {unreadCount > 0 && (
               <span style={{ position: 'absolute', top: -4, right: -4, minWidth: 16, height: 16, background: '#E11D48', color: '#fff', borderRadius: 999, fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', border: '2px solid #FFF1E8' }}>
@@ -191,7 +190,7 @@ export default function CompanyDashboard() {
               </span>
             )}
           </button>
-          <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} style={{ background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 8, padding: '10px 20px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>ログアウト</button>
+          <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} style={{ background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 8, padding: '10px 20px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>ログアウト</button>
         </div>
       </div>
 
@@ -214,7 +213,7 @@ export default function CompanyDashboard() {
         {/* POST JOB */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
           <h2 style={{ fontWeight: 900, fontSize: 22, margin: 0 }}>求人管理</h2>
-          <button onClick={() => router.push('/dashboard/post-job')} style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 28px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 4px 14px rgba(242,98,12,.28)' }}>
+          <button onClick={() => router.push('/dashboard/post-job')} style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 28px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 4px 14px rgba(242,98,12,.28)' }}>
             + 新しい求人を投稿
           </button>
         </div>
@@ -224,7 +223,7 @@ export default function CompanyDashboard() {
           <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: isMobile ? '40px 20px' : '60px', textAlign: 'center' }}>
             <div style={{ fontSize: 40, marginBottom: 16 }}>📋</div>
             <p style={{ fontSize: 16, color: '#938B81', margin: '0 0 20px' }}>まだ求人がありません</p>
-            <button onClick={() => router.push('/dashboard/post-job')} style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 28px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>求人を投稿する</button>
+            <button onClick={() => router.push('/dashboard/post-job')} style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 28px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>求人を投稿する</button>
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
@@ -257,19 +256,19 @@ export default function CompanyDashboard() {
                     {/* Actions */}
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 'auto', paddingTop: 14, borderTop: '1px solid #F3EDE5' }}>
                       {job.status === 'published' && (
-                        <button onClick={() => handleStatusChange(job.id, 'paused')} style={{ background: '#F3F4F6', color: '#374151', border: '1px solid #D1D5DB', borderRadius: 8, padding: '7px 13px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>募集停止</button>
+                        <button onClick={() => handleStatusChange(job.id, 'paused')} style={{ background: '#F3F4F6', color: '#374151', border: '1px solid #D1D5DB', borderRadius: 8, padding: '7px 13px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>募集停止</button>
                       )}
                       {job.status === 'paused' && (
-                        <button onClick={() => handleStatusChange(job.id, 'pending')} style={{ background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '7px 13px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>再申請</button>
+                        <button onClick={() => handleStatusChange(job.id, 'pending')} style={{ background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '7px 13px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>再申請</button>
                       )}
                       {(job.status === 'published' || job.status === 'paused') && (
-                        <button onClick={() => handleStatusChange(job.id, 'draft')} style={{ background: '#F3F4F6', color: '#6B7280', border: '1px solid #E5E7EB', borderRadius: 8, padding: '7px 13px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>非公開</button>
+                        <button onClick={() => handleStatusChange(job.id, 'draft')} style={{ background: '#F3F4F6', color: '#6B7280', border: '1px solid #E5E7EB', borderRadius: 8, padding: '7px 13px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>非公開</button>
                       )}
                       {job.status === 'draft' && (
-                        <button onClick={() => handleStatusChange(job.id, 'pending')} style={{ background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '7px 13px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>承認申請</button>
+                        <button onClick={() => handleStatusChange(job.id, 'pending')} style={{ background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '7px 13px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>承認申請</button>
                       )}
-                      <button onClick={() => router.push(`/dashboard/edit-job/${job.id}`)} style={{ background: '#F3EEE7', color: '#57514A', border: 'none', borderRadius: 8, padding: '7px 14px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>編集</button>
-                      <button onClick={() => handleDeleteJob(job.id)} style={{ background: '#FFF1EE', color: '#C2390A', border: 'none', borderRadius: 8, padding: '7px 14px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>削除</button>
+                      <button onClick={() => router.push(`/dashboard/edit-job/${job.id}`)} style={{ background: '#F3EEE7', color: '#57514A', border: 'none', borderRadius: 8, padding: '7px 14px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>編集</button>
+                      <button onClick={() => handleDeleteJob(job.id)} style={{ background: '#FFF1EE', color: '#C2390A', border: 'none', borderRadius: 8, padding: '7px 14px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>削除</button>
                     </div>
                   </div>
                 </div>
@@ -282,16 +281,16 @@ export default function CompanyDashboard() {
         <div style={{ marginTop: 40, background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: '28px 32px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
             <div>
-              <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 11, color: '#F2620C', letterSpacing: '.14em', marginBottom: 6 }}>COMPANY INFO</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: '#F2620C', letterSpacing: '.14em', marginBottom: 6 }}>COMPANY INFO</div>
               <h3 style={{ fontWeight: 700, fontSize: 18, margin: 0 }}>企業情報・公開プロフィール</h3>
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               {company && (
-                <button onClick={() => router.push(`/companies/${company.id}`)} style={{ background: '#F3EEE7', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 8, padding: '10px 16px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                <button onClick={() => router.push(`/companies/${company.id}`)} style={{ background: '#F3EEE7', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 8, padding: '10px 16px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
                   公開ページを見る →
                 </button>
               )}
-              <button onClick={() => setShowEdit(!showEdit)} style={{ background: showEdit ? '#F3EEE7' : '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '10px 20px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+              <button onClick={() => setShowEdit(!showEdit)} style={{ background: showEdit ? '#F3EEE7' : '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '10px 20px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                 {showEdit ? 'キャンセル' : '編集'}
               </button>
             </div>
@@ -309,12 +308,12 @@ export default function CompanyDashboard() {
               <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>企業ロゴ</div>
               <div style={{ fontSize: 12, color: '#938B81', marginBottom: 10 }}>PNG / JPG / WebP・2MB以内・推奨サイズ 200×200px以上</div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <label style={{ background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '9px 18px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: logoUploading ? 'not-allowed' : 'pointer', opacity: logoUploading ? 0.6 : 1 }}>
+                <label style={{ background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '9px 18px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: logoUploading ? 'not-allowed' : 'pointer', opacity: logoUploading ? 0.6 : 1 }}>
                   {logoUploading ? 'アップロード中...' : 'ロゴを変更'}
                   <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleLogoUpload} style={{ display: 'none' }} disabled={logoUploading} />
                 </label>
                 {company?.logo_url && (
-                  <button onClick={handleLogoDelete} style={{ background: '#FEF2F2', color: '#B91C1C', border: 'none', borderRadius: 8, padding: '9px 14px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>削除</button>
+                  <button onClick={handleLogoDelete} style={{ background: '#FEF2F2', color: '#B91C1C', border: 'none', borderRadius: 8, padding: '9px 14px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>削除</button>
                 )}
               </div>
             </div>
@@ -340,15 +339,15 @@ export default function CompanyDashboard() {
               </div>
             )}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <label style={{ background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '9px 18px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: coverUploading ? 'not-allowed' : 'pointer', opacity: coverUploading ? 0.6 : 1 }}>
+              <label style={{ background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '9px 18px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: coverUploading ? 'not-allowed' : 'pointer', opacity: coverUploading ? 0.6 : 1 }}>
                 {coverUploading ? 'アップロード中...' : '背景画像を変更'}
                 <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleCoverUpload} style={{ display: 'none' }} disabled={coverUploading} />
               </label>
               {company?.cover_url && !coverPositionSaved && (
-                <button onClick={handleCoverPositionSave} style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 14px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>位置を保存</button>
+                <button onClick={handleCoverPositionSave} style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 14px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>位置を保存</button>
               )}
               {company?.cover_url && (
-                <button onClick={handleCoverDelete} style={{ background: '#FEF2F2', color: '#B91C1C', border: 'none', borderRadius: 8, padding: '9px 14px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>削除</button>
+                <button onClick={handleCoverDelete} style={{ background: '#FEF2F2', color: '#B91C1C', border: 'none', borderRadius: 8, padding: '9px 14px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>削除</button>
               )}
             </div>
           </div>
@@ -390,7 +389,7 @@ export default function CompanyDashboard() {
                 <label style={F.label}>会社概要</label>
                 <textarea style={{ ...F.input, minHeight: 120, resize: 'vertical' } as React.CSSProperties} value={editForm.description} placeholder="会社の事業内容・文化・インターン生に期待することなどを記載してください" onChange={e => setEditForm({ ...editForm, description: e.target.value })} onFocus={e => (e.target as HTMLTextAreaElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLTextAreaElement).style.borderColor = '#EFE8DF'} />
               </div>
-              <button type="submit" style={{ alignSelf: 'flex-start', background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 32px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>更新する</button>
+              <button type="submit" style={{ alignSelf: 'flex-start', background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 32px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>更新する</button>
             </form>
           )}
         </div>

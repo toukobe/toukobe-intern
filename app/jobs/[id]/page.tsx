@@ -13,6 +13,7 @@ interface JobDetail {
   location: string;
   job_description: string;
   requirements: string;
+  status: string;
   job_categories: string[];
   work_days: string[];
   work_conditions: string[];
@@ -78,6 +79,7 @@ export default function JobDetailPage() {
             location,
             job_description,
             requirements,
+            status,
             job_categories,
             work_days,
             work_conditions,
@@ -225,6 +227,11 @@ export default function JobDetailPage() {
     }
     if (userType?.user_type !== 'student') return;
 
+    if (job?.status !== 'published') {
+      showToast('この求人は現在募集を停止しています', 'error');
+      return;
+    }
+
     // Check profile completeness (70% = 7/9 fields required)
     const { data: profile } = await supabase
       .from('student_profiles')
@@ -263,9 +270,10 @@ export default function JobDetailPage() {
         setHasApplied(true);
         // 企業へ応募通知メール
         if (job?.companies?.contact_email) {
+          const { data: { session } } = await supabase.auth.getSession();
           fetch('/api/send-email', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
             body: JSON.stringify({
               type: 'application_received',
               to: job.companies.contact_email,
@@ -286,15 +294,44 @@ export default function JobDetailPage() {
     }
   };
 
-  const FF = "'Zen Kaku Gothic New', sans-serif";
-  const MONO = "'IBM Plex Mono', monospace";
+  const FF = "var(--font-sans)";
+  const MONO = "var(--font-mono)";
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBF8F4', fontFamily: FF }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 44, height: 44, border: '3px solid #F2620C', borderTopColor: 'transparent', borderRadius: '50%', margin: '0 auto 16px', animation: 'spin .8s linear infinite' }} />
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: FF }}>
+        <div style={{ background: 'rgba(255,255,255,.95)', borderBottom: '1px solid #EFE8DF', padding: isMobile ? '14px 16px' : '14px 48px', display: 'flex', alignItems: 'center' }}>
+          <img src="/toukobe-intern-logo.png" alt="トウコべインターン" style={{ height: 36 }} />
+        </div>
+        <div style={{ maxWidth: 1100, margin: '0 auto', padding: isMobile ? '20px 12px' : '32px 24px' }}>
+          <div className="skeleton" style={{ height: 14, width: 220, marginBottom: 24 }} />
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 320px', gap: 24, alignItems: 'start' }}>
+            <div>
+              <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 18, overflow: 'hidden', marginBottom: 20 }}>
+                <div className="skeleton" style={{ height: isMobile ? 160 : 260, borderRadius: 0 }} />
+                <div style={{ padding: isMobile ? '20px 16px' : '24px 32px' }}>
+                  <div className="skeleton" style={{ height: 14, width: '30%', marginBottom: 12 }} />
+                  <div className="skeleton" style={{ height: 24, width: '75%', marginBottom: 16 }} />
+                  <div className="skeleton" style={{ height: 14, width: '50%' }} />
+                </div>
+              </div>
+              <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 14, padding: isMobile ? '20px 16px' : '28px 32px' }}>
+                <div className="skeleton" style={{ height: 18, width: '25%', marginBottom: 16 }} />
+                <div className="skeleton" style={{ height: 12, width: '100%', marginBottom: 8 }} />
+                <div className="skeleton" style={{ height: 12, width: '92%', marginBottom: 8 }} />
+                <div className="skeleton" style={{ height: 12, width: '80%' }} />
+              </div>
+            </div>
+            {!isMobile && (
+              <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, overflow: 'hidden' }}>
+                <div className="skeleton" style={{ height: 80, borderRadius: 0 }} />
+                <div style={{ padding: '16px 20px 20px' }}>
+                  <div className="skeleton" style={{ height: 16, width: '60%', marginBottom: 12 }} />
+                  <div className="skeleton" style={{ height: 44, width: '100%' }} />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -314,13 +351,13 @@ export default function JobDetailPage() {
   }
 
   const isStudent = userType?.user_type === 'student';
+  const isOpenForApplication = job.status === 'published';
 
   return (
     <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: FF, color: '#1C1813', paddingBottom: 100 }}>
-      <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
       {toast && (
-        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: toast.type === 'error' ? '#FEF2F2' : '#F0FDF4', border: `1px solid ${toast.type === 'error' ? '#FECACA' : '#BBF7D0'}`, color: toast.type === 'error' ? '#B91C1C' : '#15803D', borderRadius: 12, padding: '14px 24px', fontWeight: 700, fontSize: 14, boxShadow: '0 8px 32px rgba(0,0,0,.12)', whiteSpace: 'nowrap' }}>
+        <div className="anim-fade-up" style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: toast.type === 'error' ? '#FEF2F2' : '#F0FDF4', border: `1px solid ${toast.type === 'error' ? '#FECACA' : '#BBF7D0'}`, color: toast.type === 'error' ? '#B91C1C' : '#15803D', borderRadius: 12, padding: '14px 24px', fontWeight: 700, fontSize: 14, boxShadow: '0 8px 32px rgba(0,0,0,.12)', whiteSpace: 'nowrap' }}>
           {toast.type === 'success' ? '✓ ' : '✕ '}{toast.msg}
         </div>
       )}
@@ -537,7 +574,7 @@ export default function JobDetailPage() {
                 {/* CTA buttons */}
                 {!user && (
                   <>
-                    <button onClick={() => router.push(`/auth/login?redirect=/jobs/${jobId}`)}
+                    <button className="btn-primary" onClick={() => router.push(`/auth/login?redirect=/jobs/${jobId}`)}
                       style={{ width: '100%', background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '14px', fontFamily: FF, fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 4px 14px rgba(242,98,12,.28)', marginBottom: 10 }}>
                       エントリーする
                     </button>
@@ -547,9 +584,9 @@ export default function JobDetailPage() {
                     </button>
                   </>
                 )}
-                {user && isStudent && !hasApplied && (
+                {user && isStudent && !hasApplied && isOpenForApplication && (
                   <>
-                    <button onClick={() => setShowApplyModal(true)}
+                    <button className="btn-primary" onClick={() => setShowApplyModal(true)}
                       style={{ width: '100%', background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '14px', fontFamily: FF, fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 4px 14px rgba(242,98,12,.28)', marginBottom: 10 }}>
                       エントリーする
                     </button>
@@ -558,6 +595,11 @@ export default function JobDetailPage() {
                       {isFavorited ? '♥ お気に入り済み' : '♡ お気に入りに追加'}
                     </button>
                   </>
+                )}
+                {user && isStudent && !hasApplied && !isOpenForApplication && (
+                  <div style={{ width: '100%', background: '#F3F4F6', color: '#6B7280', border: '1px solid #E5E7EB', borderRadius: 10, padding: '14px', fontWeight: 700, fontSize: 14, textAlign: 'center' }}>
+                    募集を終了しています
+                  </div>
                 )}
                 {user && isStudent && hasApplied && (
                   <div style={{ width: '100%', background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0', borderRadius: 10, padding: '14px', fontWeight: 700, fontSize: 14, textAlign: 'center' }}>
@@ -610,9 +652,9 @@ export default function JobDetailPage() {
                       {/* サムネ */}
                       <div style={{ width: 60, height: 44, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: 'linear-gradient(135deg,#F2620C,#FB8A3C)', position: 'relative' }}>
                         {r.cover_image_url
-                          ? <img src={r.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: r.cover_image_position || '50% 50%', display: 'block' }} />
+                          ? <img src={r.cover_image_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: r.cover_image_position || '50% 50%', display: 'block' }} />
                           : r.companies?.logo_url
-                            ? <img src={r.companies.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 6, display: 'block', background: '#fff' }} />
+                            ? <img src={r.companies.logo_url} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 6, display: 'block', background: '#fff' }} />
                             : null
                         }
                       </div>
@@ -680,11 +722,13 @@ export default function JobDetailPage() {
       {/* 応募確認モーダル */}
       {showApplyModal && (
         <div
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+          className="anim-fade"
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, animationDuration: '.25s' }}
           onClick={() => setShowApplyModal(false)}
         >
           <div
-            style={{ background: '#fff', borderRadius: 20, padding: '36px 32px', maxWidth: 460, width: '100%', boxShadow: '0 24px 64px rgba(0,0,0,.2)', fontFamily: FF }}
+            className="anim-fade-up"
+            style={{ background: '#fff', borderRadius: 20, padding: '36px 32px', maxWidth: 460, width: '100%', boxShadow: '0 24px 64px rgba(0,0,0,.2)', fontFamily: FF, animationDuration: '.35s' }}
             onClick={e => e.stopPropagation()}
           >
             {/* 企業ロゴ・求人名 */}
@@ -719,6 +763,7 @@ export default function JobDetailPage() {
             {/* ボタン */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <button
+                className="btn-primary"
                 onClick={async () => { setShowApplyModal(false); await handleApply(); }}
                 disabled={isApplying}
                 style={{ width: '100%', background: '#F2620C', color: '#fff', border: 'none', borderRadius: 12, padding: '15px', fontFamily: FF, fontWeight: 700, fontSize: 15, cursor: isApplying ? 'not-allowed' : 'pointer', opacity: isApplying ? 0.7 : 1, boxShadow: '0 4px 14px rgba(242,98,12,.3)' }}
@@ -757,18 +802,28 @@ export default function JobDetailPage() {
           {/* Apply button */}
           {!user && (
             <button
+              className="btn-primary"
               onClick={() => router.push(`/auth/login?redirect=/jobs/${jobId}`)}
               style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '0 28px', height: 48, fontFamily: FF, fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 4px 14px rgba(242,98,12,.3)' }}
             >
               ログインして応募
             </button>
           )}
-          {user && isStudent && !hasApplied && (
+          {user && isStudent && !hasApplied && isOpenForApplication && (
             <button
+              className="btn-primary"
               onClick={() => setShowApplyModal(true)}
               style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '0 28px', height: 48, fontFamily: FF, fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 4px 14px rgba(242,98,12,.3)' }}
             >
               この求人に応募する
+            </button>
+          )}
+          {user && isStudent && !hasApplied && !isOpenForApplication && (
+            <button
+              disabled
+              style={{ background: '#EFE8DF', color: '#938B81', border: 'none', borderRadius: 10, padding: '0 28px', height: 48, fontFamily: FF, fontWeight: 700, fontSize: 14, cursor: 'not-allowed' }}
+            >
+              募集終了
             </button>
           )}
           {user && isStudent && hasApplied && (

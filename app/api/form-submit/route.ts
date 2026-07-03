@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
+import { escapeHtml, sanitizeSubject, isValidEmail, rateLimit } from '@/utils/apiSecurity';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -41,12 +42,31 @@ const footer = `
 
 export async function POST(req: NextRequest) {
   try {
+    // IP単位のレート制限（10分間に5件まで）
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    if (!rateLimit(`form-submit:${ip}`, 5, 10 * 60 * 1000)) {
+      return NextResponse.json({ error: 'rate limit exceeded' }, { status: 429 });
+    }
+
     const body = await req.json();
-    const { form_type, company_name, contact_name, legal_email, billing_email, account_email, notes, source } = body;
+    const clip = (v: unknown, max: number) => (typeof v === 'string' ? v.slice(0, max) : v == null ? v : String(v).slice(0, max));
+    const form_type = clip(body.form_type, 20);
+    const company_name = clip(body.company_name, 200);
+    const contact_name = clip(body.contact_name, 100);
+    const legal_email = clip(body.legal_email, 254);
+    const billing_email = clip(body.billing_email, 254);
+    const account_email = clip(body.account_email, 254);
+    const notes = clip(body.notes, 5000);
+    const source = clip(body.source, 200);
 
     const isContact = form_type === 'contact';
-    if (!form_type || (!isContact && !company_name) || (isContact && !contact_name)) {
+    if (!form_type || !(form_type in FORM_LABELS) || (!isContact && !company_name) || (isContact && !contact_name)) {
       return NextResponse.json({ error: 'missing required fields' }, { status: 400 });
+    }
+    for (const email of [legal_email, billing_email, account_email]) {
+      if (email && !isValidEmail(email)) {
+        return NextResponse.json({ error: 'invalid email format' }, { status: 400 });
+      }
     }
 
     const { error: dbError } = await supabase
@@ -58,24 +78,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'db error' }, { status: 500 });
     }
 
-    const formLabel = FORM_LABELS[form_type] || 'フォーム申し込み';
+    const formLabel = FORM_LABELS[form_type as string] || 'フォーム申し込み';
+
+    // メールに差し込む値はすべてエスケープする（HTMLインジェクション防止）
+    const e = {
+      company_name: escapeHtml(company_name),
+      contact_name: escapeHtml(contact_name),
+      legal_email: escapeHtml(legal_email),
+      billing_email: escapeHtml(billing_email),
+      account_email: escapeHtml(account_email),
+      notes: escapeHtml(notes),
+      source: escapeHtml(source),
+    };
 
     // 回答内容の表テンプレート（フォーム種別で列ラベルを切り替え）
     const answerTable = form_type === 'contact'
       ? `<table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:24px">
-  ${row('お名前', contact_name)}
-  ${row('メールアドレス', legal_email)}
-  ${row('お問い合わせ種別', source)}
-  ${row('お問い合わせ内容', notes)}
+  ${row('お名前', e.contact_name)}
+  ${row('メールアドレス', e.legal_email)}
+  ${row('お問い合わせ種別', e.source)}
+  ${row('お問い合わせ内容', e.notes)}
 </table>`
       : `<table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:24px">
-  ${row('企業名', company_name)}
-  ${row('担当者名', contact_name)}
-  ${row('法務メールアドレス', legal_email)}
-  ${row('請求先メールアドレス', billing_email)}
-  ${row('アカウント登録メール', account_email)}
-  ${row('情報源', source)}
-  ${row('その他ご要望', notes)}
+  ${row('企業名', e.company_name)}
+  ${row('担当者名', e.contact_name)}
+  ${row('法務メールアドレス', e.legal_email)}
+  ${row('請求先メールアドレス', e.billing_email)}
+  ${row('アカウント登録メール', e.account_email)}
+  ${row('情報源', e.source)}
+  ${row('その他ご要望', e.notes)}
 </table>`;
 
     // ① 管理者宛メール
@@ -89,7 +120,7 @@ export async function POST(req: NextRequest) {
     const submitterHtml = header(`
     <h2 style="font-size:20px;margin:0 0 8px">${isContact ? 'お問い合わせありがとうございます' : 'お申し込みありがとうございます'}</h2>
     <p style="font-size:14px;color:#57514A;line-height:1.8;margin:0 0 24px">
-      ${contact_name ? `${contact_name} 様、` : ''}以下の内容で${isContact ? 'お問い合わせ' : 'お申し込み'}を受け付けました。<br>
+      ${e.contact_name ? `${e.contact_name} 様、` : ''}以下の内容で${isContact ? 'お問い合わせ' : 'お申し込み'}を受け付けました。<br>
       担当者より<strong>1営業日以内</strong>にご連絡いたします。
     </p>
     <div style="background:#FBF8F4;border-radius:10px;padding:16px 20px;margin-bottom:24px">
@@ -101,8 +132,8 @@ export async function POST(req: NextRequest) {
     </p>`) + footer;
 
     const adminSubject = isContact
-      ? `【お問い合わせ】${contact_name || '（名前なし）'} よりお問い合わせがありました`
-      : `【${formLabel}】${company_name} より申し込みがありました`;
+      ? `【お問い合わせ】${sanitizeSubject(contact_name) || '（名前なし）'} よりお問い合わせがありました`
+      : `【${formLabel}】${sanitizeSubject(company_name)} より申し込みがありました`;
 
     // 送信（並列）
     const sends = [

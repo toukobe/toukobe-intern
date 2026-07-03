@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIsMobile } from '@/utils/useIsMobile';
 
-const FF = "'Zen Kaku Gothic New', sans-serif";
-const MONO = "'IBM Plex Mono', monospace";
+const FF = "var(--font-sans)";
+const MONO = "var(--font-mono)";
 
 const faqs = [
   {
@@ -95,7 +95,6 @@ export default function FaqPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: FF, color: '#1C1813' }}>
-      <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
       {/* NAV */}
       <div style={{ background: 'rgba(255,255,255,.95)', borderBottom: '1px solid #EFE8DF', padding: isMobile ? '14px 16px' : '14px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 }}>

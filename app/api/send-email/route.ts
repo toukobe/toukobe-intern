@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
+import { escapeHtml, sanitizeSubject, isValidEmail, rateLimit } from '@/utils/apiSecurity';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.RESEND_FROM_EMAIL || 'noreply@toukobe-intern.com';
 const SITE = 'https://toukobe-intern.com';
+
+const anonClient = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 type EmailType =
   | 'application_received'   // 企業宛: 学生が応募した
@@ -11,6 +18,8 @@ type EmailType =
   | 'status_offer'           // 学生宛: 内定が出た
   | 'status_rejected'        // 学生宛: 不採用になった
   | 'student_welcome';       // 学生宛: 登録完了ウェルカム
+
+const EMAIL_TYPES: EmailType[] = ['application_received', 'status_interview', 'status_offer', 'status_rejected', 'student_welcome'];
 
 interface EmailPayload {
   type: EmailType;
@@ -25,6 +34,19 @@ interface EmailPayload {
   applicationId?: string;
   // ステータス変更 (学生宛)
   jobId?: string;
+}
+
+// メールに差し込むフィールドをすべてエスケープ済みにする
+function sanitizePayload(p: EmailPayload): EmailPayload {
+  return {
+    ...p,
+    jobTitle: escapeHtml(p.jobTitle).slice(0, 200),
+    companyName: escapeHtml(p.companyName).slice(0, 200),
+    studentName: escapeHtml(p.studentName).slice(0, 100),
+    studentUniversity: escapeHtml(p.studentUniversity).slice(0, 100),
+    studentGrade: escapeHtml(p.studentGrade).slice(0, 50),
+    jobId: typeof p.jobId === 'string' && /^[0-9a-f-]{1,64}$/i.test(p.jobId) ? p.jobId : undefined,
+  };
 }
 
 function applicationReceivedHtml(p: EmailPayload) {
@@ -117,18 +139,39 @@ function studentWelcomeHtml(p: EmailPayload) {
 
 export async function POST(req: NextRequest) {
   try {
-    const payload: EmailPayload = await req.json();
-    const { type, to } = payload;
-
-    if (!to || !type) {
-      return NextResponse.json({ error: 'missing fields' }, { status: 400 });
+    // 認証必須: ログイン済みユーザーの Supabase アクセストークンを検証する
+    const authHeader = req.headers.get('authorization') || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '');
+    if (!token) {
+      return NextResponse.json({ error: 'authentication required' }, { status: 401 });
+    }
+    const { data: { user }, error: authError } = await anonClient.auth.getUser(token);
+    if (authError || !user) {
+      return NextResponse.json({ error: 'invalid token' }, { status: 401 });
     }
 
+    // ユーザー単位のレート制限（1時間に20通まで）
+    if (!rateLimit(`send-email:${user.id}`, 20, 60 * 60 * 1000)) {
+      return NextResponse.json({ error: 'rate limit exceeded' }, { status: 429 });
+    }
+
+    const rawPayload: EmailPayload = await req.json();
+    const { type, to } = rawPayload;
+
+    if (!to || !type || !EMAIL_TYPES.includes(type)) {
+      return NextResponse.json({ error: 'missing fields' }, { status: 400 });
+    }
+    if (!isValidEmail(to)) {
+      return NextResponse.json({ error: 'invalid recipient' }, { status: 400 });
+    }
+
+    const payload = sanitizePayload(rawPayload);
+
     const subjectMap: Record<EmailType, string> = {
-      application_received: `【新着応募】${payload.jobTitle} への応募がありました`,
-      status_interview: `【面接予定】${payload.companyName}「${payload.jobTitle}」の選考結果`,
-      status_offer: `【内定】${payload.companyName}「${payload.jobTitle}」の選考結果`,
-      status_rejected: `【選考結果】${payload.companyName}「${payload.jobTitle}」の選考結果`,
+      application_received: `【新着応募】${sanitizeSubject(rawPayload.jobTitle)} への応募がありました`,
+      status_interview: `【面接予定】${sanitizeSubject(rawPayload.companyName)}「${sanitizeSubject(rawPayload.jobTitle)}」の選考結果`,
+      status_offer: `【内定】${sanitizeSubject(rawPayload.companyName)}「${sanitizeSubject(rawPayload.jobTitle)}」の選考結果`,
+      status_rejected: `【選考結果】${sanitizeSubject(rawPayload.companyName)}「${sanitizeSubject(rawPayload.jobTitle)}」の選考結果`,
       student_welcome: 'トウコべインターンへようこそ！登録が完了しました',
     };
 
@@ -147,13 +190,15 @@ export async function POST(req: NextRequest) {
     const { error } = await resend.emails.send({
       from: `トウコべインターン <${FROM}>`,
       to: actualTo,
-      subject: `[テスト: 本来の宛先: ${to}] ${subjectMap[type]}`,
+      subject: FROM === 'onboarding@resend.dev'
+        ? `[テスト: 本来の宛先: ${sanitizeSubject(to, 254)}] ${subjectMap[type]}`
+        : subjectMap[type],
       html,
     });
 
     if (error) {
       console.error('Resend error:', error);
-      return NextResponse.json({ error }, { status: 500 });
+      return NextResponse.json({ error: 'send failed' }, { status: 500 });
     }
 
     return NextResponse.json({ ok: true });

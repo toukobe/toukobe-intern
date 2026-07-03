@@ -12,7 +12,7 @@ type Tab = 'overview' | 'jobs' | 'companies' | 'interactions' | 'forms' | 'docs'
 
 const F = {
   label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#57514A', marginBottom: 8 } as React.CSSProperties,
-  input: { width: '100%', border: '1px solid #EFE8DF', borderRadius: 10, padding: '12px 16px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontSize: 14, color: '#1C1813', outline: 'none', boxSizing: 'border-box' as const },
+  input: { width: '100%', border: '1px solid #EFE8DF', borderRadius: 10, padding: '12px 16px', fontFamily: "var(--font-sans)", fontSize: 14, color: '#1C1813', outline: 'none', boxSizing: 'border-box' as const },
 };
 
 export default function AdminDashboard() {
@@ -44,7 +44,7 @@ export default function AdminDashboard() {
   }, [router]);
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBF8F4', fontFamily: "'Zen Kaku Gothic New',sans-serif" }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBF8F4', fontFamily: "var(--font-sans)" }}>
       <div style={{ width: 36, height: 36, border: '2.5px solid #F2620C', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
@@ -68,18 +68,17 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: "'Zen Kaku Gothic New',sans-serif", color: '#1C1813' }}>
-      <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;700;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <div style={{ minHeight: '100vh', background: '#FBF8F4', fontFamily: "var(--font-sans)", color: '#1C1813' }}>
 
       {/* NAV */}
       <div style={{ background: '#1C1813', padding: isMobile ? '14px 16px' : '14px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
           <img src="/toukobe-intern-logo.png" alt="トウコべインターン" style={{ height: 34, width: 'auto', cursor: 'pointer' }} onClick={() => router.push('/')} />
-          <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 11, color: '#FBA94C', background: 'rgba(251,169,76,.15)', padding: '3px 10px', borderRadius: 999 }}>ADMIN</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: '#FBA94C', background: 'rgba(251,169,76,.15)', padding: '3px 10px', borderRadius: 999 }}>ADMIN</span>
         </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <span style={{ fontSize: 13, color: '#9A9086' }}>{user?.email}</span>
-          <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} style={{ background: 'rgba(255,255,255,.08)', color: '#C9C0B6', border: 'none', borderRadius: 8, padding: '9px 18px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>ログアウト</button>
+          <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} style={{ background: 'rgba(255,255,255,.08)', color: '#C9C0B6', border: 'none', borderRadius: 8, padding: '9px 18px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>ログアウト</button>
         </div>
       </div>
 
@@ -87,7 +86,7 @@ export default function AdminDashboard() {
         {/* TABS */}
         <div style={{ display: 'flex', gap: 0, marginBottom: 36, background: '#fff', border: '1px solid #EFE8DF', borderRadius: 12, padding: 6, width: isMobile ? '100%' : 'fit-content', overflowX: isMobile ? 'auto' : undefined, flexWrap: isMobile ? 'nowrap' : undefined }}>
           {TABS.map(t => (
-            <button key={t.key} onClick={() => setTab(t.key)} style={{ border: 'none', borderRadius: 8, padding: '10px 24px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: '.2s', background: tab === t.key ? '#F2620C' : 'transparent', color: tab === t.key ? '#fff' : '#57514A', position: 'relative' }}>
+            <button key={t.key} onClick={() => setTab(t.key)} style={{ border: 'none', borderRadius: 8, padding: '10px 24px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: '.2s', background: tab === t.key ? '#F2620C' : 'transparent', color: tab === t.key ? '#fff' : '#57514A', position: 'relative' }}>
               {t.label}
               {t.key === 'jobs' && pendingJobCount > 0 && (
                 <span style={{ position: 'absolute', top: 4, right: 6, minWidth: 16, height: 16, background: '#E11D48', color: '#fff', borderRadius: 999, fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
@@ -101,7 +100,7 @@ export default function AdminDashboard() {
         {/* OVERVIEW */}
         {tab === 'overview' && (
           <div>
-            <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 12, color: '#F2620C', letterSpacing: '.14em', marginBottom: 12 }}>OVERVIEW</div>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: '#F2620C', letterSpacing: '.14em', marginBottom: 12 }}>OVERVIEW</div>
             <h2 style={{ fontWeight: 900, fontSize: 24, margin: '0 0 24px' }}>サイト統計</h2>
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(5,1fr)', gap: 16 }}>
               {STAT_CARDS.map(s => (
@@ -191,16 +190,16 @@ function AdminJobsTab() {
           {toast.type === 'success' ? '✓ ' : '✕ '}{toast.msg}
         </div>
       )}
-      <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 12, color: '#F2620C', letterSpacing: '.14em', marginBottom: 12 }}>JOB APPROVAL</div>
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: '#F2620C', letterSpacing: '.14em', marginBottom: 12 }}>JOB APPROVAL</div>
       <h2 style={{ fontWeight: 900, fontSize: 24, margin: '0 0 24px' }}>求人承認管理</h2>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
         <button onClick={() => setFilter('pending')}
-          style={{ border: filter === 'pending' ? 'none' : '1px solid #EFE8DF', background: filter === 'pending' ? '#F2620C' : '#fff', color: filter === 'pending' ? '#fff' : '#57514A', borderRadius: 8, padding: '10px 20px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer' } as React.CSSProperties}>
+          style={{ border: filter === 'pending' ? 'none' : '1px solid #EFE8DF', background: filter === 'pending' ? '#F2620C' : '#fff', color: filter === 'pending' ? '#fff' : '#57514A', borderRadius: 8, padding: '10px 20px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' } as React.CSSProperties}>
           承認待ち（{pendingCount}）
         </button>
         <button onClick={() => setFilter('all')}
-          style={{ border: filter === 'all' ? 'none' : '1px solid #EFE8DF', background: filter === 'all' ? '#F2620C' : '#fff', color: filter === 'all' ? '#fff' : '#57514A', borderRadius: 8, padding: '10px 20px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer' } as React.CSSProperties}>
+          style={{ border: filter === 'all' ? 'none' : '1px solid #EFE8DF', background: filter === 'all' ? '#F2620C' : '#fff', color: filter === 'all' ? '#fff' : '#57514A', borderRadius: 8, padding: '10px 20px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' } as React.CSSProperties}>
           全件（{jobs.length}）
         </button>
       </div>
@@ -229,11 +228,11 @@ function AdminJobsTab() {
                 {j.status === 'pending' && (
                   <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
                     <button onClick={() => handleApprove(j.id)}
-                      style={{ background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0', borderRadius: 8, padding: '8px 18px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                      style={{ background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0', borderRadius: 8, padding: '8px 18px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                       承認
                     </button>
                     <button onClick={() => handleReject(j.id)}
-                      style={{ background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA', borderRadius: 8, padding: '8px 18px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                      style={{ background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA', borderRadius: 8, padding: '8px 18px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                       差し戻し
                     </button>
                   </div>
@@ -269,11 +268,15 @@ function AdminCompaniesTab() {
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { data: company, error: ce } = await supabase.from('companies').insert([{ company_name: form.company_name, industry: form.industry, contact_email: form.contact_email }]).select().single();
-      if (ce) throw ce;
-      const { data: authData, error: ae } = await supabase.auth.admin.createUser({ email: form.login_email, password: Math.random().toString(36).slice(-12), email_confirm: true });
-      if (ae) throw ae;
-      await supabase.from('user_types').insert([{ user_id: authData.user.id, user_type: 'company', company_id: company.id }]);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('認証セッションが見つかりません');
+      const res = await fetch('/api/admin/create-company', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify(form),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || '追加に失敗しました');
       showToast(`企業を追加しました（${form.login_email}）`);
       setForm({ company_name: '', industry: '', contact_email: '', login_email: '' });
       setShowForm(false);
@@ -306,7 +309,7 @@ function AdminCompaniesTab() {
 
   if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><div style={{ width: 36, height: 36, border: '2.5px solid #F2620C', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /></div>;
 
-  const F2 = { label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#57514A', marginBottom: 8 } as React.CSSProperties, input: { width: '100%', border: '1px solid #EFE8DF', borderRadius: 10, padding: '12px 16px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontSize: 14, color: '#1C1813', outline: 'none', boxSizing: 'border-box' as const } };
+  const F2 = { label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#57514A', marginBottom: 8 } as React.CSSProperties, input: { width: '100%', border: '1px solid #EFE8DF', borderRadius: 10, padding: '12px 16px', fontFamily: "var(--font-sans)", fontSize: 14, color: '#1C1813', outline: 'none', boxSizing: 'border-box' as const } };
 
   return (
     <div>
@@ -325,8 +328,8 @@ function AdminCompaniesTab() {
               <div><label style={F2.label}>業種 *</label><input style={F2.input} value={editForm.industry} onChange={e => setEditForm({ ...editForm, industry: e.target.value })} required onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} /></div>
               <div><label style={F2.label}>企業メール *</label><input style={F2.input} type="email" value={editForm.contact_email} onChange={e => setEditForm({ ...editForm, contact_email: e.target.value })} required onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} /></div>
               <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-                <button type="submit" style={{ flex: 1, background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '13px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>保存</button>
-                <button type="button" onClick={() => setEditingCompany(null)} style={{ flex: 1, background: '#F3EEE7', color: '#57514A', border: 'none', borderRadius: 10, padding: '13px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>キャンセル</button>
+                <button type="submit" style={{ flex: 1, background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '13px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>保存</button>
+                <button type="button" onClick={() => setEditingCompany(null)} style={{ flex: 1, background: '#F3EEE7', color: '#57514A', border: 'none', borderRadius: 10, padding: '13px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>キャンセル</button>
               </div>
             </form>
           </div>
@@ -335,10 +338,10 @@ function AdminCompaniesTab() {
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
-          <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 12, color: '#F2620C', letterSpacing: '.14em', marginBottom: 6 }}>COMPANIES</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: '#F2620C', letterSpacing: '.14em', marginBottom: 6 }}>COMPANIES</div>
           <h2 style={{ fontWeight: 900, fontSize: 24, margin: 0 }}>企業管理 ({companies.length}社)</h2>
         </div>
-        <button onClick={() => setShowForm(!showForm)} style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 24px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+        <button onClick={() => setShowForm(!showForm)} style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 24px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
           {showForm ? 'キャンセル' : '+ 企業を追加'}
         </button>
       </div>
@@ -352,7 +355,7 @@ function AdminCompaniesTab() {
             <div><label style={F2.label}>企業メール *</label><input style={F2.input} type="email" value={form.contact_email} onChange={e => setForm({ ...form, contact_email: e.target.value })} required onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} /></div>
             <div><label style={F2.label}>ログインメール *</label><input style={F2.input} type="email" value={form.login_email} onChange={e => setForm({ ...form, login_email: e.target.value })} required onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} /></div>
             <div style={{ gridColumn: '1/-1' }}>
-              <button type="submit" style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 32px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>企業を登録する</button>
+              <button type="submit" style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 32px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>企業を登録する</button>
             </div>
           </form>
         </div>
@@ -372,7 +375,7 @@ function AdminCompaniesTab() {
               <tr key={c.id} style={{ borderBottom: i < companies.length - 1 ? '1px solid #EFE8DF' : 'none' }}>
                 <td style={{ padding: '16px 20px', fontWeight: 700, fontSize: 14 }}>{c.company_name}</td>
                 <td style={{ padding: '16px 20px', fontSize: 13, color: '#57514A' }}>{c.industry}</td>
-                <td style={{ padding: '16px 20px', fontSize: 13, color: '#57514A', fontFamily: "'IBM Plex Mono',monospace" }}>{c.contact_email}</td>
+                <td style={{ padding: '16px 20px', fontSize: 13, color: '#57514A', fontFamily: "var(--font-mono)" }}>{c.contact_email}</td>
                 <td style={{ padding: '16px 20px' }}>
                   <div style={{ display: 'flex', gap: 10 }}>
                     <span onClick={() => handleEditOpen(c)} style={{ fontSize: 13, color: '#F2620C', fontWeight: 700, cursor: 'pointer' }}>編集</span>
@@ -412,7 +415,7 @@ function AdminInteractionsTab() {
 
   return (
     <div>
-      <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 12, color: '#F2620C', letterSpacing: '.14em', marginBottom: 12 }}>INTERACTIONS</div>
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: '#F2620C', letterSpacing: '.14em', marginBottom: 12 }}>INTERACTIONS</div>
       <h2 style={{ fontWeight: 900, fontSize: 24, margin: '0 0 24px' }}>チャット一覧（最新100件）</h2>
       <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -432,7 +435,7 @@ function AdminInteractionsTab() {
                 <td style={{ padding: '16px 20px', fontSize: 12 }}>
                   <span style={{ color: m.is_read ? '#15803D' : '#B45309', fontWeight: 600 }}>{m.is_read ? '既読' : '未読'}</span>
                 </td>
-                <td style={{ padding: '16px 20px', fontSize: 12, color: '#938B81', whiteSpace: 'nowrap', fontFamily: "'IBM Plex Mono',monospace" }}>{new Date(m.created_at).toLocaleString('ja-JP')}</td>
+                <td style={{ padding: '16px 20px', fontSize: 12, color: '#938B81', whiteSpace: 'nowrap', fontFamily: "var(--font-mono)" }}>{new Date(m.created_at).toLocaleString('ja-JP')}</td>
               </tr>
             ))}
           </tbody>
@@ -539,10 +542,10 @@ function AdminFormsTab() {
       {/* ヘッダー */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 12, color: '#F2620C', letterSpacing: '.14em', marginBottom: 4 }}>FORMS</div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: '#F2620C', letterSpacing: '.14em', marginBottom: 4 }}>FORMS</div>
           <h2 style={{ fontWeight: 900, fontSize: 22, margin: 0 }}>フォーム申し込み管理</h2>
         </div>
-        <button onClick={exportCsv} style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>CSVエクスポート</button>
+        <button onClick={exportCsv} style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>CSVエクスポート</button>
       </div>
 
       {/* フォームリンク */}
@@ -550,7 +553,7 @@ function AdminFormsTab() {
         {FORM_LINKS.map(f => (
           <div key={f.key} style={{ background: f.bg, border: `1px solid ${f.border}`, borderRadius: 12, padding: '14px 16px' }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: f.color, marginBottom: 8 }}>{f.label}</div>
-            <div style={{ fontSize: 11, color: '#938B81', marginBottom: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: "'IBM Plex Mono',monospace" }}>
+            <div style={{ fontSize: 11, color: '#938B81', marginBottom: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: "var(--font-mono)" }}>
               {typeof window !== 'undefined' ? window.location.origin : ''}{f.path}
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
@@ -571,7 +574,7 @@ function AdminFormsTab() {
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         {([['all', 'すべて'], ['new', '未対応'], ['in_progress', '対応中'], ['done', '対応済み']] as const).map(([key, label]) => (
           <button key={key} onClick={() => setFilterStatus(key)}
-            style={{ border: filterStatus === key ? '2px solid #F2620C' : '1px solid #EFE8DF', background: filterStatus === key ? '#FFF1E8' : '#fff', color: filterStatus === key ? '#F2620C' : '#57514A', borderRadius: 999, padding: '7px 16px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+            style={{ border: filterStatus === key ? '2px solid #F2620C' : '1px solid #EFE8DF', background: filterStatus === key ? '#FFF1E8' : '#fff', color: filterStatus === key ? '#F2620C' : '#57514A', borderRadius: 999, padding: '7px 16px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
             {label}
             <span style={{ fontSize: 11, fontWeight: 700, background: filterStatus === key ? '#F2620C' : '#F3EEE7', color: filterStatus === key ? '#fff' : '#938B81', borderRadius: 999, padding: '1px 7px' }}>{counts[key]}</span>
           </button>
@@ -636,16 +639,16 @@ function AdminFormsTab() {
                         value={memoVal}
                         onChange={e => setMemoEditing(p => ({ ...p, [r.id]: e.target.value }))}
                         rows={3}
-                        style={{ width: '100%', border: '1.5px solid #F2620C', borderRadius: 8, padding: '10px 12px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontSize: 13, color: '#1C1813', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
+                        style={{ width: '100%', border: '1.5px solid #F2620C', borderRadius: 8, padding: '10px 12px', fontFamily: "var(--font-sans)", fontSize: 13, color: '#1C1813', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
                         autoFocus
                       />
                       <div style={{ display: 'flex', gap: 8 }}>
                         <button onClick={() => saveMemo(r.id)} disabled={savingMemo[r.id]}
-                          style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 18px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 12, cursor: 'pointer', opacity: savingMemo[r.id] ? 0.7 : 1 }}>
+                          style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 18px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 12, cursor: 'pointer', opacity: savingMemo[r.id] ? 0.7 : 1 }}>
                           {savingMemo[r.id] ? '保存中...' : '保存'}
                         </button>
                         <button onClick={() => setMemoEditing(p => { const n = { ...p }; delete n[r.id]; return n; })}
-                          style={{ background: '#fff', color: '#938B81', border: '1px solid #EFE8DF', borderRadius: 8, padding: '8px 18px', fontFamily: "'Zen Kaku Gothic New',sans-serif", fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
+                          style={{ background: '#fff', color: '#938B81', border: '1px solid #EFE8DF', borderRadius: 8, padding: '8px 18px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
                           キャンセル
                         </button>
                       </div>
@@ -689,15 +692,15 @@ function AdminDocsTab() {
   };
   return (
     <div>
-      <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 12, color: '#F2620C', letterSpacing: '.14em', marginBottom: 12 }}>API DOCS</div>
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: '#F2620C', letterSpacing: '.14em', marginBottom: 12 }}>API DOCS</div>
       <h2 style={{ fontWeight: 900, fontSize: 24, margin: '0 0 24px' }}>APIドキュメント</h2>
       <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, overflow: 'hidden' }}>
         {endpoints.map((ep, i) => {
           const mc = METHOD_COLOR[ep.method];
           return (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px 24px', borderBottom: i < endpoints.length - 1 ? '1px solid #EFE8DF' : 'none' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, background: mc.bg, color: mc.color, fontFamily: "'IBM Plex Mono',monospace", width: 56, textAlign: 'center', flexShrink: 0 }}>{ep.method}</span>
-              <span style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: 13, color: '#1C1813', flex: 1 }}>{ep.path}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, background: mc.bg, color: mc.color, fontFamily: "var(--font-mono)", width: 56, textAlign: 'center', flexShrink: 0 }}>{ep.method}</span>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: '#1C1813', flex: 1 }}>{ep.path}</span>
               <span style={{ fontSize: 13, color: '#938B81' }}>{ep.desc}</span>
             </div>
           );
