@@ -16,16 +16,12 @@
 
 ---
 
-## 🔴 環境変数の追加（未設定）
+## 🟡 環境変数（ローカル設定済み・本番未設定）
 
-Supabase は新しいAPIキー体系（Publishable / Secret）に移行済み。ダッシュボード → Project Settings → API Keys → **Secret keys** の `sb_secret_...` をコピーして（👁アイコンで表示）、`.env.local` と本番環境に追加してください:
-
-```
-SUPABASE_SERVICE_ROLE_KEY=sb_secret_...
-```
-
-- 新しい Secret key は旧 service_role キーの後継で、supabase-js にそのまま渡せます（コード変更不要）。
-- このキーが設定されるまで、管理者ダッシュボードの「企業を追加」機能（`/api/admin/create-company`）は動作しません（サーバー側で `auth.admin.createUser` に使用）。
+- ✅ `.env.local` に `SUPABASE_SERVICE_ROLE_KEY`（新体系の Secret key `sb_secret_...`）を設定済み（2026-07-03、キーの有効性確認済み）
+- 🔴 **本番環境（Vercel等）には未設定**。デプロイ先の環境変数に同じ4つを設定すること:
+  `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` / `RESEND_API_KEY` / `RESEND_FROM_EMAIL`
+- Secret key は旧 service_role キーの後継で supabase-js にそのまま渡せる（コード変更不要）。管理者ページの「企業を追加」がこのキーを使用。
 
 ### 🔴 本番環境のメール設定
 現在 `.env.local` は `RESEND_FROM_EMAIL=onboarding@resend.dev`（テストモード）のため、**全メールが管理者宛に転送され、件名に [テスト] が付きます**。本番では:
@@ -88,21 +84,21 @@ CREATE POLICY "public_read_covers" ON storage.objects
 
 ---
 
-## 🔴 Googleログインに必要なSupabase設定（コード修正済み・要ダッシュボード確認）
+## 🟡 Googleログイン（設定済み・公開ステータスのみ残り）
 
-コード側のバグ（OAuthコールバックをサーバーRoute Handlerで処理していてセッションがブラウザに保存されない問題）は 2026-07-02 に修正済み。`/auth/callback` はクライアントページになりました。
+2026-07-03 に設定完了・動作確認済み（authorize エンドポイントが Google へ正常にリダイレクトすることを確認）:
 
-以下のダッシュボード設定が揃っていないとGoogleログインは動きません:
+- ✅ Google Cloud Console で OAuth クライアント作成（リダイレクトURI設定済み）
+- ✅ Supabase → Providers → Google 有効化（Client ID / Secret 設定済み）
+- ✅ Supabase → URL Configuration（Site URL + Redirect URLs 4件）
+- ✅ コード側の OAuth コールバックバグは 2026-07-02 修正済み（`/auth/callback` はクライアントページ）
 
-1. **Supabase → Authentication → Providers → Google** を有効化し、Google Cloud Console で発行した Client ID / Client Secret を設定
-2. **Google Cloud Console → OAuth クライアント** の「承認済みのリダイレクトURI」に `https://<プロジェクトref>.supabase.co/auth/v1/callback` を追加
-3. **Supabase → Authentication → URL Configuration**:
-   - Site URL: `https://toukobe-intern.com`
-   - Redirect URLs に以下を追加:
-     - `https://toukobe-intern.com/auth/callback`
-     - `https://toukobe-intern.com/auth/callback?*`（redirect付きログイン用）
-     - `http://localhost:3000/auth/callback`（開発用）
-     - `http://localhost:3000/auth/callback?*`
+**🔴 残り1つ: OAuth同意画面の公開**
+
+現在「テスト」ステータスのため、**プロジェクトオーナーのGoogleアカウント以外はログインできません**。ローンチ前に必ず公開してください:
+
+- https://console.cloud.google.com/auth/audience?project=toukobe-intern → 「アプリを公開（Publish app）」
+- 基本スコープ（email / profile）のみなのでGoogleの審査は不要
 
 ---
 
