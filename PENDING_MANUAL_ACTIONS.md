@@ -31,56 +31,15 @@
 
 ---
 
-## 🔴 Supabase SQL（未実行のもの）
+## ✅ Supabase SQL（全項目 実行確認済み 2026-07-03）
 
-Supabase ダッシュボード → SQL Editor で実行してください。
+DBを直接プローブして以下すべての反映を確認した:
 
-### 1. student_profiles テーブルへのカラム追加
-```sql
-ALTER TABLE student_profiles
-  ADD COLUMN IF NOT EXISTS last_name   text,
-  ADD COLUMN IF NOT EXISTS first_name  text,
-  ADD COLUMN IF NOT EXISTS birth_date  date,
-  ADD COLUMN IF NOT EXISTS department  text;
-```
-
-### 2. jobs テーブルへのカラム追加
-```sql
-ALTER TABLE jobs
-  ADD COLUMN IF NOT EXISTS cover_image_url text;
-```
-
-### 3. applications テーブルへの重複防止制約
-```sql
-ALTER TABLE applications
-  ADD CONSTRAINT applications_user_job_unique UNIQUE (user_id, job_id);
-```
-
-### 4. 匿名ユーザー向け RLS ポリシー（検索が「企業名不明」になる問題の修正）
-```sql
--- companies テーブル（匿名でも読める）
-CREATE POLICY "companies_public_read" ON companies
-  FOR SELECT TO anon USING (true);
-
--- jobs テーブル（公開・停止中のみ匿名で読める）
-CREATE POLICY "jobs_public_read" ON jobs
-  FOR SELECT TO anon USING (status IN ('published', 'paused'));
-```
-
-### 5. job-covers ストレージバケットの作成
-```sql
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('job-covers', 'job-covers', true)
-ON CONFLICT (id) DO UPDATE SET public = true;
-
--- アップロードポリシー（企業ユーザーのみ）
-CREATE POLICY "company_upload_covers" ON storage.objects
-  FOR INSERT TO authenticated WITH CHECK (bucket_id = 'job-covers');
-
--- 公開読み取り
-CREATE POLICY "public_read_covers" ON storage.objects
-  FOR SELECT TO anon USING (bucket_id = 'job-covers');
-```
+1. ✅ student_profiles のカラム追加（last_name / first_name / birth_date / department）
+2. ✅ jobs.cover_image_url
+3. ✅ applications の重複防止UNIQUE制約（2重に存在するが無害）
+4. ✅ 匿名read用ポリシー（companies / jobs published・paused）
+5. ✅ job-covers バケット（public、6/30作成）
 
 ---
 
@@ -102,15 +61,9 @@ CREATE POLICY "public_read_covers" ON storage.objects
 
 ---
 
-## 🟡 Supabase Realtime の有効化
+## ✅ Supabase Realtime（設定済み確認 2026-07-03）
 
-通知バッジ（未読メッセージ数のリアルタイム更新）に必要です。
-
-Supabase ダッシュボード → Database → Replication で `chat_messages` テーブルを有効化するか、以下を実行：
-```sql
-ALTER PUBLICATION supabase_realtime ADD TABLE chat_messages;
-ALTER PUBLICATION supabase_realtime ADD TABLE jobs;
-```
+`chat_messages` と `jobs` はどちらも `supabase_realtime` パブリケーションに登録済み（ADD TABLE 実行時に「already member」エラーになることで確認）。通知バッジのリアルタイム更新は動く状態。
 
 ---
 
@@ -134,12 +87,17 @@ ALTER PUBLICATION supabase_realtime ADD TABLE jobs;
 
 ---
 
-## 🔴 セキュリティ要確認（RLS ポリシー）
+## ✅ セキュリティ: RLS 有効化・全ポリシー整備（2026-07-03 完了・検証済み）
 
-コードのバグ調査中に発見。フロントエンドは anon キーで直接 Supabase を呼んでいるため、以下は **DB側の RLS ポリシーだけが最後の防御線** です。ポリシーが緩いと、ブラウザの devtools から他社のデータを書き換えられる可能性があります。Supabase ダッシュボード → Authentication → Policies で確認してください。
+調査の結果、**主要5テーブル（applications / companies / jobs / student_profiles / user_types）のRLS自体が無効**で、anonキーで全データの読み書きが可能な状態だった。`sql/2026-07-03_enable_rls.sql` を実行して修正済み:
 
-- `applications` テーブルの UPDATE（選考ステータス変更）: `job_id` が自社の求人であることを要求するポリシーが必要。`dashboard/company/applicants/page.tsx` 側にも自社の求人IDでの絞り込みチェックを追加済みだが、これは補助的なもの。
-- `jobs` テーブルの UPDATE: `company_id = auth.uid() に対応する company_id` のみ許可（`dashboard/edit-job/[id]` はクライアント側で確認済みだが、同様にDB側が最終防御）。
+- 全開放ポリシー（誰でも全応募・全学生プロフィールを読める等）を削除
+- 不足ポリシーを追加（企業の応募閲覧/選考ステータス更新、登録フローのINSERT、管理者のみのフォーム閲覧・全件アクセス等）
+- 5テーブルのRLSを有効化
+
+外部から検証済み: 匿名は公開求人・企業のみ閲覧可、学生PII・応募・フォーム送信・下書き求人は遮断。企業アカウントは自社求人・自社への応募・応募者のプロフィールのみ閲覧可。
+
+🟡 ブラウザでの最終確認推奨: 管理者ページ（統計カウント・求人/企業/フォームタブ）と学生の応募フローを一度ずつ触って正常動作を確認する。
 
 ### ~~`/api/send-email` が誰でも呼べる状態（オープンリレー懸念）~~ → 対応済み (2026-07-02)
 - ✅ 認証必須化: `Authorization: Bearer <Supabaseアクセストークン>` を検証（未ログインは401）。3箇所の呼び出し元も更新済み。
@@ -158,9 +116,9 @@ ALTER PUBLICATION supabase_realtime ADD TABLE jobs;
 | 企業ダッシュボード求人グリッド | `dashboard/company` | ✅ |
 | 求人停止時の応募ブロック | `jobs/[id]` | ✅ |
 | 求人カバー画像 | `dashboard/post-job`, `dashboard/edit-job/[id]` | ✅ |
-| 重複応募防止 | `jobs/[id]` + DB制約（SQL要実行） | ✅コード/🔴SQL未実行 |
+| 重複応募防止 | `jobs/[id]` + DB制約 | ✅ |
 | 未確認ステータス | `dashboard/company/applicants` | ✅ |
-| 通知バッジ | 学生・企業・管理者 | ✅コード/🟡Realtime要設定 |
+| 通知バッジ | 学生・企業・管理者 | ✅ |
 | 言語設定 | `app/layout.tsx` | ✅ |
 | 姓名分離・生年月日・学部学科 | `dashboard/student`, `auth/signup-profile` | ✅ |
 | 学年選択肢更新 | 同上 | ✅ |
