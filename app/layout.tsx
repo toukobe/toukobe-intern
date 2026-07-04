@@ -56,6 +56,32 @@ export default function RootLayout({
         )}
         {/* JSが有効な環境でだけスクロールリビールの初期非表示を適用する */}
         <script dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js')" }} />
+        {/* サイト全体の構造化データ（検索エンジン向け） */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify([
+              {
+                '@context': 'https://schema.org',
+                '@type': 'Organization',
+                name: 'トウコべインターン',
+                url: 'https://toukobe-intern.com',
+                logo: 'https://toukobe-intern.com/toukobe-intern-logo.png',
+              },
+              {
+                '@context': 'https://schema.org',
+                '@type': 'WebSite',
+                name: 'トウコべインターン',
+                url: 'https://toukobe-intern.com',
+                potentialAction: {
+                  '@type': 'SearchAction',
+                  target: 'https://toukobe-intern.com/search?q={search_term_string}',
+                  'query-input': 'required name=search_term_string',
+                },
+              },
+            ]).replace(/</g, '\\u003c'),
+          }}
+        />
         {children}
       </body>
     </html>
