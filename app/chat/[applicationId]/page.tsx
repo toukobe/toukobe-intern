@@ -40,6 +40,9 @@ export default function ChatPage() {
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
   const bottomRef = useRef<HTMLDivElement>(null);
+  // タッチ端末はShiftキーがなくEnter送信が誤送信になるため、Enterは改行にする
+  const [isTouch, setIsTouch] = useState(false);
+  useEffect(() => { setIsTouch('ontouchstart' in window || navigator.maxTouchPoints > 0); }, []);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -184,7 +187,7 @@ export default function ChatPage() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !isTouch) {
       e.preventDefault();
       handleSend();
     }
@@ -231,7 +234,7 @@ export default function ChatPage() {
   });
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#FBF8F4', fontFamily: FF, color: '#1C1813' }}>
+    <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', background: '#FBF8F4', fontFamily: FF, color: '#1C1813' }}>
 
       {toast && (
         <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: toast.type === 'error' ? '#FEF2F2' : '#F0FDF4', border: `1px solid ${toast.type === 'error' ? '#FECACA' : '#BBF7D0'}`, color: toast.type === 'error' ? '#B91C1C' : '#15803D', borderRadius: 12, padding: '14px 24px', fontWeight: 700, fontSize: 14, boxShadow: '0 8px 32px rgba(0,0,0,.12)', whiteSpace: 'nowrap' }}>
@@ -319,7 +322,7 @@ export default function ChatPage() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="メッセージを入力… (Enter で送信 / Shift+Enter で改行)"
+            placeholder={isTouch ? 'メッセージを入力…' : 'メッセージを入力… (Enter で送信 / Shift+Enter で改行)'}
             rows={1}
             style={{
               flex: 1,
@@ -360,7 +363,7 @@ export default function ChatPage() {
             {sending ? '…' : '↑'}
           </button>
         </div>
-        <p style={{ fontSize: 11, color: '#B6ADA2', textAlign: 'center', margin: '8px 0 0' }}>Enter で送信 ／ Shift+Enter で改行</p>
+        {!isTouch && <p style={{ fontSize: 11, color: '#B6ADA2', textAlign: 'center', margin: '8px 0 0' }}>Enter で送信 ／ Shift+Enter で改行</p>}
       </div>
     </div>
   );
