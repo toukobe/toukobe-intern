@@ -1,9 +1,62 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 import { useIsMobile } from '@/utils/useIsMobile';
+
+// スクロールで1回だけふわっと表示する（globals.cssに依存しない自己完結実装）
+function FadeIn({ children, delay = 0, style }: { children: React.ReactNode; delay?: number; style?: React.CSSProperties }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === 'undefined' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setInView(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) { setInView(true); io.disconnect(); } },
+      { threshold: 0.12, rootMargin: '0px 0px -36px' }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return (
+    <div ref={ref} style={{ opacity: inView ? 1 : 0, transform: inView ? 'none' : 'translateY(26px)', transition: `opacity .8s var(--ease-out) ${delay}s, transform .8s var(--ease-out) ${delay}s`, ...style }}>
+      {children}
+    </div>
+  );
+}
+
+// 画面に入ったら 0 から数え上げる統計値（no-JS/SSRでは最終値を表示）
+function CountUp({ value, duration = 1100 }: { value: string; duration?: number }) {
+  const target = parseInt(value.replace(/,/g, ''), 10);
+  const [display, setDisplay] = useState(value);
+  const ref = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || isNaN(target)) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let raf = 0;
+    const io = new IntersectionObserver(([e]) => {
+      if (!e.isIntersecting) return;
+      io.disconnect();
+      const t0 = performance.now();
+      const tick = (t: number) => {
+        const p = Math.min((t - t0) / duration, 1);
+        const eased = 1 - Math.pow(1 - p, 3);
+        setDisplay(Math.round(target * eased).toLocaleString('ja-JP'));
+        if (p < 1) raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+    }, { threshold: 0.5 });
+    io.observe(el);
+    return () => { io.disconnect(); cancelAnimationFrame(raf); };
+  }, [target, duration]);
+  return <span ref={ref}>{display}</span>;
+}
 
 interface Job {
   id: string;
@@ -172,11 +225,12 @@ export default function Home() {
 
       {/* HERO */}
       <div style={{ background: '#FFF7F0', borderBottom: '1px solid #F3E8DC' }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: isMobile ? '40px 20px 36px' : '64px 48px 56px' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: isMobile ? '40px 20px 36px' : '64px 48px 56px', display: 'flex', gap: 56, alignItems: 'stretch' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ maxWidth: 720 }}>
-            <p style={{ fontSize: isMobile ? 12 : 13.5, fontWeight: 700, color: '#C2530A', margin: '0 0 14px' }}>難関大生のための長期インターン求人サイト</p>
-            <h1 style={{ fontWeight: 800, fontSize: isMobile ? 30 : 46, lineHeight: 1.4, margin: '0 0 18px' }}>最初のキャリアを、<br />本気で選ぶ。</h1>
-            <p style={{ fontSize: isMobile ? 13.5 : 15.5, lineHeight: 2, color: '#57514A', margin: isMobile ? '0 0 26px' : '0 0 36px' }}>
+            <p className="anim-fade-up" style={{ fontSize: isMobile ? 12 : 13.5, fontWeight: 700, color: '#C2530A', margin: '0 0 14px' }}>難関大生のための長期インターン求人サイト</p>
+            <h1 className="anim-fade-up anim-delay-1" style={{ fontWeight: 800, fontSize: isMobile ? 30 : 46, lineHeight: 1.4, margin: '0 0 18px' }}>最初のキャリアを、<br />本気で選ぶ。</h1>
+            <p className="anim-fade-up anim-delay-2" style={{ fontSize: isMobile ? 13.5 : 15.5, lineHeight: 2, color: '#57514A', margin: isMobile ? '0 0 26px' : '0 0 36px' }}>
               トウコべインターンは、難関大生に特化した長期インターンの求人サイトです。<br />
               厳選した企業での実務経験を、納得のいくキャリア選びにつなげてください。
             </p>
@@ -184,7 +238,7 @@ export default function Home() {
 
           {/* Search */}
           {isMobile ? (
-            <div style={{ background: '#fff', border: '1px solid #E9DFD2', borderRadius: 10, boxShadow: '0 1px 3px rgba(28,24,19,.06)', padding: 12, display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left' }}>
+            <div className="anim-fade-up anim-delay-3" style={{ background: '#fff', border: '1px solid #E9DFD2', borderRadius: 10, boxShadow: '0 1px 3px rgba(28,24,19,.06)', padding: 12, display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 4px' }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C2B8AC" strokeWidth="2.2"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.5" y2="16.5" /></svg>
                 <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="職種・企業名・キーワード" style={{ flex: 1, border: 'none', padding: '10px 0', fontFamily: "var(--font-sans)", fontSize: 14, outline: 'none', color: '#1C1813', background: 'transparent' }} />
@@ -212,7 +266,7 @@ export default function Home() {
               <button className="btn-primary" onClick={() => { const p = new URLSearchParams(); if (searchQuery) p.set('q', searchQuery); if (selectedCategory) p.set('category', selectedCategory); if (selectedLocation) p.set('location', selectedLocation); router.push(`/search?${p.toString()}`); }} style={{ background: '#F2620C', color: '#fff', border: 'none', padding: '13px', borderRadius: 6, fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>検索する</button>
             </div>
           ) : (
-            <div style={{ maxWidth: 860, background: '#fff', border: '1px solid #E9DFD2', borderRadius: 12, boxShadow: '0 1px 3px rgba(28,24,19,.06)', padding: 10, display: 'flex', gap: 8, alignItems: 'center', textAlign: 'left' }}>
+            <div className="anim-fade-up anim-delay-3" style={{ maxWidth: 860, background: '#fff', border: '1px solid #E9DFD2', borderRadius: 12, boxShadow: '0 1px 3px rgba(28,24,19,.06)', padding: 10, display: 'flex', gap: 8, alignItems: 'center', textAlign: 'left' }}>
               <div style={{ flex: 2, display: 'flex', alignItems: 'center', gap: 10, padding: '0 8px 0 14px' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C2B8AC" strokeWidth="2.2"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.5" y2="16.5" /></svg>
                 <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="職種・企業名・キーワード" style={{ flex: 1, border: 'none', padding: '14px 0', fontFamily: "var(--font-sans)", fontSize: 15, outline: 'none', color: '#1C1813', background: 'transparent' }} />
@@ -239,7 +293,7 @@ export default function Home() {
             </div>
           )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+          <div className="anim-fade-up anim-delay-4" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 11.5, color: '#938B81' }}>人気：</span>
             {(isMobile ? pills.slice(0, 3) : pills).map((p) => (
               <span key={p} className="pill-link" style={{ fontSize: 11.5, color: '#57514A', background: '#fff', border: '1px solid #EFE8DF', borderRadius: 999, padding: '5px 12px', cursor: 'pointer' }} onClick={() => router.push(`/search?q=${encodeURIComponent(p)}`)}>
@@ -247,6 +301,22 @@ export default function Home() {
               </span>
             ))}
           </div>
+          </div>
+
+          {!isMobile && (
+            <div className="anim-fade anim-delay-2" style={{ width: 400, flexShrink: 0, position: 'relative' }}>
+              <img src="/images/hero-office.jpg" alt="" fetchPriority="high" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: 18, display: 'block' }} />
+              <div style={{ position: 'absolute', inset: 0, borderRadius: 18, background: 'linear-gradient(205deg, rgba(242,98,12,.16) 0%, rgba(242,98,12,0) 42%, rgba(28,24,19,.10) 100%)', pointerEvents: 'none' }} />
+              <div style={{ position: 'absolute', inset: 0, borderRadius: 18, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.35)', pointerEvents: 'none' }} />
+              <div style={{ position: 'absolute', left: 18, bottom: 18, background: 'rgba(255,255,255,.94)', backdropFilter: 'blur(4px)', borderRadius: 10, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <img src="/icon.png" alt="" style={{ width: 26, height: 26 }} />
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1C1813', lineHeight: 1.4 }}>厳選480社が掲載中</div>
+                  <div style={{ fontSize: 11, color: '#938B81' }}>成長企業の実務インターン</div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -257,7 +327,7 @@ export default function Home() {
             <div key={i} style={{ textAlign: 'center', padding: isMobile ? '10px 8px' : undefined, borderRight: !isMobile && i < stats.length - 1 ? '1px solid #F0EAE2' : 'none', borderLeft: isMobile && i % 2 === 1 ? '1px solid #F0EAE2' : 'none' }}>
               <div style={{ fontWeight: 700, color: '#1C1813', lineHeight: 1.2, marginBottom: 4 }}>
                 <span style={{ fontSize: isMobile ? 12 : 14 }}>{s.pre}</span>
-                <span style={{ fontSize: isMobile ? 20 : 26 }}>{s.num}</span>
+                <span style={{ fontSize: isMobile ? 20 : 26, fontFeatureSettings: '"tnum"' }}><CountUp value={s.num} /></span>
                 <span style={{ fontSize: isMobile ? 12 : 14, marginLeft: 2 }}>{s.unit}</span>
               </div>
               <div style={{ fontSize: isMobile ? 10.5 : 12, color: '#938B81' }}>{s.label}</div>
@@ -269,6 +339,7 @@ export default function Home() {
       {/* CATEGORIES */}
       <div style={{ background: '#FBF8F4' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: isMobile ? '40px 20px' : '60px 48px' }}>
+          <FadeIn>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: isMobile ? 20 : 28 }}>
             <h2 style={{ fontWeight: 700, fontSize: isMobile ? 19 : 24, margin: 0 }}>職種から探す</h2>
             <span className="nav-link" style={{ fontSize: 13, color: '#F2620C', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }} onClick={() => router.push('/categories')}>職種一覧へ</span>
@@ -286,12 +357,14 @@ export default function Home() {
               </div>
             ))}
           </div>
+          </FadeIn>
         </div>
       </div>
 
       {/* FEATURED JOBS */}
       <div style={{ background: '#fff' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: isMobile ? '40px 20px' : '60px 48px' }}>
+          <FadeIn>
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: isMobile ? 20 : 28 }}>
             <h2 style={{ fontWeight: 700, fontSize: isMobile ? 19 : 24, margin: 0 }}>注目の長期インターン</h2>
             <span className="nav-link" style={{ fontSize: 13, color: '#F2620C', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }} onClick={() => router.push('/search')}>すべて見る</span>
@@ -351,6 +424,7 @@ export default function Home() {
               ))}
             </div>
           )}
+          </FadeIn>
         </div>
       </div>
 
@@ -419,14 +493,18 @@ export default function Home() {
       {/* HOW IT WORKS */}
       <div style={{ background: '#FBF8F4' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: isMobile ? '40px 20px' : '60px 48px' }}>
-          <h2 style={{ fontWeight: 700, fontSize: isMobile ? 19 : 24, margin: isMobile ? '0 0 20px' : '0 0 28px' }}>ご利用の流れ</h2>
+          <FadeIn>
+            <h2 style={{ fontWeight: 700, fontSize: isMobile ? 19 : 24, margin: isMobile ? '0 0 20px' : '0 0 28px' }}>ご利用の流れ</h2>
+          </FadeIn>
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap: isMobile ? 12 : 20 }}>
-            {steps.map((v) => (
-              <div key={v.no} style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 8, padding: isMobile ? '18px 20px' : '26px 28px' }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#C2530A', marginBottom: 10 }}>STEP {v.no}</div>
-                <h4 style={{ fontWeight: 700, fontSize: isMobile ? 15 : 17, margin: '0 0 8px' }}>{v.title}</h4>
-                <p style={{ fontSize: isMobile ? 12.5 : 13.5, lineHeight: 1.9, color: '#57514A', margin: 0 }}>{v.desc}</p>
-              </div>
+            {steps.map((v, i) => (
+              <FadeIn key={v.no} delay={isMobile ? 0 : i * 0.12}>
+                <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 8, padding: isMobile ? '18px 20px' : '26px 28px', height: '100%' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#C2530A', marginBottom: 10 }}>STEP {v.no}</div>
+                  <h4 style={{ fontWeight: 700, fontSize: isMobile ? 15 : 17, margin: '0 0 8px' }}>{v.title}</h4>
+                  <p style={{ fontSize: isMobile ? 12.5 : 13.5, lineHeight: 1.9, color: '#57514A', margin: 0 }}>{v.desc}</p>
+                </div>
+              </FadeIn>
             ))}
           </div>
         </div>
@@ -435,15 +513,19 @@ export default function Home() {
       {/* COMPANY CTA */}
       <div style={{ background: '#FBF8F4' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: isMobile ? '0 20px 40px' : '0 48px 60px' }}>
-          <div style={{ background: '#1C1813', borderRadius: 12, padding: isMobile ? '32px 24px' : '44px 48px', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', gap: isMobile ? 24 : 40 }}>
-            <div>
+          <FadeIn>
+          <div style={{ position: 'relative', background: '#1C1813', borderRadius: 12, overflow: 'hidden', padding: isMobile ? '32px 24px' : '44px 48px', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', gap: isMobile ? 24 : 40 }}>
+            <img src="/images/cta-skyline.jpg" alt="" loading="lazy" decoding="async" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 30%', display: 'block' }} />
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(95deg, rgba(21,17,13,.93) 0%, rgba(21,17,13,.82) 55%, rgba(21,17,13,.62) 100%)' }} />
+            <div style={{ position: 'relative' }}>
               <h3 style={{ fontWeight: 700, fontSize: isMobile ? 18 : 24, color: '#fff', margin: '0 0 10px', lineHeight: 1.5 }}>難関大生の採用をお考えの企業様へ</h3>
               <p style={{ fontSize: isMobile ? 13 : 14.5, color: '#C9C0B6', margin: 0, lineHeight: 1.9 }}>月額定額で何件でも求人を掲載いただけます。まずは資料をご覧ください。</p>
             </div>
-            <span className="btn-primary" onClick={() => router.push('/auth/company-login')} style={{ whiteSpace: 'nowrap', background: '#F2620C', color: '#fff', fontWeight: 700, fontSize: isMobile ? 14 : 15, padding: isMobile ? '13px 28px' : '15px 36px', borderRadius: 8, cursor: 'pointer' }}>
+            <span className="btn-primary" onClick={() => router.push('/auth/company-login')} style={{ position: 'relative', whiteSpace: 'nowrap', background: '#F2620C', color: '#fff', fontWeight: 700, fontSize: isMobile ? 14 : 15, padding: isMobile ? '13px 28px' : '15px 36px', borderRadius: 8, cursor: 'pointer' }}>
               資料を請求する
             </span>
           </div>
+          </FadeIn>
         </div>
       </div>
 
@@ -455,7 +537,7 @@ export default function Home() {
               <div style={{ fontWeight: 700, fontSize: isMobile ? 16 : 18, color: '#fff', marginBottom: 12 }}>トウコべインターン</div>
               <p style={{ fontSize: 13, lineHeight: 1.9, color: '#8E857B', margin: 0 }}>難関大生のキャリア形成を支える、長期インターン求人プラットフォーム。</p>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3,1fr)' : undefined, gap: 0, alignItems: 'start' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,auto)', gap: 0, alignItems: 'start' }}>
               <div style={{ marginRight: isMobile ? 0 : 64 }}>
                 <div style={{ fontSize: 12, color: '#7D746A', marginBottom: 14 }}>学生の方</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 11, fontSize: 13, color: '#B8AFA4' }}>
