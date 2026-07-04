@@ -50,6 +50,10 @@ export default function RootLayout({
   return (
     <html lang="ja" className={`${zenKaku.variable} ${plexMono.variable}`} suppressHydrationWarning>
       <body>
+        {/* 全ページがクライアントからSupabaseへfetchするため事前接続しておく */}
+        {process.env.NEXT_PUBLIC_SUPABASE_URL && (
+          <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} crossOrigin="anonymous" />
+        )}
         {/* JSが有効な環境でだけスクロールリビールの初期非表示を適用する */}
         <script dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js')" }} />
         {children}
