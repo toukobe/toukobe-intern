@@ -5,7 +5,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/dashboard/', '/auth/', '/api/', '/chat/'],
+      disallow: ['/dashboard/', '/auth/', '/api/'],
     },
     sitemap: 'https://toukobe-intern.com/sitemap.xml',
   }

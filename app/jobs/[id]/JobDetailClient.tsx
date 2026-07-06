@@ -61,6 +61,8 @@ export default function JobDetailPage() {
   const [favoriteId, setFavoriteId] = useState<string | null>(null);
   const [favLoading, setFavLoading] = useState(false);
   const [relatedJobs, setRelatedJobs] = useState<{ id: string; job_title: string; salary: string; location: string; cover_image_url?: string; cover_image_position?: string; companies?: { company_name: string; logo_url?: string } | null }[]>([]);
+  const [studentProfile, setStudentProfile] = useState<{ last_name?: string; first_name?: string; birth_date?: string; university?: string; department?: string; grade?: string; contact_email?: string; skills?: string[]; experience?: string } | null>(null);
+  const [contactEmail, setContactEmail] = useState('');
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
 
@@ -164,6 +166,21 @@ export default function JobDetailPage() {
     checkAuth();
   }, []);
 
+  // Fetch student profile (連絡先メールの確認・プロフィール完成度チェック用)
+  useEffect(() => {
+    async function fetchProfile() {
+      if (!user || userType?.user_type !== 'student') return;
+      const { data } = await supabase
+        .from('student_profiles')
+        .select('last_name, first_name, birth_date, university, department, grade, contact_email, skills, experience')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      setStudentProfile(data);
+      setContactEmail(data?.contact_email || user.email || '');
+    }
+    fetchProfile();
+  }, [user, userType]);
+
   // Check if applied
   useEffect(() => {
     async function checkApplied() {
@@ -232,17 +249,19 @@ export default function JobDetailPage() {
       return;
     }
 
-    // Check profile completeness (70% = 7/9 fields required)
-    const { data: profile } = await supabase
-      .from('student_profiles')
-      .select('last_name, first_name, birth_date, university, department, grade, contact_email, skills, experience')
-      .eq('user_id', user.id)
-      .maybeSingle();
+    // 連絡先メールの確認（モーダルで変更可能）
+    const email = contactEmail.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      showToast('連絡先メールアドレスの形式が正しくありません', 'error');
+      return;
+    }
 
+    // Check profile completeness (70% = 7/9 fields required)
+    const profile = studentProfile;
     const profileFields = profile ? [
       profile.last_name, profile.first_name, profile.birth_date,
       profile.university, profile.department, profile.grade,
-      profile.contact_email,
+      email,
       Array.isArray(profile.skills) ? (profile.skills.length > 0 ? profile.skills[0] : null) : profile.skills,
       profile.experience,
     ] : [];
@@ -250,14 +269,21 @@ export default function JobDetailPage() {
     const pct = Math.round((filled / 9) * 100);
 
     if (!profile || pct < 70) {
+      setShowApplyModal(false);
       showToast(`プロフィールを70%以上入力してから応募してください（現在${pct}%）`, 'error');
       setTimeout(() => router.push('/dashboard/student'), 1500);
       return;
     }
 
+    setShowApplyModal(false);
     setIsApplying(true);
     setError(null);
     try {
+      // 変更された連絡先メールをプロフィールに保存
+      if (email !== profile.contact_email) {
+        await supabase.from('student_profiles').update({ contact_email: email }).eq('user_id', user.id);
+        setStudentProfile({ ...profile, contact_email: email });
+      }
       const { data: appData, error } = await supabase
         .from('applications')
         .insert([{ user_id: user.id, job_id: jobId, status: 'unread' }])
@@ -282,6 +308,7 @@ export default function JobDetailPage() {
               studentName: profile ? `${profile.last_name || ''} ${profile.first_name || ''}`.trim() : '',
               studentUniversity: profile?.university,
               studentGrade: profile?.grade,
+              studentEmail: email,
               applicationId: appData?.id,
             }),
           }).catch(console.error);
@@ -745,26 +772,48 @@ export default function JobDetailPage() {
             </div>
 
             {/* 確認メッセージ */}
-            <div style={{ textAlign: 'center', marginBottom: 28 }}>
+            <div style={{ textAlign: 'center', marginBottom: 24 }}>
               <div style={{ fontSize: 22, marginBottom: 12 }}>📩</div>
               <div style={{ fontWeight: 900, fontSize: 20, color: '#1C1813', marginBottom: 10 }}>この求人に応募しますか？</div>
               <p style={{ fontSize: 13, color: '#57514A', lineHeight: 1.8, margin: 0 }}>
                 応募すると企業の担当者に通知が届きます。<br />
-                プロフィールが企業に共有されます。
+                プロフィールと連絡先メールアドレスが企業に共有されます。
               </p>
             </div>
 
             {/* 求人サマリー */}
-            <div style={{ background: '#FBF8F4', borderRadius: 12, padding: '14px 18px', marginBottom: 24, display: 'flex', gap: 20, fontSize: 13, color: '#57514A' }}>
+            <div style={{ background: '#FBF8F4', borderRadius: 12, padding: '14px 18px', marginBottom: 16, display: 'flex', gap: 20, fontSize: 13, color: '#57514A' }}>
               <span>📍 {job.location}</span>
               <span>💰 {job.salary}</span>
+            </div>
+
+            {/* 連絡先メールの確認 */}
+            <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 12, padding: '16px 18px', marginBottom: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#92400E', marginBottom: 8 }}>📧 選考連絡はこのメールに届きます</div>
+              <input
+                type="email"
+                value={contactEmail}
+                onChange={e => setContactEmail(e.target.value)}
+                placeholder="example@university.ac.jp"
+                style={{ width: '100%', border: '1px solid #FDE68A', borderRadius: 8, padding: '11px 14px', fontFamily: FF, fontSize: 14, color: '#1C1813', outline: 'none', boxSizing: 'border-box', background: '#fff' }}
+                onFocus={e => (e.target.style.borderColor = '#F2620C')}
+                onBlur={e => (e.target.style.borderColor = '#FDE68A')}
+              />
+              <p style={{ fontSize: 11, color: '#92400E', margin: '6px 0 0', lineHeight: 1.6 }}>
+                間違いがないかご確認ください。変更するとプロフィールにも保存されます。
+              </p>
+              {job.companies?.contact_email && (
+                <p style={{ fontSize: 12, color: '#92400E', margin: '10px 0 0', paddingTop: 10, borderTop: '1px dashed #FDE68A', lineHeight: 1.7 }}>
+                  企業からの連絡は <strong style={{ wordBreak: 'break-all' }}>{job.companies.contact_email}</strong> から届きます。迷惑メールフォルダに振り分けられないようご注意ください。
+                </p>
+              )}
             </div>
 
             {/* ボタン */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <button
                 className="btn-primary"
-                onClick={async () => { setShowApplyModal(false); await handleApply(); }}
+                onClick={handleApply}
                 disabled={isApplying}
                 style={{ width: '100%', background: '#F2620C', color: '#fff', border: 'none', borderRadius: 12, padding: '15px', fontFamily: FF, fontWeight: 700, fontSize: 15, cursor: isApplying ? 'not-allowed' : 'pointer', opacity: isApplying ? 0.7 : 1, boxShadow: '0 4px 14px rgba(242,98,12,.3)' }}
               >

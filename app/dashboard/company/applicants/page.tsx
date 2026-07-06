@@ -18,6 +18,7 @@ export default function ApplicantsPage() {
   const isMobile = useIsMobile();
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string>('');
+  const [companyEmail, setCompanyEmail] = useState<string>('');
   const [companyJobIds, setCompanyJobIds] = useState<string[]>([]);
   const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,8 +35,8 @@ export default function ApplicantsPage() {
       const { data: userType } = await supabase.from('user_types').select('company_id').eq('user_id', session.user.id).single();
       if (!userType?.company_id) { router.push('/auth/company-login'); return; }
       setCompanyId(userType.company_id);
-      const { data: co } = await supabase.from('companies').select('company_name').eq('id', userType.company_id).single();
-      if (co) setCompanyName(co.company_name || '');
+      const { data: co } = await supabase.from('companies').select('company_name, contact_email').eq('id', userType.company_id).single();
+      if (co) { setCompanyName(co.company_name || ''); setCompanyEmail(co.contact_email || ''); }
     }
     checkAuth();
   }, [router]);
@@ -134,6 +135,15 @@ export default function ApplicantsPage() {
           <p style={{ fontSize: 13, color: '#938B81', margin: 0 }}>全 {applications.length} 件の応募</p>
         </div>
 
+        {companyEmail && applications.length > 0 && (
+          <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 12, padding: '14px 18px', marginBottom: 20, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            <span style={{ fontSize: 16, flexShrink: 0 }}>📧</span>
+            <p style={{ fontSize: 12, color: '#92400E', margin: 0, lineHeight: 1.7 }}>
+              応募者への選考連絡は、各応募者の連絡先メールアドレス宛に直接お送りください。学生には「<strong>{companyEmail}</strong>（貴社の登録メールアドレス）から連絡が届く」と案内しているため、このアドレスからの送信を推奨します。
+            </p>
+          </div>
+        )}
+
         {error && (
           <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '14px 18px', marginBottom: 20 }}>
             <p style={{ color: '#B91C1C', fontSize: 13, margin: 0 }}>{error}</p>
@@ -167,9 +177,14 @@ export default function ApplicantsPage() {
                   <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 12 : 24, justifyContent: 'space-between', marginBottom: 20 }}>
                     <div>
                       <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 8 }}>{app.profile?.name || '未登録'}</div>
-                      <div style={{ display: 'flex', gap: 20, fontSize: 13, color: '#57514A' }}>
+                      <div style={{ display: 'flex', gap: 20, fontSize: 13, color: '#57514A', flexWrap: 'wrap' }}>
                         <span>🎓 {app.profile?.university || '未設定'}</span>
                         <span>📚 {app.profile?.grade || '未設定'}</span>
+                        <span>
+                          ✉️ {app.profile?.contact_email
+                            ? <a href={`mailto:${app.profile.contact_email}`} style={{ color: '#F2620C', fontWeight: 700, textDecoration: 'none' }}>{app.profile.contact_email}</a>
+                            : '連絡先未登録'}
+                        </span>
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
@@ -184,10 +199,12 @@ export default function ApplicantsPage() {
                   </div>
 
                   <div style={{ borderTop: '1px solid #EFE8DF', paddingTop: 16, display: 'flex', gap: 8, justifyContent: isMobile ? 'stretch' : 'flex-end', flexWrap: 'wrap' }}>
-                    <button onClick={() => router.push(`/chat/${app.id}`)}
-                      style={{ background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '9px 18px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-                      💬 メッセージ
-                    </button>
+                    {app.profile?.contact_email && (
+                      <a href={`mailto:${app.profile.contact_email}?subject=${encodeURIComponent(`【${companyName}】「${app.jobs?.job_title || ''}」ご応募の件`)}`}
+                        style={{ background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '9px 18px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                        ✉️ メールで連絡
+                      </a>
+                    )}
                     {app.status !== 'pending' && (
                       <button onClick={() => handleStatusChange(app.id, 'pending')}
                         style={{ background: app.status === 'pending' ? '#FFFBEB' : '#fff', color: '#B45309', border: '1px solid #FDE68A', borderRadius: 8, padding: '9px 18px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>

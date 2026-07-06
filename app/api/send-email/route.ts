@@ -31,6 +31,7 @@ interface EmailPayload {
   studentName?: string;
   studentUniversity?: string;
   studentGrade?: string;
+  studentEmail?: string;
   applicationId?: string;
   // ステータス変更 (学生宛)
   jobId?: string;
@@ -45,6 +46,7 @@ function sanitizePayload(p: EmailPayload): EmailPayload {
     studentName: escapeHtml(p.studentName).slice(0, 100),
     studentUniversity: escapeHtml(p.studentUniversity).slice(0, 100),
     studentGrade: escapeHtml(p.studentGrade).slice(0, 50),
+    studentEmail: typeof p.studentEmail === 'string' && isValidEmail(p.studentEmail) ? escapeHtml(p.studentEmail) : undefined,
     jobId: typeof p.jobId === 'string' && /^[0-9a-f-]{1,64}$/i.test(p.jobId) ? p.jobId : undefined,
   };
 }
@@ -65,8 +67,10 @@ function applicationReceivedHtml(p: EmailPayload) {
       <tr><td style="padding:10px 12px;background:#FBF8F4;border:1px solid #EFE8DF;font-weight:600;width:120px">氏名</td><td style="padding:10px 12px;border:1px solid #EFE8DF">${p.studentName || '—'}</td></tr>
       <tr><td style="padding:10px 12px;background:#FBF8F4;border:1px solid #EFE8DF;font-weight:600">大学</td><td style="padding:10px 12px;border:1px solid #EFE8DF">${p.studentUniversity || '—'}</td></tr>
       <tr><td style="padding:10px 12px;background:#FBF8F4;border:1px solid #EFE8DF;font-weight:600">学年</td><td style="padding:10px 12px;border:1px solid #EFE8DF">${p.studentGrade || '—'}</td></tr>
+      <tr><td style="padding:10px 12px;background:#FBF8F4;border:1px solid #EFE8DF;font-weight:600">連絡先メール</td><td style="padding:10px 12px;border:1px solid #EFE8DF">${p.studentEmail ? `<a href="mailto:${p.studentEmail}" style="color:#F2620C">${p.studentEmail}</a>` : '—'}</td></tr>
       <tr><td style="padding:10px 12px;background:#FBF8F4;border:1px solid #EFE8DF;font-weight:600">応募職種</td><td style="padding:10px 12px;border:1px solid #EFE8DF">${p.jobTitle}</td></tr>
     </table>
+    <p style="font-size:13px;line-height:1.8;margin:0 0 24px;color:#57514A">選考のご連絡は、上記の連絡先メールアドレス宛に直接お送りください。学生には「貴社の登録メールアドレスから連絡が届く」と案内しています。</p>
     <a href="${SITE}/dashboard/company/applicants" style="display:inline-block;background:#F2620C;color:#fff;text-decoration:none;border-radius:8px;padding:13px 28px;font-weight:700;font-size:14px">応募者を確認する →</a>
     <p style="font-size:12px;color:#B6ADA2;margin:24px 0 0">このメールはトウコべインターンから自動送信されています。</p>
   </div>
@@ -129,7 +133,7 @@ function studentWelcomeHtml(p: EmailPayload) {
       <ul style="font-size:13px;color:#57514A;margin:0;padding-left:18px;line-height:2">
         <li>プロフィールを100%完成させると応募できるようになります</li>
         <li>気になる求人はお気に入りに追加しておきましょう</li>
-        <li>企業からのメッセージは登録メールアドレスに届きます</li>
+        <li>企業からの選考連絡は登録した連絡用メールアドレスに届きます</li>
       </ul>
     </div>
     <p style="font-size:12px;color:#B6ADA2;margin:24px 0 0">このメールはトウコべインターンから自動送信されています。</p>

@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
-import { useUnreadMessages } from '@/utils/useNotifications';
 import { useIsMobile } from '@/utils/useIsMobile';
 
 interface User { id: string; email?: string; }
@@ -23,16 +22,7 @@ interface Favorite {
   id: string; job_id: string;
   job_title?: string; salary?: string; location?: string; company_name?: string;
 }
-interface ChatThread {
-  application_id: string;
-  job_title: string;
-  company_name: string;
-  last_body: string;
-  last_at: string;
-  unread: number;
-}
-
-type Tab = 'profile' | 'applications' | 'favorites' | 'messages';
+type Tab = 'profile' | 'applications' | 'favorites';
 
 const F = {
   label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#57514A', marginBottom: 8 } as React.CSSProperties,
@@ -47,19 +37,9 @@ const APP_STATUS: Record<string, { text: string; bg: string; color: string }> = 
   rejected:  { text: '不採用', bg: '#FEF2F2', color: '#B91C1C' },
 };
 
-function Badge({ count }: { count: number }) {
-  if (count === 0) return null;
-  return (
-    <span style={{ position: 'absolute', top: -4, right: -4, minWidth: 16, height: 16, background: '#E11D48', color: '#fff', borderRadius: 999, fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', lineHeight: 1, border: '2px solid #fff' }}>
-      {count > 9 ? '9+' : count}
-    </span>
-  );
-}
-
 export default function StudentDashboard() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const unreadCount = useUnreadMessages(user?.id || null);
   const isMobile = useIsMobile();
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -67,7 +47,6 @@ export default function StudentDashboard() {
   useEffect(() => { document.title = 'マイページ | トウコべインターン'; return () => { document.title = 'トウコべインターン'; }; }, []);
   const [applications, setApplications] = useState<Application[]>([]);
   const [favorites, setFavorites] = useState<Favorite[]>([]);
-  const [chatThreads, setChatThreads] = useState<ChatThread[]>([]);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<StudentProfile>>({});
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
@@ -96,8 +75,6 @@ export default function StudentDashboard() {
         // Fetch applications without nested join
         await fetchApplications(session.user.id);
         await fetchFavorites(session.user.id);
-
-        await fetchChatThreads(session.user.id);
         setLoading(false);
       } catch (e) {
         console.error('student dashboard init error:', e);
@@ -169,58 +146,6 @@ export default function StudentDashboard() {
     }));
   };
 
-  const fetchChatThreads = async (userId: string) => {
-    const { data: apps } = await supabase
-      .from('applications')
-      .select('id, job_id')
-      .eq('user_id', userId);
-    if (!apps || apps.length === 0) { setChatThreads([]); return; }
-
-    const jobIds = [...new Set(apps.map(a => a.job_id).filter(Boolean))];
-    const { data: jobs } = jobIds.length > 0
-      ? await supabase.from('jobs').select('id, job_title, company_id').in('id', jobIds)
-      : { data: [] };
-    const jobMap: Record<string, { job_title: string; company_id: string }> = {};
-    (jobs || []).forEach((j: any) => { jobMap[j.id] = j; });
-
-    const companyIds = [...new Set((jobs || []).map((j: any) => j.company_id).filter(Boolean))];
-    const { data: companies } = companyIds.length > 0
-      ? await supabase.from('companies').select('id, company_name').in('id', companyIds)
-      : { data: [] };
-    const companyMap: Record<string, string> = {};
-    (companies || []).forEach((c: any) => { companyMap[c.id] = c.company_name; });
-
-    const threads = (await Promise.all(apps.map(async app => {
-      const { data: msgs } = await supabase
-        .from('chat_messages')
-        .select('body, created_at, sender_id, is_read')
-        .eq('application_id', app.id)
-        .order('created_at', { ascending: false })
-        .limit(1);
-      if (!msgs || msgs.length === 0) return null;
-
-      const { count: unread } = await supabase
-        .from('chat_messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('application_id', app.id)
-        .neq('sender_id', userId)
-        .eq('is_read', false);
-
-      const job = jobMap[app.job_id];
-      return {
-        application_id: app.id,
-        job_title: job?.job_title || '不明',
-        company_name: (job && companyMap[job.company_id]) || '不明',
-        last_body: msgs[0].body,
-        last_at: msgs[0].created_at,
-        unread: unread || 0,
-      } as ChatThread;
-    }))).filter((t): t is ChatThread => t !== null);
-
-    threads.sort((a, b) => new Date(b.last_at).getTime() - new Date(a.last_at).getTime());
-    setChatThreads(threads);
-  };
-
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -254,7 +179,6 @@ export default function StudentDashboard() {
     { key: 'profile', label: 'プロフィール' },
     { key: 'applications', label: '応募履歴', count: applications.length },
     { key: 'favorites', label: 'お気に入り', count: favorites.length },
-    { key: 'messages', label: 'メッセージ', count: unreadCount },
   ];
 
   return (
@@ -396,6 +320,14 @@ export default function StudentDashboard() {
         {tab === 'applications' && (
           <div>
             <h2 style={{ fontWeight: 900, fontSize: 20, margin: '0 0 20px' }}>応募履歴</h2>
+            {applications.length > 0 && (
+              <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 12, padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                <span style={{ fontSize: 16, flexShrink: 0 }}>📧</span>
+                <p style={{ fontSize: 12, color: '#92400E', margin: 0, lineHeight: 1.7 }}>
+                  企業からの選考連絡は、連絡用メールアドレス（<strong>{profile?.contact_email || '未設定'}</strong>）宛にメールで届きます。迷惑メールフォルダもあわせてご確認ください。
+                </p>
+              </div>
+            )}
             {applications.length === 0 ? (
               <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: isMobile ? '40px 20px' : '60px', textAlign: 'center' }}>
                 <p style={{ color: '#938B81', marginBottom: 16 }}>応募がまだありません</p>
@@ -420,7 +352,6 @@ export default function StudentDashboard() {
                       </div>
                       <div style={{ display: 'flex', gap: 10, marginTop: 16, paddingTop: 16, borderTop: '1px solid #F0EAE2' }}>
                         <button onClick={() => router.push(`/jobs/${app.job_id}`)} style={{ flex: 1, background: '#F3EEE7', color: '#57514A', border: 'none', borderRadius: 8, padding: '10px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>詳細を見る</button>
-                        <button onClick={() => router.push(`/chat/${app.id}`)} style={{ flex: 1, background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '10px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>💬 メッセージ</button>
                       </div>
                       <div style={{ fontSize: 11, color: '#B6ADA2', marginTop: 10 }}>応募日：{new Date(app.created_at).toLocaleDateString('ja-JP')}</div>
                     </div>
@@ -458,49 +389,6 @@ export default function StudentDashboard() {
           </div>
         )}
 
-        {/* MESSAGES */}
-        {tab === 'messages' && (
-          <div>
-            <h2 style={{ fontWeight: 900, fontSize: 20, margin: '0 0 20px' }}>メッセージ</h2>
-            {chatThreads.length === 0 ? (
-              <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: '60px', textAlign: 'center' }}>
-                <p style={{ color: '#938B81' }}>メッセージはまだありません</p>
-                <p style={{ fontSize: 12, color: '#B6ADA2', marginTop: 8 }}>求人に応募すると企業とメッセージのやり取りができます</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {chatThreads.map(thread => (
-                  <div
-                    key={thread.application_id}
-                    onClick={() => router.push(`/chat/${thread.application_id}`)}
-                    style={{ background: thread.unread > 0 ? '#FFF8F5' : '#fff', border: `1px solid ${thread.unread > 0 ? '#FBD5C0' : '#EFE8DF'}`, borderRadius: 14, padding: isMobile ? '16px' : '20px 24px', cursor: 'pointer', transition: 'all .15s' }}
-                    onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 4px 16px rgba(242,98,12,.1)')}
-                    onMouseLeave={e => (e.currentTarget.style.boxShadow = 'none')}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: '#57514A' }}>{thread.company_name}</span>
-                          {thread.unread > 0 && (
-                            <span style={{ fontSize: 10, fontWeight: 700, background: '#E11D48', color: '#fff', borderRadius: 999, padding: '2px 7px', lineHeight: 1.4 }}>{thread.unread > 9 ? '9+' : thread.unread}</span>
-                          )}
-                        </div>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1813', marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{thread.job_title}</div>
-                        <div style={{ fontSize: 13, color: '#938B81', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{thread.last_body}</div>
-                      </div>
-                      <div style={{ flexShrink: 0, textAlign: 'right' }}>
-                        <div style={{ fontSize: 11, color: '#B6ADA2' }}>
-                          {new Date(thread.last_at).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}
-                        </div>
-                        <div style={{ fontSize: 18, color: '#F2620C', marginTop: 4 }}>→</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );

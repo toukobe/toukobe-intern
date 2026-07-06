@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
-import { useUnreadMessages } from '@/utils/useNotifications';
 import ImagePositionPicker from '@/components/ImagePositionPicker';
 import { useIsMobile } from '@/utils/useIsMobile';
 
@@ -27,7 +26,6 @@ export default function CompanyDashboard() {
   const router = useRouter();
   const isMobile = useIsMobile();
   const [user, setUser] = useState<User | null>(null);
-  const unreadCount = useUnreadMessages(user?.id || null);
   const [company, setCompany] = useState<Company | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
@@ -182,13 +180,8 @@ export default function CompanyDashboard() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 12 }}>
-          <button onClick={() => router.push('/dashboard/company/applicants')} style={{ background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '10px 20px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer', position: 'relative' }}>
+          <button onClick={() => router.push('/dashboard/company/applicants')} style={{ background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '10px 20px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
             応募者管理
-            {unreadCount > 0 && (
-              <span style={{ position: 'absolute', top: -4, right: -4, minWidth: 16, height: 16, background: '#E11D48', color: '#fff', borderRadius: 999, fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', border: '2px solid #FFF1E8' }}>
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
           </button>
           <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} style={{ background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 8, padding: '10px 20px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>ログアウト</button>
         </div>

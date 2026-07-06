@@ -8,7 +8,7 @@ import { useIsMobile } from '@/utils/useIsMobile';
 
 interface User { id: string; email?: string; }
 interface Stats { totalUsers: number; totalStudents: number; totalCompanies: number; totalJobs: number; totalApplications: number; }
-type Tab = 'overview' | 'jobs' | 'companies' | 'interactions' | 'forms' | 'docs';
+type Tab = 'overview' | 'jobs' | 'companies' | 'forms' | 'docs';
 
 const F = {
   label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#57514A', marginBottom: 8 } as React.CSSProperties,
@@ -54,7 +54,6 @@ export default function AdminDashboard() {
     { key: 'overview', label: '概要' },
     { key: 'jobs', label: '求人承認' },
     { key: 'companies', label: '企業管理' },
-    { key: 'interactions', label: 'やり取り' },
     { key: 'forms', label: 'フォーム申し込み' },
     { key: 'docs', label: 'API Docs' },
   ];
@@ -118,9 +117,6 @@ export default function AdminDashboard() {
 
         {/* COMPANIES */}
         {tab === 'companies' && <AdminCompaniesTab />}
-
-        {/* INTERACTIONS */}
-        {tab === 'interactions' && <AdminInteractionsTab />}
 
         {/* DOCS */}
         {tab === 'forms' && <AdminFormsTab />}
@@ -394,57 +390,6 @@ function AdminCompaniesTab() {
   );
 }
 
-function AdminInteractionsTab() {
-  const [interactions, setInteractions] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function load() {
-      const { data } = await supabase
-        .from('chat_messages')
-        .select('id, body, created_at, sender_id, application_id, is_read')
-        .order('created_at', { ascending: false })
-        .limit(100);
-      setInteractions(data || []);
-      setLoading(false);
-    }
-    load();
-  }, []);
-
-  if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><div style={{ width: 36, height: 36, border: '2.5px solid #F2620C', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /></div>;
-
-  return (
-    <div>
-      <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: '#F2620C', letterSpacing: '.14em', marginBottom: 12 }}>INTERACTIONS</div>
-      <h2 style={{ fontWeight: 900, fontSize: 24, margin: '0 0 24px' }}>チャット一覧（最新100件）</h2>
-      <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ background: '#FBF8F4' }}>
-              {['メッセージ', '既読', '日時'].map(h => (
-                <th key={h} style={{ padding: '14px 20px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: '#938B81', borderBottom: '1px solid #EFE8DF' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {interactions.length === 0 ? (
-              <tr><td colSpan={3} style={{ padding: '40px', textAlign: 'center', color: '#938B81', fontSize: 14 }}>やり取りはまだありません</td></tr>
-            ) : interactions.map((m, i) => (
-              <tr key={m.id} style={{ borderBottom: i < interactions.length - 1 ? '1px solid #EFE8DF' : 'none', background: m.is_read ? '#fff' : '#FFFBEB' }}>
-                <td style={{ padding: '16px 20px', fontSize: 14, color: '#1C1813', maxWidth: 500 }}>{m.body}</td>
-                <td style={{ padding: '16px 20px', fontSize: 12 }}>
-                  <span style={{ color: m.is_read ? '#15803D' : '#B45309', fontWeight: 600 }}>{m.is_read ? '既読' : '未読'}</span>
-                </td>
-                <td style={{ padding: '16px 20px', fontSize: 12, color: '#938B81', whiteSpace: 'nowrap', fontFamily: "var(--font-mono)" }}>{new Date(m.created_at).toLocaleString('ja-JP')}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
 const FORM_STATUS = {
   new:         { label: '未対応',   bg: '#FFF1EE', color: '#C2390A', border: '#FBCFBE' },
   in_progress: { label: '対応中',   bg: '#FFFBEB', color: '#B45309', border: '#FDE68A' },
@@ -681,8 +626,6 @@ function AdminDocsTab() {
     { method: 'GET', path: '/api/applications', desc: '応募一覧' },
     { method: 'POST', path: '/api/applications', desc: '応募作成' },
     { method: 'PUT', path: '/api/applications/:id', desc: '応募ステータス更新' },
-    { method: 'GET', path: '/api/messages', desc: 'メッセージ一覧' },
-    { method: 'POST', path: '/api/messages', desc: 'メッセージ送信' },
   ];
   const METHOD_COLOR: Record<string, { bg: string; color: string }> = {
     GET: { bg: '#EFF6FF', color: '#1D4ED8' },
