@@ -120,6 +120,17 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
   const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
+  const [deletedNotice, setDeletedNotice] = useState(false);
+
+  // 退会完了直後の通知（/?deleted=1 で遷移してくる）
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('deleted') === '1') {
+      setDeletedNotice(true);
+      window.history.replaceState(null, '', '/');
+      const t = setTimeout(() => setDeletedNotice(false), 6000);
+      return () => clearTimeout(t);
+    }
+  }, []);
 
   useEffect(() => {
     async function checkAuth() {
@@ -187,6 +198,11 @@ export default function Home() {
 
   return (
     <div style={{ width: '100%', fontFamily: "var(--font-sans)", color: '#1C1813' }}>
+      {deletedNotice && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: '#F0FDF4', border: '1px solid #BBF7D0', color: '#15803D', borderRadius: 12, padding: '14px 24px', fontWeight: 700, fontSize: 14, boxShadow: '0 8px 32px rgba(0,0,0,.12)', whiteSpace: 'nowrap' }}>
+          ✓ 退会が完了しました。ご利用ありがとうございました
+        </div>
+      )}
       {/* NAV */}
       <div style={{ background: '#fff', borderBottom: '1px solid #EFE8DF', position: 'sticky', top: 0, zIndex: 50 }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: isMobile ? '12px 20px' : '14px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

@@ -50,10 +50,34 @@ export default function StudentDashboard() {
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<StudentProfile>>({});
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/delete-account', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session?.access_token || ''}` },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        showToast(body?.error || '退会処理に失敗しました。時間をおいて再度お試しください', 'error');
+        setDeleting(false);
+        return;
+      }
+      await supabase.auth.signOut();
+      router.push('/?deleted=1');
+    } catch {
+      showToast('退会処理に失敗しました。時間をおいて再度お試しください', 'error');
+      setDeleting(false);
+    }
   };
 
   useEffect(() => {
@@ -359,6 +383,42 @@ export default function StudentDashboard() {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* 退会（プロフィールタブの最下部） */}
+        {tab === 'profile' && (
+          <div style={{ marginTop: 48, paddingTop: 24, borderTop: '1px solid #EFE8DF', textAlign: 'center' }}>
+            <button onClick={() => setShowDeleteModal(true)} style={{ background: 'transparent', color: '#938B81', border: 'none', fontFamily: "var(--font-sans)", fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}>
+              退会をご希望の方はこちら
+            </button>
+          </div>
+        )}
+
+        {/* 退会確認モーダル */}
+        {showDeleteModal && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(28,24,19,.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => !deleting && setShowDeleteModal(false)}>
+            <div style={{ background: '#fff', borderRadius: 18, padding: isMobile ? '28px 20px' : '36px 40px', maxWidth: 460, width: '100%' }} onClick={e => e.stopPropagation()}>
+              <h3 style={{ fontWeight: 900, fontSize: 20, margin: '0 0 14px', color: '#B91C1C' }}>退会の確認</h3>
+              <p style={{ fontSize: 14, color: '#57514A', lineHeight: 1.9, margin: '0 0 12px' }}>
+                退会すると、以下のデータが<strong>すべて削除され、元に戻せません</strong>。
+              </p>
+              <ul style={{ fontSize: 13, color: '#57514A', lineHeight: 2, margin: '0 0 20px', paddingLeft: 20 }}>
+                <li>プロフィール情報</li>
+                <li>応募履歴（選考中の応募も取り消されます）</li>
+                <li>お気に入りした求人</li>
+              </ul>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => setShowDeleteModal(false)} disabled={deleting}
+                  style={{ flex: 1, background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 10, padding: '13px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+                  キャンセル
+                </button>
+                <button onClick={handleDeleteAccount} disabled={deleting}
+                  style={{ flex: 1, background: deleting ? '#E5A0A0' : '#B91C1C', color: '#fff', border: 'none', borderRadius: 10, padding: '13px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 14, cursor: deleting ? 'not-allowed' : 'pointer' }}>
+                  {deleting ? '処理中...' : '退会する'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
