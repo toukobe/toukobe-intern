@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useIsMobile } from '@/utils/useIsMobile';
+import SiteFooter from '@/components/SiteFooter';
 
 const articles = [
   {
@@ -197,9 +198,8 @@ export default function PrivacyPolicyPage() {
         </div>
       </div>
 
-      {/* FOOTER */}
-      <div style={{ background: '#15110D', padding: '32px 48px', marginTop: 40, textAlign: 'center' }}>
-        <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: '#665D53', margin: 0 }}>© 2026 トウコべインターン. All rights reserved.</p>
+      <div style={{ marginTop: 40 }}>
+        <SiteFooter />
       </div>
     </div>
   );

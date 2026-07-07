@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIsMobile } from '@/utils/useIsMobile';
+import SiteFooter from '@/components/SiteFooter';
 
 const cats = [
   { name: 'コンサルティング', en: 'Consulting', desc: '戦略・経営・業務改善など幅広い領域で活躍できる。' },
@@ -66,6 +67,8 @@ export default function CategoriesPage() {
           ))}
         </div>
       </div>
+
+      <SiteFooter />
     </div>
   );
 }

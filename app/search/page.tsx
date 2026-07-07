@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 import { useIsMobile } from '@/utils/useIsMobile';
 import { PREFECTURES, TOKYO_AREAS } from '@/utils/constants';
+import SiteFooter from '@/components/SiteFooter';
 
 interface Job {
   id: string;
@@ -584,6 +585,8 @@ function SearchContent() {
           </>
         )}
       </div>
+
+      <SiteFooter />
     </div>
   );
 }

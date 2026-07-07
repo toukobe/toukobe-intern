@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIsMobile } from '@/utils/useIsMobile';
+import SiteFooter from '@/components/SiteFooter';
 
 const features = [
   { title: '月額定額制', desc: 'シンプルな月額プランで何件でも求人掲載可能。予算を固定したまま採用活動を続けられます。' },
@@ -125,6 +126,8 @@ export default function ForCompaniesPage() {
           すでにアカウントをお持ちの方はこちら
         </button>
       </div>
+
+      <SiteFooter />
     </div>
   );
 }

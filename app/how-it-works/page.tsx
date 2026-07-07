@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIsMobile } from '@/utils/useIsMobile';
+import SiteFooter from '@/components/SiteFooter';
 
 const steps = [
   {
@@ -113,6 +114,8 @@ export default function HowItWorksPage() {
           </div>
         </div>
       </div>
+
+      <SiteFooter />
     </div>
   );
 }

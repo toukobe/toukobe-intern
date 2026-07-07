@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIsMobile } from '@/utils/useIsMobile';
+import SiteFooter from '@/components/SiteFooter';
 
 const FF = "var(--font-sans)";
 const MONO = "var(--font-mono)";
@@ -165,6 +166,8 @@ export default function FaqPage() {
           </div>
         </div>
       </div>
+
+      <SiteFooter />
     </div>
   );
 }

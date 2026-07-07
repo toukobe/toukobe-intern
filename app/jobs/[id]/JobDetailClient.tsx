@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 import { useIsMobile } from '@/utils/useIsMobile';
+import SiteFooter from '@/components/SiteFooter';
 
 interface JobDetail {
   id: string;
@@ -829,6 +830,11 @@ export default function JobDetailPage() {
           </div>
         </div>
       )}
+
+      {/* FOOTER（固定CTAに隠れないよう下に余白を確保） */}
+      <div style={{ paddingBottom: isMobile ? 84 : 80 }}>
+        <SiteFooter />
+      </div>
 
       {/* STICKY BOTTOM CTA */}
       <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#fff', borderTop: '1px solid #EFE8DF', padding: isMobile ? '12px 16px' : '14px 48px', display: 'flex', alignItems: 'center', gap: 12, zIndex: 100, boxShadow: '0 -4px 20px rgba(28,24,19,.08)' }}>

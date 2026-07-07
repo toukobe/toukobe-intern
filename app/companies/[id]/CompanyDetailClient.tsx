@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 import { useIsMobile } from '@/utils/useIsMobile';
+import SiteFooter from '@/components/SiteFooter';
 
 interface Company {
   id: string;
@@ -305,6 +306,8 @@ export default function CompanyProfilePage() {
           )}
         </div>
       </div>
+
+      <SiteFooter />
     </div>
   );
 }
