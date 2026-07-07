@@ -77,10 +77,10 @@ export default function PostJobPage() {
       }]);
       if (jobError) throw jobError;
       showToast('求人を投稿しました！');
+      // リダイレクトまで saving を維持して二重送信を防ぐ
       setTimeout(() => router.push('/dashboard/company'), 1200);
     } catch (err) {
       setError('求人投稿に失敗しました: ' + (err as any).message);
-    } finally {
       setSaving(false);
     }
   };

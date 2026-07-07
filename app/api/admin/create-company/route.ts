@@ -59,6 +59,9 @@ export async function POST(req: NextRequest) {
       .from('user_types')
       .insert([{ user_id: authData.user.id, user_type: 'company', company_id: company.id }]);
     if (userTypeError) {
+      // 途中で失敗した場合は作成済みのユーザー・企業を巻き戻す（孤児レコード防止）
+      await adminClient.auth.admin.deleteUser(authData.user.id).catch(() => {});
+      await adminClient.from('companies').delete().eq('id', company.id);
       return NextResponse.json({ error: userTypeError.message }, { status: 500 });
     }
 

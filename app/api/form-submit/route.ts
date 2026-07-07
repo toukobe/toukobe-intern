@@ -69,9 +69,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // company_name は NOT NULL 制約があるため、お問い合わせ（企業名なし）は空文字で保存する
     const { error: dbError } = await supabase
       .from('form_submissions')
-      .insert([{ form_type, company_name, contact_name, legal_email, billing_email, account_email, notes, source }]);
+      .insert([{ form_type, company_name: company_name || '', contact_name, legal_email, billing_email, account_email, notes, source }]);
 
     if (dbError) {
       console.error('DB error:', dbError);

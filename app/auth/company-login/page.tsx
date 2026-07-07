@@ -52,6 +52,9 @@ export default function CompanyLoginPage() {
         router.push('/dashboard/admin');
       } else if (userType?.user_type === 'company') {
         router.push('/dashboard/company');
+      } else if (!userType) {
+        // 登録が途中で終わったアカウント: setupで種別登録から再開できる
+        router.push('/auth/setup');
       } else {
         router.push('/');
       }

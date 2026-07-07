@@ -45,10 +45,10 @@ export default function NormalFormPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ form_type: 'normal', ...form }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) throw new Error(res.status === 429 ? '短時間に送信が集中しています。しばらく時間をおいてからもう一度お試しください。' : '');
       setDone(true);
-    } catch {
-      setError('送信に失敗しました。もう一度お試しください。');
+    } catch (err) {
+      setError((err as Error)?.message || '送信に失敗しました。もう一度お試しください。');
     } finally {
       setLoading(false);
     }

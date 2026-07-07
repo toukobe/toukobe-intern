@@ -80,6 +80,14 @@ function SignupInner() {
       if (signupError) { setError(signupError.message); return; }
       if (!data.user) { setError('ユーザー作成に失敗しました'); return; }
 
+      // メール確認が必要な設定の場合、signUp直後はセッションが無く
+      // RLS(authenticated限定)によりINSERTが失敗するため、確認完了後の
+      // 初回ログイン→/auth/setup で登録を完了させる
+      if (!data.session) {
+        setVerifyStep(true);
+        return;
+      }
+
       let companyId = null;
       if (userType === 'company') {
         const { data: companyData, error: companyError } = await supabase
@@ -88,16 +96,14 @@ function SignupInner() {
         companyId = companyData.id;
       }
 
-      await supabase.from('user_types').insert([{ user_id: data.user.id, user_type: userType, company_id: companyId }]);
+      const { error: userTypeError } = await supabase.from('user_types').insert([{ user_id: data.user.id, user_type: userType, company_id: companyId }]);
+      if (userTypeError) {
+        // アカウント自体は作成済みなので、setupページで種別登録をやり直せる
+        router.push('/auth/setup');
+        return;
+      }
 
       if (userType === 'student') {
-        // Check if email confirmation is needed
-        // If session is null after signup, email confirmation is required
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          setVerifyStep(true);
-          return;
-        }
         router.push(redirectTo || '/dashboard/student');
       } else {
         router.push('/dashboard/company');

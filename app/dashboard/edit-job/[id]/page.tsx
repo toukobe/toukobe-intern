@@ -130,10 +130,10 @@ export default function EditJobPage() {
 
       if (updateError) throw updateError;
       showToast('求人を更新しました！');
+      // リダイレクトまで saving を維持して二重送信を防ぐ
       setTimeout(() => router.push('/dashboard/company'), 1200);
     } catch (err) {
       setError('求人更新に失敗しました: ' + (err as any).message);
-    } finally {
       setSaving(false);
     }
   };

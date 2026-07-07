@@ -77,7 +77,8 @@ export default function CompanyDashboard() {
       const { error: upErr } = await supabase.storage.from('company-logos').upload(path, file);
       if (upErr) { showToast('アップロードに失敗しました', 'error'); return; }
       const { data: urlData } = supabase.storage.from('company-logos').getPublicUrl(path);
-      await supabase.from('companies').update({ logo_url: urlData.publicUrl }).eq('id', company.id);
+      const { error: dbErr } = await supabase.from('companies').update({ logo_url: urlData.publicUrl }).eq('id', company.id);
+      if (dbErr) { showToast('ロゴの保存に失敗しました', 'error'); return; }
       showToast('ロゴを更新しました');
       setCompany({ ...company, logo_url: urlData.publicUrl });
     } finally {
@@ -87,7 +88,8 @@ export default function CompanyDashboard() {
 
   const handleLogoDelete = async () => {
     if (!company || !confirm('ロゴを削除しますか？')) return;
-    await supabase.from('companies').update({ logo_url: null }).eq('id', company.id);
+    const { error } = await supabase.from('companies').update({ logo_url: null }).eq('id', company.id);
+    if (error) { showToast('削除に失敗しました', 'error'); return; }
     setCompany({ ...company, logo_url: undefined });
   };
 
@@ -102,7 +104,8 @@ export default function CompanyDashboard() {
       const { error: upErr } = await supabase.storage.from('company-logos').upload(path, file);
       if (upErr) { showToast('アップロードに失敗しました', 'error'); return; }
       const { data: urlData } = supabase.storage.from('company-logos').getPublicUrl(path);
-      await supabase.from('companies').update({ cover_url: urlData.publicUrl }).eq('id', company.id);
+      const { error: dbErr } = await supabase.from('companies').update({ cover_url: urlData.publicUrl }).eq('id', company.id);
+      if (dbErr) { showToast('背景画像の保存に失敗しました', 'error'); return; }
       showToast('背景画像を更新しました');
       setCompany({ ...company, cover_url: urlData.publicUrl });
     } finally {
@@ -112,14 +115,16 @@ export default function CompanyDashboard() {
 
   const handleCoverPositionSave = async () => {
     if (!company) return;
-    await supabase.from('companies').update({ cover_position: coverPosition } as any).eq('id', company.id);
+    const { error } = await supabase.from('companies').update({ cover_position: coverPosition } as any).eq('id', company.id);
+    if (error) { showToast('位置の保存に失敗しました', 'error'); return; }
     setCompany({ ...company, cover_position: coverPosition });
     setCoverPositionSaved(true);
   };
 
   const handleCoverDelete = async () => {
     if (!company || !confirm('背景画像を削除しますか？')) return;
-    await supabase.from('companies').update({ cover_url: null }).eq('id', company.id);
+    const { error } = await supabase.from('companies').update({ cover_url: null }).eq('id', company.id);
+    if (error) { showToast('削除に失敗しました', 'error'); return; }
     setCompany({ ...company, cover_url: undefined });
   };
 
