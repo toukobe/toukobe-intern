@@ -106,7 +106,9 @@ export default function CompanyLoginPage() {
         <div style={{ marginTop: 24, textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 10 }}>
           <p style={{ fontSize: 13, color: '#57514A', margin: 0 }}>
             新規掲載をご希望の方は{' '}
-            <span style={{ color: '#F2620C', fontWeight: 700, cursor: 'pointer' }} onClick={() => router.push('/forms/contact')}>資料請求・お問い合わせ</span>
+            <span style={{ color: '#F2620C', fontWeight: 700, cursor: 'pointer' }} onClick={() => router.push('/forms/material')}>資料請求</span>
+            {' '}／{' '}
+            <span style={{ color: '#F2620C', fontWeight: 700, cursor: 'pointer' }} onClick={() => router.push('/forms/contact')}>お問い合わせ</span>
           </p>
           <p style={{ fontSize: 12, color: '#B6ADA2', margin: 0 }}>
             学生の方は{' '}

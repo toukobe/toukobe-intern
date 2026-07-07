@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
 </table>`;
 
     // ① 管理者宛メール
-    const adminHtml = header(`<h2 style="font-size:20px;margin:0 0 6px">📋 新しい申し込みが届きました</h2>
+    const adminHtml = header(`<h2 style="font-size:20px;margin:0 0 6px">📋 ${isContact ? '新しいお問い合わせが届きました' : '新しい申し込みが届きました'}</h2>
     <p style="font-size:13px;color:#938B81;margin:0 0 24px">${formLabel}</p>
     ${answerTable}
     <p style="font-size:12px;color:#B6ADA2;margin:0">管理画面からすべての申し込みを確認・管理できます。</p>`) + footer;
@@ -150,7 +150,9 @@ export async function POST(req: NextRequest) {
         resend.emails.send({
           from: `トウコべインターン <${FROM}>`,
           to: submitterEmail,
-          subject: `【受付完了】${formLabel} のお申し込みを受け付けました`,
+          subject: isContact
+            ? '【受付完了】お問い合わせを受け付けました'
+            : `【受付完了】${formLabel} のお申し込みを受け付けました`,
           html: submitterHtml,
         })
       );

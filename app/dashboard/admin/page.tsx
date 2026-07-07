@@ -401,6 +401,7 @@ function AdminFormsTab() {
   const [rows, setRows] = useState<Record<string, string>[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterType, setFilterType] = useState<string>('all');
   const [memoEditing, setMemoEditing] = useState<Record<string, string>>({});
   const [savingMemo, setSavingMemo] = useState<Record<string, boolean>>({});
   const [updatingStatus, setUpdatingStatus] = useState<Record<string, boolean>>({});
@@ -431,11 +432,11 @@ function AdminFormsTab() {
     setMemoEditing(p => { const n = { ...p }; delete n[id]; return n; });
   };
 
-  const FORM_LABEL: Record<string, string> = { early: '早期申し込み', normal: '通常申し込み', material: '資料請求' };
+  const FORM_LABEL: Record<string, string> = { early: '早期申し込み', normal: '通常申し込み', material: '資料請求', contact: 'お問い合わせ' };
 
   const exportCsv = () => {
-    const headers = ['フォーム種別', '企業名', '担当者名', '法務メール', '請求先メール', 'アカウントメール', '情報源', 'その他要望', 'ステータス', '管理メモ', '申し込み日時'];
-    const target = filterStatus === 'all' ? rows : rows.filter(r => r.status === filterStatus);
+    const headers = ['フォーム種別', '企業名', '担当者名/お名前', 'メール（法務/返信先）', '請求先メール', 'アカウントメール', '情報源/お問い合わせ種別', '内容・要望', 'ステータス', '管理メモ', '申し込み日時'];
+    const target = rows.filter(r => (filterStatus === 'all' || (r.status || 'new') === filterStatus) && (filterType === 'all' || r.form_type === filterType));
     const csvRows = target.map(r => [
       FORM_LABEL[r.form_type] || r.form_type,
       r.company_name || '', r.contact_name || '', r.legal_email || '',
@@ -457,22 +458,25 @@ function AdminFormsTab() {
       early:    { label: '早期申し込み', bg: '#FFF1E8', color: '#C2390A' },
       normal:   { label: '通常申し込み', bg: '#EFF6FF', color: '#1D4ED8' },
       material: { label: '資料請求',     bg: '#F0FDF4', color: '#15803D' },
+      contact:  { label: 'お問い合わせ', bg: '#F5F3FF', color: '#6D28D9' },
     };
     const s = map[type] || { label: type, bg: '#F3F4F6', color: '#374151' };
     return <span style={{ fontSize: 11, fontWeight: 700, background: s.bg, color: s.color, borderRadius: 999, padding: '3px 10px', whiteSpace: 'nowrap' as const }}>{s.label}</span>;
   };
 
+  // 共有用リンクのベースURL: NEXT_PUBLIC_SITE_URL があれば固定、なければ今開いているサイトのURL
+  const SITE = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const copyLink = (path: string, key: string) => {
-    const url = `${window.location.origin}${path}`;
-    navigator.clipboard.writeText(url).then(() => {
+    navigator.clipboard.writeText(`${SITE}${path}`).then(() => {
       setCopiedKey(key);
       setTimeout(() => setCopiedKey(null), 2000);
     });
   };
 
-  const filtered = filterStatus === 'all' ? rows : rows.filter(r => (r.status || 'new') === filterStatus);
-  const counts = { all: rows.length, new: rows.filter(r => !r.status || r.status === 'new').length, in_progress: rows.filter(r => r.status === 'in_progress').length, done: rows.filter(r => r.status === 'done').length };
+  const byType = filterType === 'all' ? rows : rows.filter(r => r.form_type === filterType);
+  const filtered = filterStatus === 'all' ? byType : byType.filter(r => (r.status || 'new') === filterStatus);
+  const counts = { all: byType.length, new: byType.filter(r => !r.status || r.status === 'new').length, in_progress: byType.filter(r => r.status === 'in_progress').length, done: byType.filter(r => r.status === 'done').length };
 
   if (loading) return <div style={{ textAlign: 'center', padding: 60, color: '#938B81' }}>読み込み中...</div>;
 
@@ -480,6 +484,7 @@ function AdminFormsTab() {
     { key: 'early',    path: '/forms/early',    label: '早期申し込み', bg: '#FFF1E8', color: '#C2390A', border: 'rgba(194,57,10,.2)' },
     { key: 'normal',   path: '/forms/normal',   label: '通常申し込み', bg: '#EFF6FF', color: '#1D4ED8', border: 'rgba(29,78,216,.2)' },
     { key: 'material', path: '/forms/material', label: '資料請求',     bg: '#F0FDF4', color: '#15803D', border: 'rgba(21,128,61,.2)' },
+    { key: 'contact',  path: '/forms/contact',  label: 'お問い合わせ', bg: '#F5F3FF', color: '#6D28D9', border: 'rgba(109,40,217,.2)' },
   ];
 
   return (
@@ -494,12 +499,12 @@ function AdminFormsTab() {
       </div>
 
       {/* フォームリンク */}
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap: 10, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2,1fr)', gap: 10, marginBottom: 20 }}>
         {FORM_LINKS.map(f => (
           <div key={f.key} style={{ background: f.bg, border: `1px solid ${f.border}`, borderRadius: 12, padding: '14px 16px' }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: f.color, marginBottom: 8 }}>{f.label}</div>
             <div style={{ fontSize: 11, color: '#938B81', marginBottom: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: "var(--font-mono)" }}>
-              {typeof window !== 'undefined' ? window.location.origin : ''}{f.path}
+              {SITE}{f.path}
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               <button onClick={() => copyLink(f.path, f.key)}
@@ -513,6 +518,22 @@ function AdminFormsTab() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* 種別フィルター */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: '#938B81', marginRight: 4 }}>種別：</span>
+        {([['all', 'すべて'], ['early', '早期申し込み'], ['normal', '通常申し込み'], ['material', '資料請求'], ['contact', 'お問い合わせ']] as const).map(([key, label]) => {
+          const n = key === 'all' ? rows.length : rows.filter(r => r.form_type === key).length;
+          const active = filterType === key;
+          return (
+            <button key={key} onClick={() => setFilterType(key)}
+              style={{ border: active ? '2px solid #F2620C' : '1px solid #EFE8DF', background: active ? '#FFF1E8' : '#fff', color: active ? '#F2620C' : '#57514A', borderRadius: 999, padding: '6px 14px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              {label}
+              <span style={{ fontSize: 10, fontWeight: 700, background: active ? '#F2620C' : '#F3EEE7', color: active ? '#fff' : '#938B81', borderRadius: 999, padding: '1px 6px' }}>{n}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* ステータスフィルター */}
@@ -543,7 +564,7 @@ function AdminFormsTab() {
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     {typeBadge(r.form_type)}
-                    <span style={{ fontWeight: 700, fontSize: 16 }}>{r.company_name}</span>
+                    <span style={{ fontWeight: 700, fontSize: 16 }}>{r.company_name || r.contact_name || '（名前なし）'}</span>
                   </div>
                   <span style={{ fontSize: 11, color: '#B6ADA2', flexShrink: 0 }}>
                     {r.created_at ? new Date(r.created_at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
@@ -552,11 +573,20 @@ function AdminFormsTab() {
 
                 {/* 詳細情報 */}
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2,1fr)', gap: '5px 20px', fontSize: 13, marginBottom: 14 }}>
-                  {r.contact_name  && <div><span style={{ color: '#938B81' }}>担当者：</span>{r.contact_name}</div>}
-                  {r.legal_email   && <div><span style={{ color: '#938B81' }}>法務メール：</span>{r.legal_email}</div>}
-                  {r.billing_email && <div><span style={{ color: '#938B81' }}>請求先：</span>{r.billing_email}</div>}
-                  {r.account_email && <div><span style={{ color: '#938B81' }}>アカウント：</span>{r.account_email}</div>}
-                  {r.source        && <div><span style={{ color: '#938B81' }}>情報源：</span>{r.source}</div>}
+                  {r.form_type === 'contact' ? (
+                    <>
+                      {r.legal_email && <div><span style={{ color: '#938B81' }}>返信先メール：</span><a href={`mailto:${r.legal_email}`} style={{ color: '#F2620C' }}>{r.legal_email}</a></div>}
+                      {r.source      && <div><span style={{ color: '#938B81' }}>お問い合わせ種別：</span>{r.source}</div>}
+                    </>
+                  ) : (
+                    <>
+                      {r.contact_name  && <div><span style={{ color: '#938B81' }}>担当者：</span>{r.contact_name}</div>}
+                      {r.legal_email   && <div><span style={{ color: '#938B81' }}>法務メール：</span><a href={`mailto:${r.legal_email}`} style={{ color: '#F2620C' }}>{r.legal_email}</a></div>}
+                      {r.billing_email && <div><span style={{ color: '#938B81' }}>請求先：</span>{r.billing_email}</div>}
+                      {r.account_email && <div><span style={{ color: '#938B81' }}>アカウント：</span>{r.account_email}</div>}
+                      {r.source        && <div><span style={{ color: '#938B81' }}>情報源：</span>{r.source}</div>}
+                    </>
+                  )}
                 </div>
                 {r.notes && <div style={{ marginBottom: 14, padding: '10px 14px', background: '#FBF8F4', borderRadius: 8, fontSize: 13, color: '#57514A', lineHeight: 1.7 }}>{r.notes}</div>}
 

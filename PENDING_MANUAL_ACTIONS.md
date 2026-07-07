@@ -29,6 +29,7 @@
 - ✅ `.env.local` に `SUPABASE_SERVICE_ROLE_KEY`（新体系の Secret key `sb_secret_...`）を設定済み（2026-07-03、キーの有効性確認済み）
 - 🔴 **本番環境（Vercel等）には未設定**。デプロイ先の環境変数に同じ4つを設定すること:
   `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` / `RESEND_API_KEY` / `RESEND_FROM_EMAIL`
+- 🟡 あわせて `NEXT_PUBLIC_SITE_URL`（本番の公開URL、例 `https://toukobe-intern.com`）も設定推奨。管理者ページのフォーム共有リンクのベースURLに使われる（未設定時は開いているサイトのURLになるので、デプロイ先の管理画面から開けば実用上は問題ない）。なお `app/sitemap.ts`・`app/layout.tsx`・`app/api/send-email/route.ts` は `https://toukobe-intern.com` をハードコードしているため、**本番ドメインが変わる場合はこれらの修正も必要**
 - Secret key は旧 service_role キーの後継で supabase-js にそのまま渡せる（コード変更不要）。管理者ページの「企業を追加」がこのキーを使用。
 
 ### 🔴 本番環境のメール設定
