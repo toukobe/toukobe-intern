@@ -158,7 +158,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await Promise.all(sends);
+    // resend.emails.send は失敗しても throw せず { error } を返すため、個別に確認してログに残す
+    // （DB保存は完了しているので、メール失敗でも申し込み自体は受付済みとして ok を返す）
+    const results = await Promise.all(sends);
+    results.forEach((r, i) => {
+      if (r.error) console.error(`form-submit email failed (${i === 0 ? 'admin' : 'submitter'}):`, r.error);
+    });
 
     return NextResponse.json({ ok: true });
   } catch (e) {

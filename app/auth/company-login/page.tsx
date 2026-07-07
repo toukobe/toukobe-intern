@@ -38,7 +38,12 @@ export default function CompanyLoginPage() {
     setError(null);
     try {
       const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-      if (signInError) { setError('メールアドレスまたはパスワードが正しくありません'); return; }
+      if (signInError) {
+        setError(signInError.message.includes('Email not confirmed')
+          ? 'メールアドレスの確認が完了していません。登録時に届いた確認メールのリンクをクリックしてください'
+          : 'メールアドレスまたはパスワードが正しくありません');
+        return;
+      }
 
       const { data: userType } = await supabase
         .from('user_types').select('user_type').eq('user_id', data.user.id).single();

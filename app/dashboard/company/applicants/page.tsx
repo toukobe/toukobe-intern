@@ -58,13 +58,13 @@ export default function ApplicantsPage() {
 
         if (!appsData) { setApplications([]); setLoading(false); return; }
 
-        const appsWithProfiles = await Promise.all(
-          (appsData as any[]).map(async (app) => {
-            const { data: profile } = await supabase.from('student_profiles').select('name, university, grade, contact_email').eq('user_id', app.user_id).single();
-            return { ...app, profile: profile || { name: '未登録', university: '未設定', grade: '未設定' } };
-          })
-        );
-        setApplications(appsWithProfiles);
+        const userIds = [...new Set((appsData as any[]).map(app => app.user_id))];
+        const { data: profiles } = await supabase.from('student_profiles').select('user_id, name, university, grade, contact_email').in('user_id', userIds);
+        const profileMap = new Map((profiles || []).map(p => [p.user_id, p]));
+        setApplications((appsData as any[]).map(app => ({
+          ...app,
+          profile: profileMap.get(app.user_id) || { name: '未登録', university: '未設定', grade: '未設定' },
+        })));
       } catch (err) {
         setError('応募者データの取得に失敗しました');
       } finally {
@@ -88,18 +88,29 @@ export default function ApplicantsPage() {
       const contactEmail = app?.profile?.contact_email;
       if (contactEmail) {
         const { data: { session } } = await supabase.auth.getSession();
-        fetch('/api/send-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
-          body: JSON.stringify({
-            type: emailType,
-            to: contactEmail,
-            jobTitle: app?.jobs?.job_title || '',
-            companyName,
-            jobId: app?.job_id,
-          }),
-        }).catch(console.error);
+        try {
+          const res = await fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+            body: JSON.stringify({
+              type: emailType,
+              to: contactEmail,
+              jobTitle: app?.jobs?.job_title || '',
+              companyName,
+              jobId: app?.job_id,
+            }),
+          });
+          if (!res.ok) throw new Error(`send-email ${res.status}`);
+          showToast('ステータスを更新し、応募者に通知メールを送信しました');
+        } catch (e) {
+          console.error(e);
+          showToast('ステータスは更新しましたが、通知メールの送信に失敗しました。応募者へ直接ご連絡ください', 'error');
+        }
+      } else {
+        showToast('ステータスを更新しました（連絡先未登録のため通知メールは送信されません）');
       }
+    } else {
+      showToast('ステータスを更新しました');
     }
   };
 

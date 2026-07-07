@@ -59,7 +59,12 @@ function LoginContent() {
     setError(null);
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) { setError('メールアドレスまたはパスワードが正しくありません'); return; }
+      if (error) {
+        setError(error.message.includes('Email not confirmed')
+          ? 'メールアドレスの確認が完了していません。登録時に届いた確認メールのリンクをクリックしてください'
+          : 'メールアドレスまたはパスワードが正しくありません');
+        return;
+      }
 
       // Redirect to appropriate dashboard
       if (data.user.email === 'ru_matsumoto@manabiph.com') { router.push('/dashboard/admin'); return; }
