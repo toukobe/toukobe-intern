@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: '/',
       disallow: ['/dashboard/', '/auth/', '/api/'],
     },
-    sitemap: 'https://toukobe-intern.com/sitemap.xml',
+    sitemap: 'https://intern.toukobe.com/sitemap.xml',
   }
 }

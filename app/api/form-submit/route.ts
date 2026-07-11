@@ -8,7 +8,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM = process.env.RESEND_FROM_EMAIL || 'noreply@toukobe-intern.com';
+const FROM = process.env.RESEND_FROM_EMAIL || 'noreply@intern.toukobe.com';
 const ADMIN_EMAIL = 'ru_matsumoto@manabiph.com';
 
 const FORM_LABELS: Record<string, string> = {

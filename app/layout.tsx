@@ -19,7 +19,7 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://toukobe-intern.com"),
+  metadataBase: new URL("https://intern.toukobe.com"),
   title: "トウコべインターン | 難関大生に特化した長期インターン",
   description: "東大・京大・早慶など難関大生のための長期インターンマッチングサービス。厳選企業の求人に、簡単に応募できます。",
   openGraph: {
@@ -65,17 +65,17 @@ export default function RootLayout({
                 '@context': 'https://schema.org',
                 '@type': 'Organization',
                 name: 'トウコべインターン',
-                url: 'https://toukobe-intern.com',
-                logo: 'https://toukobe-intern.com/toukobe-intern-logo.png',
+                url: 'https://intern.toukobe.com',
+                logo: 'https://intern.toukobe.com/toukobe-intern-logo.png',
               },
               {
                 '@context': 'https://schema.org',
                 '@type': 'WebSite',
                 name: 'トウコべインターン',
-                url: 'https://toukobe-intern.com',
+                url: 'https://intern.toukobe.com',
                 potentialAction: {
                   '@type': 'SearchAction',
-                  target: 'https://toukobe-intern.com/search?q={search_term_string}',
+                  target: 'https://intern.toukobe.com/search?q={search_term_string}',
                   'query-input': 'required name=search_term_string',
                 },
               },

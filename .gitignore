@@ -43,3 +43,6 @@ next-env.d.ts
 # local backups
 toukobe-backup-*.zip
 /backup-check/
+
+.vercel
+.env*

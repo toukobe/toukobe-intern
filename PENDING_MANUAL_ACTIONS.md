@@ -1,6 +1,24 @@
 # 手動で対応が必要な項目
 
-最終更新: 2026-07-07（お問い合わせフォームの500エラー修正・退会機能追加・共通フッター追加）
+最終更新: 2026-07-11（本番ドメイン intern.toukobe.com 決定・DNS設定依頼済み・環境変数整備）
+
+---
+
+## 🔴 進行中: 本番ドメイン移行（2026-07-11）
+
+本番ドメインは `intern.toukobe.com`（サブドメイン方式）に決定。DNS は toukobe.com 本体と同じ Xserver 管理で、湯谷さんにレコード追加を依頼済み（2026-07-12 対応予定）。
+
+完了済み:
+- ✅ Vercel プロジェクト `toukobe-intern-b2kt` に `intern.toukobe.com` を追加（CNAME値も湯谷さんに送付済み）
+- ✅ Resend に `intern.toukobe.com` を追加（DKIM/SPF/MX レコードも送付済み）
+- ✅ コード内の旧仮ドメイン `toukobe-intern.com` を全箇所 `intern.toukobe.com` に置換
+- ✅ Vercel 環境変数: `SUPABASE_SERVICE_ROLE_KEY` / `NEXT_PUBLIC_SITE_URL` を追加、`RESEND_FROM_EMAIL` を `noreply@intern.toukobe.com` に変更
+
+DNS反映後にやること（湯谷さんの完了連絡後）:
+1. `npx vercel domains verify intern.toukobe.com` で反映・SSL発行を確認
+2. Resend ダッシュボードで Verified になったことを確認（それまでメール送信は失敗する）
+3. Supabase → Authentication → URL Configuration: Site URL を `https://intern.toukobe.com` に変更、Redirect URLs に `https://intern.toukobe.com/**` を追加
+4. サイト表示・お問い合わせフォーム・ログイン・パスワードリセットを一通り実測確認
 
 ---
 
@@ -34,19 +52,13 @@
 
 ---
 
-## 🟡 環境変数（ローカル設定済み・本番未設定）
+## ✅ 環境変数（2026-07-11 本番設定完了）
 
-- ✅ `.env.local` に `SUPABASE_SERVICE_ROLE_KEY`（新体系の Secret key `sb_secret_...`）を設定済み（2026-07-03、キーの有効性確認済み）
-- 🔴 **本番環境（Vercel等）には未設定**。デプロイ先の環境変数に同じ4つを設定すること:
-  `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` / `RESEND_API_KEY` / `RESEND_FROM_EMAIL`
-- 🟡 あわせて `NEXT_PUBLIC_SITE_URL`（本番の公開URL、例 `https://toukobe-intern.com`）も設定推奨。管理者ページのフォーム共有リンクのベースURLに使われる（未設定時は開いているサイトのURLになるので、デプロイ先の管理画面から開けば実用上は問題ない）。なお `app/sitemap.ts`・`app/layout.tsx`・`app/api/send-email/route.ts` は `https://toukobe-intern.com` をハードコードしているため、**本番ドメインが変わる場合はこれらの修正も必要**
+Vercel（Production / Preview）に以下すべて設定済みを確認:
+`NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` / `RESEND_API_KEY` / `RESEND_FROM_EMAIL`（`noreply@intern.toukobe.com`）/ `NEXT_PUBLIC_SITE_URL`（`https://intern.toukobe.com`）
+
 - Secret key は旧 service_role キーの後継で supabase-js にそのまま渡せる（コード変更不要）。管理者ページの「企業を追加」がこのキーを使用。
-
-### 🔴 本番環境のメール設定
-現在 `.env.local` は `RESEND_FROM_EMAIL=onboarding@resend.dev`（テストモード）のため、**全メールが管理者宛に転送され、件名に [テスト] が付きます**。本番では:
-
-1. Resend ダッシュボードで `toukobe-intern.com` のドメイン認証（DNSレコード追加）
-2. 本番環境変数に `RESEND_FROM_EMAIL=noreply@toukobe-intern.com` と `RESEND_API_KEY` を設定
+- 🟡 注意: `RESEND_FROM_EMAIL` を本番ドメインに切り替えたため、**Resend のドメイン認証（DNS反映）が完了するまで自動送信メールは失敗する**（フォーム送信内容自体はDBに保存されるので消失はしない）。ローカル `.env.local` はテスト用 `onboarding@resend.dev` のまま（管理者宛転送・件名に [テスト]）。
 
 ---
 

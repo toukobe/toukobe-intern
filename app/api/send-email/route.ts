@@ -4,8 +4,8 @@ import { Resend } from 'resend';
 import { escapeHtml, sanitizeSubject, isValidEmail, rateLimit } from '@/utils/apiSecurity';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM = process.env.RESEND_FROM_EMAIL || 'noreply@toukobe-intern.com';
-const SITE = 'https://toukobe-intern.com';
+const FROM = process.env.RESEND_FROM_EMAIL || 'noreply@intern.toukobe.com';
+const SITE = 'https://intern.toukobe.com';
 
 const anonClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

@@ -32,7 +32,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
         title,
         description,
       },
-      alternates: { canonical: `https://toukobe-intern.com/companies/${id}` },
+      alternates: { canonical: `https://intern.toukobe.com/companies/${id}` },
     };
   } catch {
     return {};
