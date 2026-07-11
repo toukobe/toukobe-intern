@@ -8,7 +8,7 @@ import { useIsMobile } from '@/utils/useIsMobile';
 
 interface User { id: string; email?: string; }
 interface Stats { totalUsers: number; totalStudents: number; totalCompanies: number; totalJobs: number; totalApplications: number; }
-type Tab = 'overview' | 'jobs' | 'companies' | 'forms' | 'docs';
+type Tab = 'overview' | 'jobs' | 'companies' | 'forms' | 'legal' | 'docs';
 
 const F = {
   label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#57514A', marginBottom: 8 } as React.CSSProperties,
@@ -55,6 +55,7 @@ export default function AdminDashboard() {
     { key: 'jobs', label: '求人承認' },
     { key: 'companies', label: '企業管理' },
     { key: 'forms', label: 'フォーム申し込み' },
+    { key: 'legal', label: '規約・ポリシー' },
     { key: 'docs', label: 'API Docs' },
   ];
 
@@ -120,6 +121,7 @@ export default function AdminDashboard() {
 
         {/* DOCS */}
         {tab === 'forms' && <AdminFormsTab />}
+        {tab === 'legal' && <AdminLegalTab />}
         {tab === 'docs' && <AdminDocsTab />}
       </div>
     </div>
@@ -137,10 +139,17 @@ function AdminJobsTab() {
   useEffect(() => { loadJobs(); }, []);
 
   const loadJobs = async () => {
-    const { data: jobsData } = await supabase
+    // featured カラム未追加の環境（マイグレーション未実行）でも動くようフォールバック
+    let jobsData: any[] | null = (await supabase
       .from('jobs')
-      .select('id, job_title, salary, location, status, created_at, company_id')
-      .order('created_at', { ascending: false });
+      .select('id, job_title, salary, location, status, created_at, company_id, featured')
+      .order('created_at', { ascending: false })).data;
+    if (!jobsData) {
+      jobsData = (await supabase
+        .from('jobs')
+        .select('id, job_title, salary, location, status, created_at, company_id')
+        .order('created_at', { ascending: false })).data;
+    }
     if (!jobsData) { setLoading(false); return; }
 
     const companyIds = [...new Set(jobsData.map((j: any) => j.company_id).filter(Boolean))];
@@ -165,6 +174,13 @@ function AdminJobsTab() {
     const { error } = await supabase.from('jobs').update({ status: 'draft' }).eq('id', jobId);
     if (error) { showToast('差し戻しに失敗しました', 'error'); return; }
     setJobs(jobs.map(j => j.id === jobId ? { ...j, status: 'draft' } : j));
+  };
+
+  const handleToggleFeatured = async (jobId: string, current: boolean) => {
+    const { error } = await supabase.from('jobs').update({ featured: !current }).eq('id', jobId);
+    if (error) { showToast('変更に失敗しました（featured用のSQLが未実行の可能性）', 'error'); return; }
+    showToast(!current ? '注目求人に設定しました' : '注目求人を解除しました');
+    setJobs(jobs.map(j => j.id === jobId ? { ...j, featured: !current } : j));
   };
 
   const STATUS_MAP: Record<string, { text: string; bg: string; color: string }> = {
@@ -221,6 +237,12 @@ function AdminJobsTab() {
                   </div>
                 </div>
                 <span style={{ fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 999, background: s.bg, color: s.color, flexShrink: 0 }}>{s.text}</span>
+                {j.status === 'published' && (
+                  <button onClick={() => handleToggleFeatured(j.id, !!j.featured)} title="トップページの「注目の長期インターン」に優先表示します"
+                    style={{ background: j.featured ? '#FFF1E8' : '#fff', color: j.featured ? '#C2530A' : '#938B81', border: `1.5px solid ${j.featured ? '#F2620C' : '#EFE8DF'}`, borderRadius: 999, padding: '6px 14px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 12, cursor: 'pointer', flexShrink: 0, transition: '.15s' }}>
+                    {j.featured ? '★ 注目中' : '☆ 注目にする'}
+                  </button>
+                )}
                 {j.status === 'pending' && (
                   <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
                     <button onClick={() => handleApprove(j.id)}
@@ -247,7 +269,10 @@ function AdminCompaniesTab() {
   const [companies, setCompanies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ company_name: '', industry: '', contact_email: '', login_email: '' });
+  const [form, setForm] = useState({ company_name: '', industry: '', contact_email: '', login_email: '', temp_password: '' });
+  // 直近に発行したログイン情報（この画面でしか見られないため、閉じる前に企業へ共有する）
+  const [created, setCreated] = useState<{ company_name: string; login_email: string; temp_password: string } | null>(null);
+  const [copiedCred, setCopiedCred] = useState(false);
   const [editingCompany, setEditingCompany] = useState<any | null>(null);
   const [editForm, setEditForm] = useState({ company_name: '', industry: '', contact_email: '' });
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
@@ -261,6 +286,14 @@ function AdminCompaniesTab() {
     setLoading(false);
   };
 
+  // 読み間違いにくい文字だけで仮パスワードを生成する
+  const generatePassword = () => {
+    const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const buf = new Uint32Array(12);
+    crypto.getRandomValues(buf);
+    return Array.from(buf, n => chars[n % chars.length]).join('');
+  };
+
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -269,15 +302,25 @@ function AdminCompaniesTab() {
       const res = await fetch('/api/admin/create-company', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, temp_password: form.temp_password || undefined }),
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || '追加に失敗しました');
-      showToast(`企業を追加しました（${form.login_email}）`);
-      setForm({ company_name: '', industry: '', contact_email: '', login_email: '' });
+      setCreated({ company_name: form.company_name, login_email: result.login_email, temp_password: result.temp_password });
+      setCopiedCred(false);
+      setForm({ company_name: '', industry: '', contact_email: '', login_email: '', temp_password: '' });
       setShowForm(false);
       loadCompanies();
     } catch (err: any) { showToast('追加に失敗しました: ' + err.message, 'error'); }
+  };
+
+  const copyCredentials = () => {
+    if (!created) return;
+    const text = `【トウコべインターン】企業アカウントのご案内\n\nログインページ: ${process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '')}/auth/company-login\nログインメール: ${created.login_email}\n仮パスワード: ${created.temp_password}\n\n初回ログイン後、ダッシュボード右上の「パスワード変更」から必ずパスワードを変更してください。`;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedCred(true);
+      setTimeout(() => setCopiedCred(false), 2000);
+    });
   };
 
   const handleEditOpen = (c: any) => {
@@ -332,6 +375,28 @@ function AdminCompaniesTab() {
         </div>
       )}
 
+      {/* 発行したログイン情報（この画面を閉じると仮パスワードは再表示できない） */}
+      {created && (
+        <div style={{ background: '#F0FDF4', border: '1.5px solid #BBF7D0', borderRadius: 16, padding: '24px 28px', marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+            <div>
+              <h3 style={{ fontWeight: 900, fontSize: 16, margin: '0 0 4px', color: '#15803D' }}>✓ 企業アカウントを発行しました — {created.company_name}</h3>
+              <p style={{ fontSize: 12.5, color: '#57514A', margin: '0 0 14px' }}>仮パスワードは<b>この画面でしか確認できません</b>。閉じる前に「案内文をコピー」して企業の担当者に共有してください。</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontFamily: "var(--font-mono)", fontSize: 14 }}>
+                <div><span style={{ fontSize: 12, color: '#938B81', fontFamily: "var(--font-sans)", marginRight: 8 }}>ログインメール:</span>{created.login_email}</div>
+                <div><span style={{ fontSize: 12, color: '#938B81', fontFamily: "var(--font-sans)", marginRight: 8 }}>仮パスワード:</span><b>{created.temp_password}</b></div>
+              </div>
+            </div>
+            <button onClick={() => setCreated(null)} style={{ background: 'none', border: 'none', color: '#938B81', fontSize: 18, cursor: 'pointer', flexShrink: 0 }}>✕</button>
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+            <button onClick={copyCredentials} style={{ background: copiedCred ? '#15803D' : '#fff', color: copiedCred ? '#fff' : '#15803D', border: '1.5px solid #15803D', borderRadius: 8, padding: '9px 20px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer', transition: '.2s' }}>
+              {copiedCred ? 'コピーしました ✓' : '案内文をコピー'}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: '#F2620C', letterSpacing: '.14em', marginBottom: 6 }}>COMPANIES</div>
@@ -350,6 +415,13 @@ function AdminCompaniesTab() {
             <div><label style={F2.label}>業種 *</label><input style={F2.input} value={form.industry} onChange={e => setForm({ ...form, industry: e.target.value })} required onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} /></div>
             <div><label style={F2.label}>企業メール *</label><input style={F2.input} type="email" value={form.contact_email} onChange={e => setForm({ ...form, contact_email: e.target.value })} required onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} /></div>
             <div><label style={F2.label}>ログインメール *</label><input style={F2.input} type="email" value={form.login_email} onChange={e => setForm({ ...form, login_email: e.target.value })} required onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} /></div>
+            <div style={{ gridColumn: '1/-1' }}>
+              <label style={F2.label}>仮パスワード（8文字以上・空欄なら自動生成）</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input style={{ ...F2.input, fontFamily: "var(--font-mono)" }} value={form.temp_password} onChange={e => setForm({ ...form, temp_password: e.target.value })} minLength={8} placeholder="空欄のまま登録すると自動生成されます" onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} />
+                <button type="button" onClick={() => setForm({ ...form, temp_password: generatePassword() })} style={{ background: '#fff', color: '#F2620C', border: '1.5px solid #F2620C', borderRadius: 10, padding: '0 18px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>自動生成</button>
+              </div>
+            </div>
             <div style={{ gridColumn: '1/-1' }}>
               <button type="submit" style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 32px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>企業を登録する</button>
             </div>
@@ -640,6 +712,111 @@ function AdminFormsTab() {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+const LEGAL_DOCS = [
+  { slug: 'terms-student', title: '利用規約（学生版）', path: '/terms' },
+  { slug: 'terms-company', title: '利用規約（企業版）', path: '/terms/company' },
+  { slug: 'privacy-policy', title: 'プライバシーポリシー', path: '/privacy-policy' },
+];
+
+function AdminLegalTab() {
+  const isMobile = useIsMobile();
+  const [selected, setSelected] = useState('terms-student');
+  const [contents, setContents] = useState<Record<string, string>>({});
+  const [updatedAt, setUpdatedAt] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [tableMissing, setTableMissing] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
+
+  useEffect(() => {
+    supabase.from('site_documents').select('*').then(({ data, error }) => {
+      if (error) { setTableMissing(true); setLoading(false); return; }
+      const map: Record<string, string> = {};
+      const up: Record<string, string> = {};
+      (data || []).forEach((d: any) => { map[d.slug] = d.content; up[d.slug] = d.updated_at; });
+      setContents(map);
+      setUpdatedAt(up);
+      setLoading(false);
+    });
+  }, []);
+
+  const save = async () => {
+    setSaving(true);
+    const doc = LEGAL_DOCS.find(d => d.slug === selected)!;
+    const now = new Date().toISOString();
+    const { error } = await supabase.from('site_documents').upsert({ slug: selected, title: doc.title, content: contents[selected] || '', updated_at: now });
+    setSaving(false);
+    if (error) { showToast('保存に失敗しました: ' + error.message, 'error'); return; }
+    setUpdatedAt(p => ({ ...p, [selected]: now }));
+    showToast('保存しました。公開ページに反映されています');
+  };
+
+  if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><div style={{ width: 36, height: 36, border: '2.5px solid #F2620C', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /><style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style></div>;
+
+  if (tableMissing) return (
+    <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 16, padding: '28px 32px' }}>
+      <h3 style={{ fontWeight: 700, fontSize: 16, margin: '0 0 10px', color: '#B45309' }}>初期設定が必要です</h3>
+      <p style={{ fontSize: 14, color: '#57514A', lineHeight: 1.9, margin: 0 }}>
+        規約の編集機能を使うには、Supabase ダッシュボード → SQL Editor で <code style={{ background: '#FFF', padding: '2px 8px', borderRadius: 6, fontFamily: 'var(--font-mono)', fontSize: 12 }}>sql/2026-07-11_featured_jobs_and_site_documents.sql</code> を実行してください。実行後にこのページを再読み込みすると編集できるようになります。
+      </p>
+    </div>
+  );
+
+  const current = LEGAL_DOCS.find(d => d.slug === selected)!;
+
+  return (
+    <div>
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: toast.type === 'error' ? '#FEF2F2' : '#F0FDF4', border: `1px solid ${toast.type === 'error' ? '#FECACA' : '#BBF7D0'}`, color: toast.type === 'error' ? '#B91C1C' : '#15803D', borderRadius: 12, padding: '14px 24px', fontWeight: 700, fontSize: 14, boxShadow: '0 8px 32px rgba(0,0,0,.12)', whiteSpace: 'nowrap' }}>
+          {toast.type === 'success' ? '✓ ' : '✕ '}{toast.msg}
+        </div>
+      )}
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: '#F2620C', letterSpacing: '.14em', marginBottom: 12 }}>LEGAL DOCUMENTS</div>
+      <h2 style={{ fontWeight: 900, fontSize: 24, margin: '0 0 24px' }}>規約・ポリシー編集</h2>
+
+      {/* 文書の選択 */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+        {LEGAL_DOCS.map(d => (
+          <button key={d.slug} onClick={() => setSelected(d.slug)}
+            style={{ border: selected === d.slug ? '2px solid #F2620C' : '1px solid #EFE8DF', background: selected === d.slug ? '#FFF1E8' : '#fff', color: selected === d.slug ? '#F2620C' : '#57514A', borderRadius: 999, padding: '9px 20px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+            {d.title}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: isMobile ? '20px 16px' : '28px 32px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+          <h3 style={{ fontWeight: 700, fontSize: 16, margin: 0 }}>{current.title}</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {updatedAt[selected] && <span style={{ fontSize: 12, color: '#938B81' }}>最終更新: {new Date(updatedAt[selected]).toLocaleString('ja-JP')}</span>}
+            <a href={current.path} target="_blank" rel="noreferrer" style={{ fontSize: 13, color: '#F2620C', fontWeight: 700 }}>公開ページを見る ↗</a>
+          </div>
+        </div>
+        <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '12px 16px', fontSize: 12.5, color: '#57514A', lineHeight: 1.9, marginBottom: 14 }}>
+          書き方: 行頭を「第◯条 …」「第◯章 …」にするとその行が<b>見出し</b>になります。「・」で始まる行は<b>箇条書き</b>、それ以外は段落として表示されます。<br />
+          ※ 空のまま保存すると、公開ページにはサイト組み込みの現行の文面（2026-07-11時点の正式版）が表示されます。このエディタに入力した内容が優先されます。
+        </div>
+        <textarea
+          value={contents[selected] || ''}
+          onChange={e => setContents(p => ({ ...p, [selected]: e.target.value }))}
+          rows={24}
+          placeholder={'第1条 目的\n本規約は…\n\n第2条 定義\n・「学生会員」：…\n・「企業会員」：…'}
+          style={{ width: '100%', border: '1px solid #EFE8DF', borderRadius: 10, padding: '14px 16px', fontFamily: "var(--font-sans)", fontSize: 14, color: '#1C1813', outline: 'none', resize: 'vertical', boxSizing: 'border-box', lineHeight: 1.8 }}
+          onFocus={e => (e.target.style.borderColor = '#F2620C')}
+          onBlur={e => (e.target.style.borderColor = '#EFE8DF')}
+        />
+        <div style={{ marginTop: 14 }}>
+          <button onClick={save} disabled={saving}
+            style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '13px 36px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 14, cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+            {saving ? '保存中...' : '保存して公開'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

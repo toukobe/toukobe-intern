@@ -15,6 +15,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE}/forms/material`, changeFrequency: 'yearly', priority: 0.3 },
     { url: `${SITE}/privacy-policy`, changeFrequency: 'yearly', priority: 0.2 },
     { url: `${SITE}/terms`, changeFrequency: 'yearly', priority: 0.2 },
+    { url: `${SITE}/terms/company`, changeFrequency: 'yearly', priority: 0.2 },
   ]
 
   // 公開中の求人・企業ページ（RLS未設定などで取得できない場合は静的ページのみ返す）

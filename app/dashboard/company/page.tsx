@@ -37,10 +37,34 @@ export default function CompanyDashboard() {
   const [coverPosition, setCoverPosition] = useState('50% 50%');
   const [coverPositionSaved, setCoverPositionSaved] = useState(true);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  // パスワード変更（仮パスワードで発行されたアカウントが自分で変更するためのツール）
+  const [showPwModal, setShowPwModal] = useState(false);
+  const [newPw, setNewPw] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwError, setPwError] = useState<string | null>(null);
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwError(null);
+    if (newPw.length < 8) { setPwError('パスワードは8文字以上で設定してください'); return; }
+    if (newPw !== confirmPw) { setPwError('パスワードが一致しません'); return; }
+    setPwSaving(true);
+    const { error } = await supabase.auth.updateUser({ password: newPw });
+    setPwSaving(false);
+    if (error) {
+      setPwError(error.message.includes('should be different') ? '現在と同じパスワードは設定できません' : '変更に失敗しました。時間をおいて再度お試しください');
+      return;
+    }
+    setShowPwModal(false);
+    setNewPw('');
+    setConfirmPw('');
+    showToast('パスワードを変更しました');
   };
 
   useEffect(() => {
@@ -188,9 +212,35 @@ export default function CompanyDashboard() {
           <button onClick={() => router.push('/dashboard/company/applicants')} style={{ background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '10px 20px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
             応募者管理
           </button>
+          <button onClick={() => { setShowPwModal(true); setPwError(null); }} style={{ background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 8, padding: isMobile ? '10px 12px' : '10px 20px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>{isMobile ? 'PW変更' : 'パスワード変更'}</button>
           <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} style={{ background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 8, padding: '10px 20px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>ログアウト</button>
         </div>
       </div>
+
+      {/* パスワード変更モーダル */}
+      {showPwModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: '32px', width: '100%', maxWidth: 440, boxShadow: '0 24px 60px rgba(0,0,0,.2)' }}>
+            <h3 style={{ fontWeight: 900, fontSize: 18, margin: '0 0 8px' }}>パスワード変更</h3>
+            <p style={{ fontSize: 13, color: '#938B81', margin: '0 0 20px' }}>ログイン中のアカウント（{user?.email}）のパスワードを変更します。仮パスワードでログインしている場合は、必ず変更してください。</p>
+            {pwError && <div style={{ background: '#FFF1EE', border: '1px solid #FBCFBE', borderRadius: 10, padding: '12px 16px', fontSize: 13, color: '#C2390A', marginBottom: 16 }}>{pwError}</div>}
+            <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label style={F.label}>新しいパスワード（8文字以上） *</label>
+                <input style={F.input} type="password" value={newPw} onChange={e => setNewPw(e.target.value)} required minLength={8} placeholder="••••••••" onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} />
+              </div>
+              <div>
+                <label style={F.label}>新しいパスワード（確認） *</label>
+                <input style={F.input} type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} required minLength={8} placeholder="••••••••" onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} />
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+                <button type="submit" disabled={pwSaving} style={{ flex: 1, background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '13px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 14, cursor: 'pointer', opacity: pwSaving ? 0.7 : 1 }}>{pwSaving ? '変更中...' : '変更する'}</button>
+                <button type="button" onClick={() => { setShowPwModal(false); setNewPw(''); setConfirmPw(''); }} style={{ flex: 1, background: '#F3EEE7', color: '#57514A', border: 'none', borderRadius: 10, padding: '13px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>キャンセル</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: isMobile ? '24px 12px 60px' : '40px 48px' }}>
         {/* STATS */}

@@ -31,34 +31,6 @@ function FadeIn({ children, delay = 0, style }: { children: React.ReactNode; del
   );
 }
 
-// 画面に入ったら 0 から数え上げる統計値（no-JS/SSRでは最終値を表示）
-function CountUp({ value, duration = 1100 }: { value: string; duration?: number }) {
-  const target = parseInt(value.replace(/,/g, ''), 10);
-  const [display, setDisplay] = useState(value);
-  const ref = useRef<HTMLSpanElement>(null);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || isNaN(target)) return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    let raf = 0;
-    const io = new IntersectionObserver(([e]) => {
-      if (!e.isIntersecting) return;
-      io.disconnect();
-      const t0 = performance.now();
-      const tick = (t: number) => {
-        const p = Math.min((t - t0) / duration, 1);
-        const eased = 1 - Math.pow(1 - p, 3);
-        setDisplay(Math.round(target * eased).toLocaleString('ja-JP'));
-        if (p < 1) raf = requestAnimationFrame(tick);
-      };
-      raf = requestAnimationFrame(tick);
-    }, { threshold: 0.5 });
-    io.observe(el);
-    return () => { io.disconnect(); cancelAnimationFrame(raf); };
-  }, [target, duration]);
-  return <span ref={ref}>{display}</span>;
-}
-
 interface Job {
   id: string;
   job_title: string;
@@ -88,17 +60,17 @@ const cats = [
   'エンジニア', 'デザイナー', '営業', 'ライター・メディア',
 ];
 
-const stats = [
-  { num: '480', unit: '社', label: '提携企業数', pre: '' },
-  { num: '92', unit: '%', label: '登録学生の難関大比率', pre: '' },
-  { num: '1,650', unit: '', label: '平均時給', pre: '¥' },
-  { num: '2', unit: '週間', label: '最短マッチング', pre: '' },
+const features = [
+  { title: '学生は完全無料', label: '登録から応募まで費用ゼロ' },
+  { title: '難関大生に特化', label: '東大生を中心とした難関大生が対象' },
+  { title: '掲載企業は審査制', label: '実在性・給与水準等を掲載前に確認' },
+  { title: '長期インターン専門', label: '実務経験が積める求人に限定' },
 ];
 
 const steps = [
   { no: '1', title: '無料で登録', desc: 'プロフィールを登録。難関大生であることが、あなたの強みになります。' },
   { no: '2', title: '求人を探す', desc: '職種・勤務地・働き方の条件から、あなたに合うインターンを検索。' },
-  { no: '3', title: '応募・面談', desc: '気になる企業へ応募。最短2週間でインターンをスタートできます。' },
+  { no: '3', title: '応募・面談', desc: '気になる企業へ応募。選考・面談を経てインターンをスタートできます。' },
 ];
 
 const pills = ['コンサルティング', '事業開発', '投資銀行', 'プロダクト', 'マーケティング'];
@@ -151,10 +123,19 @@ export default function Home() {
   useEffect(() => {
     async function fetchJobs() {
       try {
-        const { data, error } = await supabase
+        // 管理者が選んだ注目求人(featured)を先頭に表示。featuredカラム未追加の環境では従来通りに取得
+        let { data, error } = await supabase
           .from('jobs')
           .select(`id, job_title, salary, location, cover_image_url, cover_image_position, companies (company_name, logo_url, cover_url)`)
-          .eq('status', 'published');
+          .eq('status', 'published')
+          .order('featured', { ascending: false })
+          .order('created_at', { ascending: false });
+        if (error) {
+          ({ data, error } = await supabase
+            .from('jobs')
+            .select(`id, job_title, salary, location, cover_image_url, cover_image_position, companies (company_name, logo_url, cover_url)`)
+            .eq('status', 'published'));
+        }
         if (error) {
           console.error('データの取得に失敗しました:', error);
         } else {
@@ -248,8 +229,8 @@ export default function Home() {
             <p className="anim-fade-up" style={{ fontSize: isMobile ? 12 : 13.5, fontWeight: 700, color: '#C2530A', margin: '0 0 14px' }}>難関大生のための長期インターン求人サイト</p>
             <h1 className="anim-fade-up anim-delay-1" style={{ fontWeight: 800, fontSize: isMobile ? 30 : 46, lineHeight: 1.4, margin: '0 0 18px' }}>最初のキャリアを、<br />本気で選ぶ。</h1>
             <p className="anim-fade-up anim-delay-2" style={{ fontSize: isMobile ? 13.5 : 15.5, lineHeight: 2, color: '#57514A', margin: isMobile ? '0 0 26px' : '0 0 36px' }}>
-              トウコべインターンは、難関大生に特化した長期インターンの求人サイトです。<br />
-              厳選した企業での実務経験を、納得のいくキャリア選びにつなげてください。
+              掲載するのは、審査を通過した企業の長期インターンのみ。<br />
+              実務の経験を積みながら、自分に合うキャリアを見極める。その一歩目を支えます。
             </p>
           </div>
 
@@ -328,8 +309,8 @@ export default function Home() {
               <div style={{ position: 'absolute', left: 18, bottom: 18, background: 'rgba(255,255,255,.94)', backdropFilter: 'blur(4px)', borderRadius: 10, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <img src="/icon.png" alt="" style={{ width: 26, height: 26 }} />
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1C1813', lineHeight: 1.4 }}>厳選480社が掲載中</div>
-                  <div style={{ fontSize: 11, color: '#938B81' }}>成長企業の実務インターン</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1C1813', lineHeight: 1.4 }}>審査を通過した企業のみ掲載</div>
+                  <div style={{ fontSize: 11, color: '#938B81' }}>上場企業・資金調達済スタートアップ</div>
                 </div>
               </div>
             </div>
@@ -337,16 +318,12 @@ export default function Home() {
         </div>
       </div>
 
-      {/* STATS */}
+      {/* FEATURES */}
       <div style={{ background: '#fff', borderBottom: '1px solid #F0EAE2' }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: isMobile ? '20px 20px' : '26px 48px', display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: isMobile ? 0 : 24 }}>
-          {stats.map((s, i) => (
-            <div key={i} style={{ textAlign: 'center', padding: isMobile ? '10px 8px' : undefined, borderRight: !isMobile && i < stats.length - 1 ? '1px solid #F0EAE2' : 'none', borderLeft: isMobile && i % 2 === 1 ? '1px solid #F0EAE2' : 'none' }}>
-              <div style={{ fontWeight: 700, color: '#1C1813', lineHeight: 1.2, marginBottom: 4 }}>
-                <span style={{ fontSize: isMobile ? 12 : 14 }}>{s.pre}</span>
-                <span style={{ fontSize: isMobile ? 20 : 26, fontFeatureSettings: '"tnum"' }}><CountUp value={s.num} /></span>
-                <span style={{ fontSize: isMobile ? 12 : 14, marginLeft: 2 }}>{s.unit}</span>
-              </div>
+          {features.map((s, i) => (
+            <div key={i} style={{ textAlign: 'center', padding: isMobile ? '10px 8px' : undefined, borderRight: !isMobile && i < features.length - 1 ? '1px solid #F0EAE2' : 'none', borderLeft: isMobile && i % 2 === 1 ? '1px solid #F0EAE2' : 'none' }}>
+              <div style={{ fontWeight: 700, color: '#1C1813', lineHeight: 1.4, marginBottom: 4, fontSize: isMobile ? 13.5 : 16 }}>{s.title}</div>
               <div style={{ fontSize: isMobile ? 10.5 : 12, color: '#938B81' }}>{s.label}</div>
             </div>
           ))}
@@ -538,7 +515,7 @@ export default function Home() {
               <h3 style={{ fontWeight: 700, fontSize: isMobile ? 18 : 24, color: '#fff', margin: '0 0 10px', lineHeight: 1.5 }}>難関大生の採用をお考えの企業様へ</h3>
               <p style={{ fontSize: isMobile ? 13 : 14.5, color: '#C9C0B6', margin: 0, lineHeight: 1.9 }}>月額定額で何件でも求人を掲載いただけます。まずは資料をご覧ください。</p>
             </div>
-            <span className="btn-primary" onClick={() => router.push('/auth/company-login')} style={{ position: 'relative', whiteSpace: 'nowrap', background: '#F2620C', color: '#fff', fontWeight: 700, fontSize: isMobile ? 14 : 15, padding: isMobile ? '13px 28px' : '15px 36px', borderRadius: 8, cursor: 'pointer' }}>
+            <span className="btn-primary" onClick={() => router.push('/for-companies')} style={{ position: 'relative', whiteSpace: 'nowrap', background: '#F2620C', color: '#fff', fontWeight: 700, fontSize: isMobile ? 14 : 15, padding: isMobile ? '13px 28px' : '15px 36px', borderRadius: 8, cursor: 'pointer' }}>
               資料を請求する
             </span>
           </div>

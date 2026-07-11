@@ -300,7 +300,7 @@ export default function StudentDashboard() {
                   <input type="email" style={F.input} value={editForm.contact_email || ''} onChange={e => setEditForm({ ...editForm, contact_email: e.target.value })} required placeholder="example@university.ac.jp" onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} />
                   <div style={{ marginTop: 8, padding: '10px 14px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 8, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                     <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>📧</span>
-                    <p style={{ fontSize: 12, color: '#92400E', margin: 0, lineHeight: 1.7 }}>このアドレスに企業からの選考連絡・面接案内・スカウトメールが届きます。普段よく確認できるメールアドレスを登録してください。</p>
+                    <p style={{ fontSize: 12, color: '#92400E', margin: 0, lineHeight: 1.7 }}>このアドレスに企業からの選考連絡・面接案内が届きます。普段よく確認できるメールアドレスを登録してください。</p>
                   </div>
                 </div>
                 <div><label style={F.label}>スキル（カンマ区切り）</label><input style={F.input} value={Array.isArray(editForm.skills) ? editForm.skills.join(', ') : ''} onChange={e => setEditForm({ ...editForm, skills: e.target.value.split(',').map(s => s.trim()) })} placeholder="Python, Excel, 英語" onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} /></div>
@@ -322,7 +322,7 @@ export default function StudentDashboard() {
                 <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 12, padding: '16px 20px' }}>
                   <div style={{ fontSize: 12, color: '#92400E', marginBottom: 6, fontWeight: 600 }}>📧 連絡用メールアドレス</div>
                   <div style={{ fontWeight: 700, fontSize: 15, color: '#1C1813' }}>{profile?.contact_email || '未設定'}</div>
-                  <div style={{ fontSize: 12, color: '#92400E', marginTop: 6 }}>企業からの選考連絡・面接案内・スカウトメールがこのアドレスに届きます</div>
+                  <div style={{ fontSize: 12, color: '#92400E', marginTop: 6 }}>企業からの選考連絡・面接案内がこのアドレスに届きます</div>
                 </div>
                 <div>
                   <div style={{ fontSize: 12, color: '#938B81', marginBottom: 8 }}>スキル</div>

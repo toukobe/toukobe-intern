@@ -26,10 +26,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'サーバー設定エラー: SUPABASE_SERVICE_ROLE_KEY が未設定です' }, { status: 500 });
     }
 
-    const { company_name, industry, contact_email, login_email } = await req.json();
+    const { company_name, industry, contact_email, login_email, temp_password } = await req.json();
     if (!company_name || !industry || !contact_email || !login_email) {
       return NextResponse.json({ error: '必須項目が不足しています' }, { status: 400 });
     }
+    if (temp_password && (typeof temp_password !== 'string' || temp_password.length < 8)) {
+      return NextResponse.json({ error: '仮パスワードは8文字以上で指定してください' }, { status: 400 });
+    }
+    // 仮パスワード: 管理者の指定値、未指定なら読み間違いにくい文字だけで自動生成して返す
+    const AMBIGUOUS = /[0O1lI]/g;
+    const password = temp_password
+      || randomBytes(24).toString('base64url').replace(AMBIGUOUS, '').slice(0, 12);
 
     const adminClient = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -47,7 +54,7 @@ export async function POST(req: NextRequest) {
 
     const { data: authData, error: createUserError } = await adminClient.auth.admin.createUser({
       email: login_email,
-      password: randomBytes(24).toString('base64url'),
+      password,
       email_confirm: true,
     });
     if (createUserError || !authData.user) {
@@ -65,7 +72,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: userTypeError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, company, login_email });
+    // 仮パスワードはこのレスポンスでのみ返す（DBには平文で残らない）。管理者が企業に伝える
+    return NextResponse.json({ ok: true, company, login_email, temp_password: password });
   } catch (e) {
     console.error('create-company error:', e);
     return NextResponse.json({ error: '内部エラーが発生しました' }, { status: 500 });

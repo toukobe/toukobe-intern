@@ -16,32 +16,32 @@ const steps = [
     no: '02',
     title: '求人を検索・閲覧',
     desc: '職種・勤務地・働き方（週2〜・フルリモートなど）で絞り込み。気になる求人の詳細・給与・選考フローを確認できます。',
-    note: '掲載求人数：480社以上',
+    note: '審査を通過した求人のみ掲載',
   },
   {
     no: '03',
     title: '気になる求人に応募',
     desc: 'ワンクリックで応募。企業からの連絡は登録した連絡先メールアドレスに届くので見逃しがありません。',
-    note: '最短当日に返信あり',
+    note: '応募はワンクリック',
   },
   {
     no: '04',
     title: '面接・選考',
-    desc: '企業と日程調整のうえ面接へ。オンライン面接対応の企業も多く、全国どこからでも選考に参加できます。',
-    note: 'オンライン対応多数',
+    desc: '企業と日程調整のうえ面接へ。書類選考・面接は企業と学生の間で直接行われます。',
+    note: '選考は企業と直接',
   },
   {
     no: '05',
     title: 'インターンスタート',
-    desc: '内定後、最短2週間で就業開始。',
-    note: '平均マッチング：2週間',
+    desc: '内定・条件確認ののち、就業開始。実務経験をキャリアにつなげましょう。',
+    note: '学生は完全無料',
   },
 ];
 
 const faqs = [
   { q: '登録に費用はかかりますか？', a: '学生の方は完全無料でご利用いただけます。登録から応募まですべて無料です。' },
   { q: '難関大生以外でも登録できますか？', a: '現在は難関大生（東大・京大・一橋・東京科学大・早慶など）を対象としています。詳しくはお問い合わせください。' },
-  { q: '週何日から働けますか？', a: '週2日〜対応している求人も多数あります。授業・サークルとの両立も可能です。' },
+  { q: '週何日から働けますか？', a: '求人によって異なります。週2日〜など授業・サークルと両立しやすい条件の求人は、検索条件で絞り込めます。' },
 ];
 
 export default function HowItWorksPage() {
@@ -66,7 +66,7 @@ export default function HowItWorksPage() {
       <div style={{ background: 'linear-gradient(160deg,#FFF6EE,#FFEFE2)', padding: isMobile ? '40px 20px 36px' : '64px 48px 56px', textAlign: 'center' }}>
         <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: '#F2620C', letterSpacing: '.18em', marginBottom: 12 }}>HOW IT WORKS</div>
         <h1 style={{ fontWeight: 900, fontSize: isMobile ? 28 : 42, margin: '0 0 14px' }}>ご利用の流れ</h1>
-        <p style={{ fontSize: 15, color: '#7A7268', margin: 0 }}>登録から就業開始まで、最短2週間。</p>
+        <p style={{ fontSize: 15, color: '#7A7268', margin: 0 }}>登録から応募まで、学生はすべて無料。</p>
       </div>
 
       {/* STEPS */}

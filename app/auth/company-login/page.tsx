@@ -52,11 +52,12 @@ export default function CompanyLoginPage() {
         router.push('/dashboard/admin');
       } else if (userType?.user_type === 'company') {
         router.push('/dashboard/company');
-      } else if (!userType) {
-        // 登録が途中で終わったアカウント: setupで種別登録から再開できる
-        router.push('/auth/setup');
+      } else if (userType?.user_type === 'student') {
+        // 学生アカウントで企業ログインに来た場合は学生側へ案内する
+        router.push('/dashboard/student');
       } else {
-        router.push('/');
+        // 登録が途中で終わったアカウント: setupで登録を完了できる
+        router.push('/auth/setup');
       }
     } catch { setError('ログインに失敗しました'); }
     finally { setLoading(false); }
@@ -114,9 +115,12 @@ export default function CompanyLoginPage() {
         <div style={{ marginTop: 24, textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 10 }}>
           <p style={{ fontSize: 13, color: '#57514A', margin: 0 }}>
             新規掲載をご希望の方は{' '}
-            <span style={{ color: '#F2620C', fontWeight: 700, cursor: 'pointer' }} onClick={() => router.push('/forms/material')}>資料請求</span>
+            <span style={{ color: '#F2620C', fontWeight: 700, cursor: 'pointer' }} onClick={() => router.push('/for-companies')}>資料請求</span>
             {' '}／{' '}
             <span style={{ color: '#F2620C', fontWeight: 700, cursor: 'pointer' }} onClick={() => router.push('/forms/contact')}>お問い合わせ</span>
+          </p>
+          <p style={{ fontSize: 12, color: '#B6ADA2', margin: 0 }}>
+            <span style={{ color: '#938B81', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => router.push('/terms/company')}>企業向け利用規約</span>
           </p>
           <p style={{ fontSize: 12, color: '#B6ADA2', margin: 0 }}>
             学生の方は{' '}

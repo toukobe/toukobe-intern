@@ -83,8 +83,8 @@ function LoginContent() {
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <img src="/toukobe-intern-logo.png" alt="トウコべインターン" style={{ height: 44, width: 'auto', cursor: 'pointer' }} onClick={() => router.push('/')} />
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: '.3em', color: '#B59A86', marginTop: 4 }}>STUDENT LOGIN</div>
-          <h1 style={{ fontWeight: 900, fontSize: 26, margin: '20px 0 6px' }}>ログイン</h1>
-          <p style={{ fontSize: 13, color: '#938B81', margin: 0 }}>アカウントにサインインしてください</p>
+          <h1 style={{ fontWeight: 900, fontSize: 26, margin: '20px 0 6px' }}>学生ログイン</h1>
+          <p style={{ fontSize: 13, color: '#938B81', margin: 0 }}>学生アカウントでサインインしてください</p>
         </div>
 
         {/* Google */}
