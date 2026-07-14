@@ -4,7 +4,9 @@ import { Resend } from 'resend';
 import { escapeHtml, sanitizeSubject, isValidEmail, rateLimit } from '@/utils/apiSecurity';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM = process.env.RESEND_FROM_EMAIL || 'noreply@intern.toukobe.com';
+// 環境変数が空・空白・不正な形式でも必ず有効な送信元に落とす（422 Invalid from 対策）
+const RAW_FROM = (process.env.RESEND_FROM_EMAIL || '').trim();
+const FROM = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(RAW_FROM) ? RAW_FROM : 'noreply@intern.toukobe.com';
 const SITE = 'https://intern.toukobe.com';
 
 const anonClient = createClient(

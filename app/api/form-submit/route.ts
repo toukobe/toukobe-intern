@@ -8,7 +8,9 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM = process.env.RESEND_FROM_EMAIL || 'noreply@intern.toukobe.com';
+// 環境変数が空・空白・不正な形式でも必ず有効な送信元に落とす（422 Invalid from 対策）
+const RAW_FROM = (process.env.RESEND_FROM_EMAIL || '').trim();
+const FROM = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(RAW_FROM) ? RAW_FROM : 'noreply@intern.toukobe.com';
 const ADMIN_EMAIL = 'ru_matsumoto@manabiph.com';
 
 const FORM_LABELS: Record<string, string> = {
