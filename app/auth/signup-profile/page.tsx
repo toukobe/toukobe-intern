@@ -65,11 +65,15 @@ export default function SignupProfilePage() {
     if (!userId) return;
     setSaving(true); setError(null);
     try {
-      // user_types はRLSがINSERTのみ許可（UPDATE不可）のため、upsertではなく
-      // INSERTして「すでに登録済み(23505)」だけを無視する
-      const { error: typeError } = await supabase.from('user_types')
-        .insert([{ user_id: userId, user_type: 'student', company_id: null }]);
-      if (typeError && typeError.code !== '23505') throw typeError;
+      // user_types はRLSがINSERTのみ許可（UPDATE不可）のため upsert は使えない。
+      // また重複行を作らないよう、既存行が無いときだけINSERTする
+      const { data: existingTypes } = await supabase.from('user_types')
+        .select('id').eq('user_id', userId).limit(1);
+      if (!existingTypes || existingTypes.length === 0) {
+        const { error: typeError } = await supabase.from('user_types')
+          .insert([{ user_id: userId, user_type: 'student', company_id: null }]);
+        if (typeError && typeError.code !== '23505') throw typeError;
+      }
 
       const fullName = `${formData.last_name} ${formData.first_name}`.trim();
 

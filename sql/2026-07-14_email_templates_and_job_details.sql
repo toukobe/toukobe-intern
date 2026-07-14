@@ -45,3 +45,9 @@ ALTER TABLE jobs ADD COLUMN IF NOT EXISTS alumni_placements text;   -- 内定実
 -- ③ 会社情報の拡張
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS representative text; -- 代表者
 ALTER TABLE companies ADD COLUMN IF NOT EXISTS related_links text;  -- 関連URL（1行1リンク。「タイトル URL」形式）
+
+-- ④ user_types の重複行防止（2026-07-14 実測で同一ユーザーに複数行を作れることが判明）
+-- 既に重複がある場合は古い方を1行だけ残して掃除してから、ユニーク制約を張る
+DELETE FROM user_types a USING user_types b
+  WHERE a.user_id = b.user_id AND a.ctid > b.ctid;
+CREATE UNIQUE INDEX IF NOT EXISTS user_types_user_id_key ON user_types (user_id);
