@@ -139,7 +139,15 @@ export default function Home() {
         if (error) {
           console.error('データの取得に失敗しました:', error);
         } else {
-          setJobs((data as unknown) as Job[]);
+          // トップページの表示を時間で動かす: 求人が多いときは1時間ごとに並びを回転させ、
+          // 訪問・時間帯で「注目の長期インターン」に出る求人が入れ替わるようにする。
+          const list = ((data as unknown) as Job[]) || [];
+          const rotated = (() => {
+            if (list.length <= 3) return list;
+            const offset = Math.floor(Date.now() / 3_600_000) % list.length;
+            return [...list.slice(offset), ...list.slice(0, offset)];
+          })();
+          setJobs(rotated);
         }
       } catch (err) {
         console.error('エラー:', err);
