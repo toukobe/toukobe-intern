@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- iOSは透過を黒背景にするため白の角丸背景を敷く -->
+  <rect width="512" height="512" rx="104" fill="#ffffff"/>
+  <polygon fill="#F2620C" points="256,132 424,232 312,232 256,184 200,232 88,232"/>
+  <polygon fill="#FBA94C" points="256,292 424,392 312,392 256,344 200,392 88,392"/>
+</svg>
