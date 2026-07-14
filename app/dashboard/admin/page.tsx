@@ -8,7 +8,7 @@ import { useIsMobile } from '@/utils/useIsMobile';
 
 interface User { id: string; email?: string; }
 interface Stats { totalUsers: number; totalStudents: number; totalCompanies: number; totalJobs: number; totalApplications: number; }
-type Tab = 'overview' | 'jobs' | 'companies' | 'forms' | 'legal' | 'mail';
+type Tab = 'overview' | 'jobs' | 'companies' | 'students' | 'forms' | 'legal' | 'mail';
 
 const F = {
   label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#57514A', marginBottom: 8 } as React.CSSProperties,
@@ -54,6 +54,7 @@ export default function AdminDashboard() {
     { key: 'overview', label: '概要' },
     { key: 'jobs', label: '求人承認' },
     { key: 'companies', label: '企業管理' },
+    { key: 'students', label: '学生管理' },
     { key: 'forms', label: 'フォーム申し込み' },
     { key: 'legal', label: '規約・ポリシー' },
     { key: 'mail', label: 'メール文面' },
@@ -118,6 +119,7 @@ export default function AdminDashboard() {
 
         {/* COMPANIES */}
         {tab === 'companies' && <AdminCompaniesTab />}
+        {tab === 'students' && <AdminStudentsTab />}
 
         {tab === 'forms' && <AdminFormsTab />}
         {tab === 'legal' && <AdminLegalTab />}
@@ -457,6 +459,107 @@ function AdminCompaniesTab() {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function AdminStudentsTab() {
+  const isMobile = useIsMobile();
+  const [rows, setRows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState('');
+  const [open, setOpen] = useState<any | null>(null);
+
+  useEffect(() => {
+    supabase.from('student_profiles').select('*').order('created_at', { ascending: false })
+      .then(({ data }) => { setRows(data || []); setLoading(false); });
+  }, []);
+
+  const filtered = rows.filter(r => {
+    if (!q.trim()) return true;
+    const hay = `${r.name || ''} ${r.university || ''} ${r.department || ''} ${r.contact_email || ''} ${r.university_email || ''}`.toLowerCase();
+    return hay.includes(q.toLowerCase());
+  });
+
+  const exportCsv = () => {
+    const headers = ['氏名', '大学', '学部学科', '学年', '卒業予定年', '講師登録', '連絡用メール', '大学メール', '語学', 'その他スキル', '資格', '登録日'];
+    const csv = [headers.join(',')].concat(filtered.map(r => [
+      r.name, r.university, r.department, r.grade, r.graduation_year, r.is_tutor ? 'あり' : '', r.contact_email, r.university_email,
+      (r.languages || []).join(' / '), (r.skills || []).join(' / '), (r.certifications || '').replace(/\n/g, ' '),
+      r.created_at ? new Date(r.created_at).toLocaleDateString('ja-JP') : '',
+    ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))).join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `students_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+  };
+
+  if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><div style={{ width: 36, height: 36, border: '2.5px solid #F2620C', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /><style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style></div>;
+
+  return (
+    <div>
+      {/* 詳細モーダル */}
+      {open && (
+        <div onClick={() => setOpen(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, padding: 32, width: '100%', maxWidth: 520, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 24px 60px rgba(0,0,0,.2)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+              <h3 style={{ fontWeight: 900, fontSize: 20, margin: 0 }}>{open.name || '（氏名なし）'}</h3>
+              <button onClick={() => setOpen(null)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#938B81' }}>✕</button>
+            </div>
+            {[
+              ['大学', open.university], ['学部・学科', open.department], ['学年', open.grade],
+              ['卒業予定年', open.graduation_year ? `${open.graduation_year}年` : '—'],
+              ['講師登録', open.is_tutor ? '✓ あり' : '—'],
+              ['生年月日', open.birth_date], ['連絡用メール', open.contact_email], ['大学メール（在学確認用）', open.university_email],
+              ['語学', (open.languages || []).join('、') || '—'], ['その他スキル', (open.skills || []).join('、') || '—'],
+              ['資格・検定', open.certifications || '—'], ['経歴・自己紹介', open.experience || '—'],
+            ].map(([k, v]) => (
+              <div key={k as string} style={{ padding: '10px 0', borderBottom: '1px solid #F3EEE7' }}>
+                <div style={{ fontSize: 11, color: '#938B81', marginBottom: 3 }}>{k}</div>
+                <div style={{ fontSize: 14, color: '#1C1813', whiteSpace: 'pre-wrap' }}>{v || '—'}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: '#F2620C', letterSpacing: '.14em', marginBottom: 6 }}>STUDENTS</div>
+          <h2 style={{ fontWeight: 900, fontSize: 24, margin: 0 }}>学生管理 ({rows.length}名)</h2>
+        </div>
+        <button onClick={exportCsv} style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>CSVエクスポート</button>
+      </div>
+
+      <input value={q} onChange={e => setQ(e.target.value)} placeholder="氏名・大学・メールで検索" style={{ width: '100%', border: '1px solid #EFE8DF', borderRadius: 10, padding: '11px 16px', fontFamily: "var(--font-sans)", fontSize: 14, outline: 'none', boxSizing: 'border-box', marginBottom: 16 }} />
+
+      {filtered.length === 0 ? (
+        <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: 48, textAlign: 'center', color: '#938B81' }}>該当する学生がいません</div>
+      ) : (
+        <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, overflow: 'hidden', overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: isMobile ? 560 : undefined }}>
+            <thead>
+              <tr style={{ background: '#FBF8F4' }}>
+                {['氏名', '大学', '学年', '卒業予定', '講師', '連絡先', ''].map(h => (
+                  <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: '#938B81', borderBottom: '1px solid #EFE8DF', whiteSpace: 'nowrap' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((r, i) => (
+                <tr key={r.id} style={{ borderBottom: i < filtered.length - 1 ? '1px solid #EFE8DF' : 'none' }}>
+                  <td style={{ padding: '13px 16px', fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap' }}>{r.name || '—'}</td>
+                  <td style={{ padding: '13px 16px', fontSize: 13, color: '#57514A', whiteSpace: 'nowrap' }}>{r.university || '—'}</td>
+                  <td style={{ padding: '13px 16px', fontSize: 13, color: '#57514A', whiteSpace: 'nowrap' }}>{r.grade || '—'}</td>
+                  <td style={{ padding: '13px 16px', fontSize: 13, color: '#57514A', whiteSpace: 'nowrap' }}>{r.graduation_year ? `${r.graduation_year}年` : '—'}</td>
+                  <td style={{ padding: '13px 16px', fontSize: 13, whiteSpace: 'nowrap' }}>{r.is_tutor ? '✓' : '—'}</td>
+                  <td style={{ padding: '13px 16px', fontSize: 12, color: '#57514A', fontFamily: "var(--font-mono)" }}>{r.contact_email || '—'}</td>
+                  <td style={{ padding: '13px 16px' }}><span onClick={() => setOpen(r)} style={{ fontSize: 13, color: '#F2620C', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>詳細</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
