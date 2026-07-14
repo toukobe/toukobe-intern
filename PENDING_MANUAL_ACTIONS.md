@@ -14,11 +14,12 @@
 - ✅ コード内の旧仮ドメイン `toukobe-intern.com` を全箇所 `intern.toukobe.com` に置換
 - ✅ Vercel 環境変数: `SUPABASE_SERVICE_ROLE_KEY` / `NEXT_PUBLIC_SITE_URL` を追加、`RESEND_FROM_EMAIL` を `noreply@intern.toukobe.com` に変更
 
-DNS反映後にやること（湯谷さんの完了連絡後）:
-1. `npx vercel domains verify intern.toukobe.com` で反映・SSL発行を確認
-2. Resend ダッシュボードで Verified になったことを確認（それまでメール送信は失敗する）
-3. Supabase → Authentication → URL Configuration: Site URL を `https://intern.toukobe.com` に変更、Redirect URLs に `https://intern.toukobe.com/**` を追加
-4. サイト表示・お問い合わせフォーム・ログイン・パスワードリセットを一通り実測確認
+DNS反映後の状況（2026-07-14更新）:
+1. ✅ DNS反映確認済み。SSL証明書は自動発行されず `npx vercel certs issue intern.toukobe.com` で手動発行して解決 → **https://intern.toukobe.com は稼働中（200確認済み）**
+2. 🔴 Resend: DKIM/SPF/MXレコードはDNSに反映済みだが、**ダッシュボードで Verify ボタンを押すまで認証未完了 → メール送信は403で失敗する**。https://resend.com/domains で Verify を押すこと
+3. 🔴 Supabase → Authentication → URL Configuration: Site URL を `https://intern.toukobe.com` に変更、Redirect URLs に `https://intern.toukobe.com/**` を追加（未対応）
+4. 🔴 Resend認証後、管理者ページ「メール文面」タブの「自分にテスト送信」で送信確認
+5. 🔴 SQL未実行: `sql/2026-07-11_featured_jobs_and_site_documents.sql` と `sql/2026-07-14_email_templates_and_job_details.sql` を SQL Editor で実行（メール文面編集・注目求人・求人詳細項目・企業セルフ登録の穴塞ぎに必要）
 
 ---
 

@@ -35,7 +35,8 @@ export default function SetupPage() {
     setError(null);
     const { error: insertError } = await supabase.from('user_types').insert([{ user_id: userId, user_type: 'student', company_id: null }]);
     if (insertError) { setError('登録に失敗しました。もう一度お試しください。'); setLoading(false); return; }
-    router.push('/dashboard/student');
+    // プロフィール入力は必須（Google登録でもここを通る）
+    router.push('/auth/signup-profile');
   };
 
   return (

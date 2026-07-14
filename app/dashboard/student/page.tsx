@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 import { useIsMobile } from '@/utils/useIsMobile';
+import SkillsPicker from '@/components/SkillsPicker';
+import { UNIVERSITIES, isProfileComplete } from '@/utils/profileOptions';
 
 interface User { id: string; email?: string; }
 interface StudentProfile {
@@ -88,13 +90,11 @@ export default function StudentDashboard() {
         setUser(session.user as User);
 
         const { data: p } = await supabase.from('student_profiles').select('*').eq('user_id', session.user.id).maybeSingle();
-        if (p) {
-          setProfile(p);
-          // Pre-fill contact_email with auth email if not set
-          setEditForm({ ...p, contact_email: p.contact_email || session.user.email || '' });
-        } else {
-          setEditForm({ contact_email: session.user.email || '' });
-        }
+        // プロフィール入力は必須: 未完成のままマイページに来たら入力ページへ（Google登録で途中離脱した場合など）
+        if (!p || !isProfileComplete(p)) { router.replace('/auth/signup-profile'); return; }
+        setProfile(p);
+        // Pre-fill contact_email with auth email if not set
+        setEditForm({ ...p, contact_email: p.contact_email || session.user.email || '' });
 
         // Fetch applications without nested join
         await fetchApplications(session.user.id);
@@ -285,7 +285,13 @@ export default function StudentDashboard() {
                 {/* 生年月日 */}
                 <div><label style={F.label}>生年月日 <span style={{ color: '#F2620C' }}>*</span></label><input type="date" style={F.input} value={editForm.birth_date || ''} onChange={e => setEditForm({ ...editForm, birth_date: e.target.value })} required onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} /></div>
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
-                  <div><label style={F.label}>大学 <span style={{ color: '#F2620C' }}>*</span></label><input style={F.input} value={editForm.university || ''} onChange={e => setEditForm({ ...editForm, university: e.target.value })} placeholder="○○大学" required onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} /></div>
+                  <div><label style={F.label}>大学 <span style={{ color: '#F2620C' }}>*</span></label>
+                    <select style={{ ...F.input, appearance: 'none' as const }} value={editForm.university || ''} onChange={e => setEditForm({ ...editForm, university: e.target.value })} required>
+                      <option value="">選択してください</option>
+                      {UNIVERSITIES.map(u => <option key={u} value={u}>{u}</option>)}
+                      {editForm.university && !UNIVERSITIES.includes(editForm.university) && <option value={editForm.university}>{editForm.university}</option>}
+                    </select>
+                  </div>
                   <div><label style={F.label}>学部・学科 <span style={{ color: '#F2620C' }}>*</span></label><input style={F.input} value={editForm.department || ''} onChange={e => setEditForm({ ...editForm, department: e.target.value })} placeholder="経済学部 経済学科" required onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} /></div>
                 </div>
                 <div><label style={F.label}>学年 <span style={{ color: '#F2620C' }}>*</span></label>
@@ -303,7 +309,9 @@ export default function StudentDashboard() {
                     <p style={{ fontSize: 12, color: '#92400E', margin: 0, lineHeight: 1.7 }}>このアドレスに企業からの選考連絡・面接案内が届きます。普段よく確認できるメールアドレスを登録してください。</p>
                   </div>
                 </div>
-                <div><label style={F.label}>スキル（カンマ区切り）</label><input style={F.input} value={Array.isArray(editForm.skills) ? editForm.skills.join(', ') : ''} onChange={e => setEditForm({ ...editForm, skills: e.target.value.split(',').map(s => s.trim()) })} placeholder="Python, Excel, 英語" onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} /></div>
+                <div><label style={F.label}>スキル（当てはまるものをタップ）</label>
+                  <SkillsPicker value={Array.isArray(editForm.skills) ? editForm.skills.filter(s => typeof s === 'string' && s) : []} onChange={skills => setEditForm({ ...editForm, skills })} />
+                </div>
                 <div><label style={F.label}>経歴・自己紹介</label><textarea style={{ ...F.input, resize: 'vertical' }} value={editForm.experience || ''} onChange={e => setEditForm({ ...editForm, experience: e.target.value })} rows={5} onFocus={e => (e.target as HTMLTextAreaElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLTextAreaElement).style.borderColor = '#EFE8DF'} /></div>
                 <button type="submit" style={{ alignSelf: isMobile ? 'stretch' : 'flex-start', background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 32px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>更新する</button>
               </form>

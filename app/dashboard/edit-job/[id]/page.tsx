@@ -20,7 +20,22 @@ interface Job {
   work_conditions: string[];
   job_features: string[];
   cover_image_url?: string | null;
+  // 募集要項の詳細（任意・2026-07-14追加）
+  employment_type?: string | null;
+  address?: string | null;
+  intern_count?: string | null;
+  shift_info?: string | null;
+  benefits?: string | null;
+  required_conditions?: string | null;
+  welcome_conditions?: string | null;
+  ideal_candidate?: string | null;
+  selection_process?: string | null;
+  training?: string | null;
+  alumni_placements?: string | null;
 }
+
+// 募集要項の詳細カラム（未マイグレーション環境では update に含めない）
+const EXTRA_KEYS = ['employment_type', 'address', 'intern_count', 'shift_info', 'benefits', 'required_conditions', 'welcome_conditions', 'ideal_candidate', 'selection_process', 'training', 'alumni_placements'] as const;
 
 const JOB_CATEGORIES = ['コンサルティング','経営・企画','金融・ファイナンス','マーケティング','エンジニア','デザイナー','営業','ライター・メディア','経理','人事・広報','事務・アシスタント','その他'];
 const WORK_DAYS = ['週2から','週3から','週4から'];
@@ -114,6 +129,10 @@ export default function EditJobPage() {
         cover_image_url = urlData.publicUrl;
       }
 
+      // 詳細カラムはDBから読み込めた場合のみ更新対象に含める（マイグレーション未実行でも壊れない）
+      const extras = Object.fromEntries(
+        EXTRA_KEYS.filter(k => (formData as any)[k] !== undefined).map(k => [k, (formData as any)[k] || null])
+      );
       const { error: updateError } = await supabase.from('jobs').update({
         job_title: formData.job_title,
         salary: formData.salary,
@@ -126,6 +145,7 @@ export default function EditJobPage() {
         job_features: formData.job_features,
         cover_image_url,
         cover_image_position: coverPosition,
+        ...extras,
       }).eq('id', jobId);
 
       if (updateError) throw updateError;
@@ -296,6 +316,45 @@ export default function EditJobPage() {
                   onFocus={e => (e.target as HTMLTextAreaElement).style.borderColor = '#F2620C'}
                   onBlur={e => (e.target as HTMLTextAreaElement).style.borderColor = '#EFE8DF'} />
               </div>
+            </div>
+          </div>
+
+          {/* 募集要項の詳細（任意） */}
+          <div style={F.section}>
+            <span style={F.sectionTitle}>募集要項の詳細（任意）</span>
+            <p style={{ fontSize: 12.5, color: '#938B81', margin: '0 0 16px', lineHeight: 1.8 }}>入力した項目だけが求人ページに表示されます。</p>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 16 }}>
+              <div>
+                <label style={F.label}>雇用形態</label>
+                <input style={F.input} value={formData.employment_type || ''} onChange={e => setFormData({ ...formData, employment_type: e.target.value })} placeholder="例: インターン契約" onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} />
+              </div>
+              <div>
+                <label style={F.label}>インターン生の在籍数</label>
+                <input style={F.input} value={formData.intern_count || ''} onChange={e => setFormData({ ...formData, intern_count: e.target.value })} placeholder="例: 30人在籍（※2026年1月時点）" onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} />
+              </div>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={F.label}>勤務地の詳細住所</label>
+              <input style={F.input} value={formData.address || ''} onChange={e => setFormData({ ...formData, address: e.target.value })} placeholder="例: 東京都 千代田区 内幸町2-1-6" onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {([
+                ['shift_info', 'シフト', 3],
+                ['benefits', '福利厚生', 3],
+                ['required_conditions', '必須条件', 3],
+                ['welcome_conditions', '歓迎条件', 3],
+                ['ideal_candidate', '求める人物像', 4],
+                ['selection_process', '選考プロセス', 3],
+                ['training', '研修・教育制度', 3],
+                ['alumni_placements', 'インターン卒業生の内定実績', 3],
+              ] as const).map(([key, label, rows]) => (
+                <div key={key}>
+                  <label style={F.label}>{label}</label>
+                  <textarea style={{ ...F.input, resize: 'vertical' }} value={(formData as any)[key] || ''} onChange={e => setFormData({ ...formData, [key]: e.target.value })} rows={rows}
+                    onFocus={e => (e.target as HTMLTextAreaElement).style.borderColor = '#F2620C'}
+                    onBlur={e => (e.target as HTMLTextAreaElement).style.borderColor = '#EFE8DF'} />
+                </div>
+              ))}
             </div>
           </div>
 

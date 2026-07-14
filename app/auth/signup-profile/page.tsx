@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 import { useIsMobile } from '@/utils/useIsMobile';
+import SkillsPicker from '@/components/SkillsPicker';
+import { UNIVERSITIES } from '@/utils/profileOptions';
 
 const FF = "var(--font-sans)";
 const F = {
@@ -22,9 +24,10 @@ export default function SignupProfilePage() {
   const [isNewProfile, setIsNewProfile] = useState(false);
   const [formData, setFormData] = useState({
     last_name: '', first_name: '', birth_date: '',
-    university: '', department: '', grade: '', skills: '', experience: '',
+    university: '', department: '', grade: '', experience: '',
     contact_email: '',
   });
+  const [skills, setSkills] = useState<string[]>([]);
 
   const GRADES = ['学部1年生','学部2年生','学部3年生','学部4年生','修士1年生','修士2年生','博士1年生','博士2年生','博士3年生','卒業済み','その他'];
 
@@ -47,11 +50,11 @@ export default function SignupProfilePage() {
           university: data.university || '',
           department: data.department || '',
           grade: data.grade || '',
-          skills: (data.skills || []).join(', '),
           experience: data.experience || '',
           contact_email: data.contact_email || session.user.email || '',
         } : {}),
       }));
+      if (data?.skills?.length) setSkills(data.skills);
       setLoading(false);
     }
     checkAuth();
@@ -66,7 +69,6 @@ export default function SignupProfilePage() {
         .upsert({ user_id: userId, user_type: 'student' }, { onConflict: 'user_id' });
       if (typeError) throw typeError;
 
-      const skills = formData.skills.split(',').map(s => s.trim()).filter(Boolean);
       const fullName = `${formData.last_name} ${formData.first_name}`.trim();
 
       const { error: profileError } = await supabase.from('student_profiles')
@@ -99,7 +101,9 @@ export default function SignupProfilePage() {
         }).catch(console.error);
       }
 
-      router.push('/');
+      // 応募途中で登録に来た場合は元のページへ戻す
+      const redirect = new URLSearchParams(window.location.search).get('redirect');
+      router.push(redirect || '/dashboard/student');
     } catch (err) {
       setError('プロフィール保存に失敗しました');
     } finally {
@@ -158,9 +162,11 @@ export default function SignupProfilePage() {
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
             <div>
               <label style={F.label}>大学 <span style={{ color: '#F2620C' }}>*</span></label>
-              <input style={F.input} value={formData.university} onChange={e => setFormData({ ...formData, university: e.target.value })} placeholder="○○大学" required
-                onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'}
-                onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} />
+              <select style={{ ...F.input, appearance: 'none' as const }} value={formData.university} onChange={e => setFormData({ ...formData, university: e.target.value })} required>
+                <option value="">選択してください</option>
+                {UNIVERSITIES.map(u => <option key={u} value={u}>{u}</option>)}
+                {formData.university && !UNIVERSITIES.includes(formData.university) && <option value={formData.university}>{formData.university}</option>}
+              </select>
             </div>
             <div>
               <label style={F.label}>学部・学科 <span style={{ color: '#F2620C' }}>*</span></label>
@@ -190,10 +196,8 @@ export default function SignupProfilePage() {
 
           {/* スキル */}
           <div>
-            <label style={F.label}>スキル（カンマ区切り）</label>
-            <input style={F.input} value={formData.skills} onChange={e => setFormData({ ...formData, skills: e.target.value })} placeholder="Python, Excel, 英語"
-              onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'}
-              onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} />
+            <label style={F.label}>スキル（当てはまるものをタップ）</label>
+            <SkillsPicker value={skills} onChange={setSkills} />
           </div>
 
           {/* 経歴 */}

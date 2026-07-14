@@ -93,7 +93,8 @@ function SignupInner() {
         return;
       }
 
-      router.push(redirectTo || '/dashboard/student');
+      // プロフィール入力は必須。完了後に元のページ（応募途中など）へ戻す
+      router.push(redirectTo ? `/auth/signup-profile?redirect=${encodeURIComponent(redirectTo)}` : '/auth/signup-profile');
     } catch { setError('登録に失敗しました'); }
     finally { setLoading(false); }
   };

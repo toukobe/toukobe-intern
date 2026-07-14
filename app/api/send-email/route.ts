@@ -21,6 +21,49 @@ type EmailType =
 
 const EMAIL_TYPES: EmailType[] = ['application_received', 'status_interview', 'status_offer', 'status_rejected', 'student_welcome'];
 
+// 既定の件名・本文。管理者ページ「メール文面」タブ（email_templatesテーブル）で上書きできる。
+// 本文では {{jobTitle}} {{companyName}} {{studentName}} が差し込み変数として使える。
+const DEFAULT_TEMPLATES: Record<EmailType, { subject: string; body: string }> = {
+  application_received: {
+    subject: '【新着応募】{{jobTitle}} への応募がありました',
+    body: '{{companyName}} 様\n新しい応募がありました。ダッシュボードから確認・選考を進めてください。',
+  },
+  status_interview: {
+    subject: '【面接予定】{{companyName}}「{{jobTitle}}」の選考結果',
+    body: 'おめでとうございます！面接に進むことになりました。企業からの連絡をお待ちください。',
+  },
+  status_offer: {
+    subject: '【内定】{{companyName}}「{{jobTitle}}」の選考結果',
+    body: 'おめでとうございます！内定のご連絡です。詳細は企業からの連絡をご確認ください。',
+  },
+  status_rejected: {
+    subject: '【選考結果】{{companyName}}「{{jobTitle}}」の選考結果',
+    body: '今回は残念ながら選考を終了させていただきます。またぜひ他の求人にもご応募ください。',
+  },
+  student_welcome: {
+    subject: 'トウコべインターンへようこそ！登録が完了しました',
+    body: '{{studentName}} さん、トウコべインターンへようこそ！\nプロフィールの登録が完了しました。さっそく求人を探して、理想のインターンシップに応募してみましょう。',
+  },
+};
+
+// email_templates から上書き文面を読む（テーブル未作成・空なら既定文面のまま）
+async function loadTemplate(type: EmailType): Promise<{ subject: string; body: string }> {
+  try {
+    const { data } = await anonClient.from('email_templates').select('subject, body').eq('slug', type).maybeSingle();
+    return {
+      subject: data?.subject?.trim() || DEFAULT_TEMPLATES[type].subject,
+      body: data?.body?.trim() || DEFAULT_TEMPLATES[type].body,
+    };
+  } catch {
+    return DEFAULT_TEMPLATES[type];
+  }
+}
+
+// {{変数}} を実際の値に置き換える（値は呼び出し側でエスケープ済みにすること）
+function fill(text: string, vars: Record<string, string | undefined>) {
+  return text.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] || '');
+}
+
 interface EmailPayload {
   type: EmailType;
   to: string;
@@ -51,7 +94,7 @@ function sanitizePayload(p: EmailPayload): EmailPayload {
   };
 }
 
-function applicationReceivedHtml(p: EmailPayload) {
+function applicationReceivedHtml(p: EmailPayload, bodyHtml: string) {
   return `
 <div style="font-family:'Hiragino Kaku Gothic Pro',Meiryo,sans-serif;max-width:560px;margin:0 auto;color:#1C1813">
   <div style="background:#F2620C;padding:20px 32px;border-radius:12px 12px 0 0">
@@ -59,10 +102,7 @@ function applicationReceivedHtml(p: EmailPayload) {
   </div>
   <div style="background:#fff;border:1px solid #EFE8DF;border-top:none;padding:32px;border-radius:0 0 12px 12px">
     <h2 style="font-size:20px;margin:0 0 16px">【新着応募】${p.jobTitle}</h2>
-    <p style="font-size:14px;line-height:1.8;margin:0 0 24px;color:#57514A">
-      ${p.companyName} 様<br>
-      新しい応募がありました。ダッシュボードから確認・選考を進めてください。
-    </p>
+    <p style="font-size:14px;line-height:1.8;margin:0 0 24px;color:#57514A">${bodyHtml}</p>
     <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:24px">
       <tr><td style="padding:10px 12px;background:#FBF8F4;border:1px solid #EFE8DF;font-weight:600;width:120px">氏名</td><td style="padding:10px 12px;border:1px solid #EFE8DF">${p.studentName || '—'}</td></tr>
       <tr><td style="padding:10px 12px;background:#FBF8F4;border:1px solid #EFE8DF;font-weight:600">大学</td><td style="padding:10px 12px;border:1px solid #EFE8DF">${p.studentUniversity || '—'}</td></tr>
@@ -77,23 +117,11 @@ function applicationReceivedHtml(p: EmailPayload) {
 </div>`;
 }
 
-function statusChangedHtml(p: EmailPayload) {
-  const statusMap: Record<string, { label: string; color: string; message: string }> = {
-    status_interview: {
-      label: '面接予定',
-      color: '#1D4ED8',
-      message: 'おめでとうございます！面接に進むことになりました。企業からの連絡をお待ちください。',
-    },
-    status_offer: {
-      label: '内定',
-      color: '#15803D',
-      message: 'おめでとうございます！内定のご連絡です。詳細は企業からの連絡をご確認ください。',
-    },
-    status_rejected: {
-      label: '不採用',
-      color: '#B91C1C',
-      message: '今回は残念ながら選考を終了させていただきます。またぜひ他の求人にもご応募ください。',
-    },
+function statusChangedHtml(p: EmailPayload, bodyHtml: string) {
+  const statusMap: Record<string, { label: string; color: string }> = {
+    status_interview: { label: '面接予定', color: '#1D4ED8' },
+    status_offer:     { label: '内定',     color: '#15803D' },
+    status_rejected:  { label: '不採用',   color: '#B91C1C' },
   };
   const s = statusMap[p.type] || statusMap.status_rejected;
   return `
@@ -105,7 +133,7 @@ function statusChangedHtml(p: EmailPayload) {
     <div style="display:inline-block;background:${s.color}15;color:${s.color};border:1px solid ${s.color}40;border-radius:999px;padding:6px 16px;font-size:13px;font-weight:700;margin-bottom:16px">${s.label}</div>
     <h2 style="font-size:20px;margin:0 0 16px">選考結果のお知らせ</h2>
     <p style="font-size:14px;line-height:1.8;margin:0 0 20px;color:#57514A">
-      <strong>${p.companyName}</strong>「${p.jobTitle}」の選考結果をお知らせします。<br>${s.message}
+      <strong>${p.companyName}</strong>「${p.jobTitle}」の選考結果をお知らせします。<br>${bodyHtml}
     </p>
     ${p.jobId ? `<a href="${SITE}/jobs/${p.jobId}" style="display:inline-block;background:#F2620C;color:#fff;text-decoration:none;border-radius:8px;padding:13px 28px;font-weight:700;font-size:14px">求人を確認する →</a>` : ''}
     <p style="font-size:12px;color:#B6ADA2;margin:24px 0 0">このメールはトウコべインターンから自動送信されています。</p>
@@ -113,7 +141,7 @@ function statusChangedHtml(p: EmailPayload) {
 </div>`;
 }
 
-function studentWelcomeHtml(p: EmailPayload) {
+function studentWelcomeHtml(p: EmailPayload, bodyHtml: string) {
   return `
 <div style="font-family:'Hiragino Kaku Gothic Pro',Meiryo,sans-serif;max-width:560px;margin:0 auto;color:#1C1813">
   <div style="background:#F2620C;padding:20px 32px;border-radius:12px 12px 0 0">
@@ -121,12 +149,7 @@ function studentWelcomeHtml(p: EmailPayload) {
   </div>
   <div style="background:#fff;border:1px solid #EFE8DF;border-top:none;padding:32px;border-radius:0 0 12px 12px">
     <h2 style="font-size:20px;margin:0 0 16px">🎉 登録ありがとうございます！</h2>
-    <p style="font-size:14px;line-height:1.8;margin:0 0 8px;color:#57514A">
-      ${p.studentName ? `${p.studentName} さん、` : ''}トウコべインターンへようこそ！
-    </p>
-    <p style="font-size:14px;line-height:1.8;margin:0 0 24px;color:#57514A">
-      プロフィールの登録が完了しました。さっそく求人を探して、理想のインターンシップに応募してみましょう。
-    </p>
+    <p style="font-size:14px;line-height:1.8;margin:0 0 24px;color:#57514A">${bodyHtml}</p>
     <a href="${SITE}/search" style="display:inline-block;background:#F2620C;color:#fff;text-decoration:none;border-radius:8px;padding:13px 28px;font-weight:700;font-size:14px">求人を探す →</a>
     <div style="margin-top:28px;padding:20px;background:#FBF8F4;border-radius:10px">
       <p style="font-size:13px;font-weight:700;margin:0 0 10px;color:#1C1813">📋 次にやること</p>
@@ -171,19 +194,24 @@ export async function POST(req: NextRequest) {
 
     const payload = sanitizePayload(rawPayload);
 
-    const subjectMap: Record<EmailType, string> = {
-      application_received: `【新着応募】${sanitizeSubject(rawPayload.jobTitle)} への応募がありました`,
-      status_interview: `【面接予定】${sanitizeSubject(rawPayload.companyName)}「${sanitizeSubject(rawPayload.jobTitle)}」の選考結果`,
-      status_offer: `【内定】${sanitizeSubject(rawPayload.companyName)}「${sanitizeSubject(rawPayload.jobTitle)}」の選考結果`,
-      status_rejected: `【選考結果】${sanitizeSubject(rawPayload.companyName)}「${sanitizeSubject(rawPayload.jobTitle)}」の選考結果`,
-      student_welcome: 'トウコべインターンへようこそ！登録が完了しました',
-    };
+    // 件名・本文: 管理者が編集したテンプレート（無ければ既定文面）に変数を差し込む
+    const tpl = await loadTemplate(type);
+    const subject = fill(tpl.subject, {
+      jobTitle: sanitizeSubject(rawPayload.jobTitle),
+      companyName: sanitizeSubject(rawPayload.companyName),
+      studentName: sanitizeSubject(rawPayload.studentName),
+    });
+    const bodyHtml = fill(escapeHtml(tpl.body), {
+      jobTitle: payload.jobTitle,
+      companyName: payload.companyName,
+      studentName: payload.studentName,
+    }).replace(/\n/g, '<br>');
 
     const html = type === 'application_received'
-      ? applicationReceivedHtml(payload)
+      ? applicationReceivedHtml(payload, bodyHtml)
       : type === 'student_welcome'
-      ? studentWelcomeHtml(payload)
-      : statusChangedHtml(payload);
+      ? studentWelcomeHtml(payload, bodyHtml)
+      : statusChangedHtml(payload, bodyHtml);
 
     // onboarding@resend.dev はアカウント登録メール宛にしか送れないため
     // 独自ドメイン設定前は強制的に登録メールへ送る
@@ -195,8 +223,8 @@ export async function POST(req: NextRequest) {
       from: `トウコべインターン <${FROM}>`,
       to: actualTo,
       subject: FROM === 'onboarding@resend.dev'
-        ? `[テスト: 本来の宛先: ${sanitizeSubject(to, 254)}] ${subjectMap[type]}`
-        : subjectMap[type],
+        ? `[テスト: 本来の宛先: ${sanitizeSubject(to, 254)}] ${subject}`
+        : subject,
       html,
     });
 

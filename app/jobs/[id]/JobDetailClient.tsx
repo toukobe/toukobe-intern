@@ -21,6 +21,18 @@ interface JobDetail {
   job_features: string[];
   cover_image_url?: string;
   cover_image_position?: string;
+  // 募集要項の拡張項目（2026-07-14追加。未入力の求人では表示されない）
+  shift_info?: string | null;
+  address?: string | null;
+  intern_count?: string | null;
+  benefits?: string | null;
+  employment_type?: string | null;
+  required_conditions?: string | null;
+  welcome_conditions?: string | null;
+  ideal_candidate?: string | null;
+  selection_process?: string | null;
+  training?: string | null;
+  alumni_placements?: string | null;
   companies: {
     company_name: string;
     industry: string;
@@ -32,6 +44,8 @@ interface JobDetail {
     founded_year?: number;
     logo_url?: string;
     cover_url?: string;
+    representative?: string | null;
+    related_links?: string | null;
   } | null;
 }
 
@@ -67,29 +81,28 @@ export default function JobDetailPage() {
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
 
+  // 任意入力のテキストセクション（未入力なら非表示）
+  const TextSection = ({ title, text }: { title: string; text?: string | null }) => {
+    if (!text?.trim()) return null;
+    return (
+      <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 14, padding: isMobile ? '20px 16px' : '28px 32px', marginBottom: 16 }}>
+        <h2 style={{ fontWeight: 900, fontSize: 18, margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ width: 4, height: 20, background: '#F2620C', borderRadius: 2, display: 'inline-block' }} />{title}
+        </h2>
+        <p style={{ fontSize: 14, lineHeight: 1.9, color: '#3A352F', margin: 0, whiteSpace: 'pre-wrap' }}>{text}</p>
+      </div>
+    );
+  };
+
   // Fetch job — no auth required
   useEffect(() => {
     async function fetchJobDetail() {
       try {
         // Fetch job without join
+        // 全カラム取得（募集要項の拡張カラムが未追加の環境でも壊れない）
         const { data: jobData, error: jobError } = await supabase
           .from('jobs')
-          .select(`
-            id,
-            company_id,
-            job_title,
-            salary,
-            location,
-            job_description,
-            requirements,
-            status,
-            job_categories,
-            work_days,
-            work_conditions,
-            job_features,
-            cover_image_url,
-            cover_image_position
-          `)
+          .select('*')
           .eq('id', jobId)
           .single();
 
@@ -105,7 +118,7 @@ export default function JobDetailPage() {
         if ((jobData as any).company_id) {
           const { data: c } = await supabase
             .from('companies')
-            .select('company_name, industry, contact_email, description, location, employee_count, website, founded_year, logo_url, cover_url')
+            .select('*')
             .eq('id', (jobData as any).company_id)
             .maybeSingle();
           companyData = c;
@@ -486,6 +499,9 @@ export default function JobDetailPage() {
               <p style={{ fontSize: 14, lineHeight: 1.9, color: '#3A352F', margin: 0, whiteSpace: 'pre-wrap' }}>{job.job_description}</p>
             </div>
 
+            {/* 内定実績 */}
+            <TextSection title="インターン卒業生の内定実績" text={job.alumni_placements} />
+
             {/* 応募要件 */}
             {job.requirements && (
               <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 14, padding: isMobile ? '20px 16px' : '28px 32px', marginBottom: 16 }}>
@@ -496,20 +512,32 @@ export default function JobDetailPage() {
               </div>
             )}
 
-            {/* 求人情報 */}
+            {/* 募集要項 */}
             <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 14, padding: isMobile ? '20px 16px' : '28px 32px', marginBottom: 16 }}>
               <h2 style={{ fontWeight: 900, fontSize: 18, margin: '0 0 20px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ width: 4, height: 20, background: '#F2620C', borderRadius: 2, display: 'inline-block' }} />求人情報
+                <span style={{ width: 4, height: 20, background: '#F2620C', borderRadius: 2, display: 'inline-block' }} />募集要項
               </h2>
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
-                <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '16px 18px' }}>
-                  <div style={{ fontSize: 11, color: '#938B81', marginBottom: 6 }}>📍 勤務地</div>
-                  <div style={{ fontWeight: 700, fontSize: 15 }}>{job.location}</div>
-                </div>
                 <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '16px 18px' }}>
                   <div style={{ fontSize: 11, color: '#938B81', marginBottom: 6 }}>💰 給与</div>
                   <div style={{ fontWeight: 700, fontSize: 15 }}>{job.salary}</div>
                 </div>
+                <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '16px 18px' }}>
+                  <div style={{ fontSize: 11, color: '#938B81', marginBottom: 6 }}>📍 勤務地</div>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>{job.address || job.location}</div>
+                </div>
+                {job.employment_type && (
+                  <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '16px 18px' }}>
+                    <div style={{ fontSize: 11, color: '#938B81', marginBottom: 6 }}>📄 雇用形態</div>
+                    <div style={{ fontWeight: 700, fontSize: 15 }}>{job.employment_type}</div>
+                  </div>
+                )}
+                {job.intern_count && (
+                  <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '16px 18px' }}>
+                    <div style={{ fontSize: 11, color: '#938B81', marginBottom: 6 }}>👥 インターン生</div>
+                    <div style={{ fontWeight: 700, fontSize: 15 }}>{job.intern_count}</div>
+                  </div>
+                )}
                 {job.work_days && job.work_days.length > 0 && (
                   <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '16px 18px' }}>
                     <div style={{ fontSize: 11, color: '#938B81', marginBottom: 6 }}>⏰ 勤務日数</div>
@@ -517,6 +545,18 @@ export default function JobDetailPage() {
                   </div>
                 )}
               </div>
+              {job.shift_info && (
+                <div style={{ marginTop: 14, background: '#FBF8F4', borderRadius: 10, padding: '16px 18px' }}>
+                  <div style={{ fontSize: 11, color: '#938B81', marginBottom: 6 }}>🗓 シフト</div>
+                  <div style={{ fontSize: 14, lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>{job.shift_info}</div>
+                </div>
+              )}
+              {job.benefits && (
+                <div style={{ marginTop: 14, background: '#FBF8F4', borderRadius: 10, padding: '16px 18px' }}>
+                  <div style={{ fontSize: 11, color: '#938B81', marginBottom: 6 }}>🎁 福利厚生</div>
+                  <div style={{ fontSize: 14, lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>{job.benefits}</div>
+                </div>
+              )}
               {job.work_conditions && job.work_conditions.length > 0 && (
                 <div style={{ marginTop: 18 }}>
                   <div style={{ fontSize: 12, color: '#938B81', marginBottom: 10 }}>🏢 勤務条件</div>
@@ -528,6 +568,13 @@ export default function JobDetailPage() {
                 </div>
               )}
             </div>
+
+            {/* 条件・選考など（入力があるものだけ表示） */}
+            <TextSection title="必須条件" text={job.required_conditions} />
+            <TextSection title="歓迎条件" text={job.welcome_conditions} />
+            <TextSection title="求める人物像" text={job.ideal_candidate} />
+            <TextSection title="選考プロセス" text={job.selection_process} />
+            <TextSection title="研修・教育制度" text={job.training} />
 
             {/* 企業情報 */}
             {job.companies && (
@@ -554,9 +601,28 @@ export default function JobDetailPage() {
                   {job.companies.employee_count && <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '12px 14px' }}><div style={{ fontSize: 11, color: '#938B81', marginBottom: 4 }}>👥 従業員数</div><div style={{ fontWeight: 600, fontSize: 13 }}>{job.companies.employee_count}</div></div>}
                   {job.companies.founded_year && <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '12px 14px' }}><div style={{ fontSize: 11, color: '#938B81', marginBottom: 4 }}>📅 設立年</div><div style={{ fontWeight: 600, fontSize: 13 }}>{job.companies.founded_year}年</div></div>}
                   {job.companies.website && <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '12px 14px' }}><div style={{ fontSize: 11, color: '#938B81', marginBottom: 4 }}>🌐 ウェブサイト</div><a href={job.companies.website} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600, fontSize: 13, color: '#F2620C', textDecoration: 'none' }}>サイトを見る →</a></div>}
+                  {job.companies.representative && <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '12px 14px' }}><div style={{ fontSize: 11, color: '#938B81', marginBottom: 4 }}>👤 代表者</div><div style={{ fontWeight: 600, fontSize: 13 }}>{job.companies.representative}</div></div>}
                 </div>
+                {job.companies.related_links?.trim() && (
+                  <div style={{ marginBottom: 18 }}>
+                    <div style={{ fontSize: 12, color: '#938B81', marginBottom: 10 }}>🔗 関連URL</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {job.companies.related_links.split('\n').map(l => l.trim()).filter(Boolean).map((line, i) => {
+                        const m = line.match(/https?:\/\/\S+/);
+                        const url = m?.[0];
+                        const label = url ? line.replace(url, '').trim().replace(/^[【\[]|[】\]]$/g, '') : line;
+                        if (!url) return <div key={i} style={{ fontSize: 13, color: '#57514A' }}>{line}</div>;
+                        return (
+                          <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: '#F2620C', textDecoration: 'none', lineHeight: 1.7 }}>
+                            {label || url} ↗
+                          </a>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 <button onClick={() => router.push(`/companies/${job.company_id}`)} style={{ background: '#FFF1E8', color: '#F2620C', border: '1px solid #FBD5C0', borderRadius: 10, padding: '11px 20px', fontFamily: FF, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-                  この企業の詳細・求人一覧を見る →
+                  詳しい会社情報はこちら →
                 </button>
               </div>
             )}

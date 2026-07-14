@@ -31,7 +31,7 @@ export default function CompanyDashboard() {
   const [loading, setLoading] = useState(true);
   useEffect(() => { document.title = 'ダッシュボード | トウコべインターン'; return () => { document.title = 'トウコべインターン'; }; }, []);
   const [showEdit, setShowEdit] = useState(false);
-  const [editForm, setEditForm] = useState({ company_name: '', industry: '', contact_email: '', description: '', website: '', employee_count: '', location: '', founded_year: '' });
+  const [editForm, setEditForm] = useState({ company_name: '', industry: '', contact_email: '', description: '', website: '', employee_count: '', location: '', founded_year: '', representative: '', related_links: '' });
   const [logoUploading, setLogoUploading] = useState(false);
   const [coverUploading, setCoverUploading] = useState(false);
   const [coverPosition, setCoverPosition] = useState('50% 50%');
@@ -79,7 +79,7 @@ export default function CompanyDashboard() {
       const { data: c } = await supabase.from('companies').select('*').eq('id', ut.company_id).single();
       if (c) {
         setCompany(c);
-        setEditForm({ company_name: c.company_name || '', industry: c.industry || '', contact_email: c.contact_email || '', description: c.description || '', website: c.website || '', employee_count: c.employee_count || '', location: c.location || '', founded_year: c.founded_year || '' });
+        setEditForm({ company_name: c.company_name || '', industry: c.industry || '', contact_email: c.contact_email || '', description: c.description || '', website: c.website || '', employee_count: c.employee_count || '', location: c.location || '', founded_year: c.founded_year || '', representative: (c as any).representative || '', related_links: (c as any).related_links || '' });
         if (c.cover_position) setCoverPosition(c.cover_position);
       }
 
@@ -155,7 +155,12 @@ export default function CompanyDashboard() {
   const handleUpdateCompany = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!company) return;
-    const { error } = await supabase.from('companies').update(editForm).eq('id', company.id);
+    let { error } = await supabase.from('companies').update(editForm).eq('id', company.id);
+    // 代表者・関連URLカラム未追加の環境（マイグレーション未実行）では基本項目のみ更新する
+    if (error && /column/i.test(error.message)) {
+      const { representative, related_links, ...base } = editForm;
+      ({ error } = await supabase.from('companies').update(base).eq('id', company.id));
+    }
     if (error) { showToast('更新に失敗しました', 'error'); return; }
     setCompany({ ...company, ...editForm });
     setShowEdit(false);
@@ -431,8 +436,13 @@ export default function CompanyDashboard() {
                 <div><label style={F.label}>所在地</label><input style={F.input} value={editForm.location} placeholder="例：東京都渋谷区" onChange={e => setEditForm({ ...editForm, location: e.target.value })} onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} /></div>
                 <div><label style={F.label}>従業員数</label><input style={F.input} value={editForm.employee_count} placeholder="例：50" onChange={e => setEditForm({ ...editForm, employee_count: e.target.value })} onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} /></div>
                 <div><label style={F.label}>設立年</label><input style={F.input} value={editForm.founded_year} placeholder="例：2015" onChange={e => setEditForm({ ...editForm, founded_year: e.target.value })} onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} /></div>
+                <div><label style={F.label}>代表者</label><input style={F.input} value={editForm.representative} placeholder="例：山田 太郎" onChange={e => setEditForm({ ...editForm, representative: e.target.value })} onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} /></div>
               </div>
               <div><label style={F.label}>Webサイト</label><input style={F.input} value={editForm.website} placeholder="例：https://example.com" onChange={e => setEditForm({ ...editForm, website: e.target.value })} onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} /></div>
+              <div>
+                <label style={F.label}>関連URL（プレスリリース・インタビュー等。1行に1つ「タイトル URL」の形式）</label>
+                <textarea style={{ ...F.input, minHeight: 90, resize: 'vertical' } as React.CSSProperties} value={editForm.related_links} placeholder={'例：\n【資金調達のお知らせ】 https://prtimes.jp/...\n【CEOインタビュー】 https://example.com/...'} onChange={e => setEditForm({ ...editForm, related_links: e.target.value })} onFocus={e => (e.target as HTMLTextAreaElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLTextAreaElement).style.borderColor = '#EFE8DF'} />
+              </div>
               <div>
                 <label style={F.label}>会社概要</label>
                 <textarea style={{ ...F.input, minHeight: 120, resize: 'vertical' } as React.CSSProperties} value={editForm.description} placeholder="会社の事業内容・文化・インターン生に期待することなどを記載してください" onChange={e => setEditForm({ ...editForm, description: e.target.value })} onFocus={e => (e.target as HTMLTextAreaElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLTextAreaElement).style.borderColor = '#EFE8DF'} />

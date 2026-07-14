@@ -8,7 +8,7 @@ import { useIsMobile } from '@/utils/useIsMobile';
 
 interface User { id: string; email?: string; }
 interface Stats { totalUsers: number; totalStudents: number; totalCompanies: number; totalJobs: number; totalApplications: number; }
-type Tab = 'overview' | 'jobs' | 'companies' | 'forms' | 'legal' | 'docs';
+type Tab = 'overview' | 'jobs' | 'companies' | 'forms' | 'legal' | 'mail' | 'docs';
 
 const F = {
   label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#57514A', marginBottom: 8 } as React.CSSProperties,
@@ -56,6 +56,7 @@ export default function AdminDashboard() {
     { key: 'companies', label: '企業管理' },
     { key: 'forms', label: 'フォーム申し込み' },
     { key: 'legal', label: '規約・ポリシー' },
+    { key: 'mail', label: 'メール文面' },
     { key: 'docs', label: 'API Docs' },
   ];
 
@@ -122,6 +123,7 @@ export default function AdminDashboard() {
         {/* DOCS */}
         {tab === 'forms' && <AdminFormsTab />}
         {tab === 'legal' && <AdminLegalTab />}
+        {tab === 'mail' && <AdminMailTab />}
         {tab === 'docs' && <AdminDocsTab />}
       </div>
     </div>
@@ -816,6 +818,196 @@ function AdminLegalTab() {
             {saving ? '保存中...' : '保存して公開'}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// 自動送信メールの一覧。既定文面は app/api/send-email/route.ts の DEFAULT_TEMPLATES と揃えること
+const MAIL_TEMPLATES = [
+  {
+    slug: 'application_received', title: '応募通知（企業宛）',
+    desc: '学生が求人に応募したとき、企業の登録メールに届く通知。応募者情報の表とダッシュボードへのボタンは自動で付きます。',
+    vars: '{{jobTitle}} {{companyName}}',
+    defSubject: '【新着応募】{{jobTitle}} への応募がありました',
+    defBody: '{{companyName}} 様\n新しい応募がありました。ダッシュボードから確認・選考を進めてください。',
+  },
+  {
+    slug: 'status_interview', title: '面接予定（学生宛）',
+    desc: '企業が選考ステータスを「面接予定」にしたとき学生に届く通知。',
+    vars: '{{jobTitle}} {{companyName}}',
+    defSubject: '【面接予定】{{companyName}}「{{jobTitle}}」の選考結果',
+    defBody: 'おめでとうございます！面接に進むことになりました。企業からの連絡をお待ちください。',
+  },
+  {
+    slug: 'status_offer', title: '内定（学生宛）',
+    desc: '選考ステータスが「内定」になったとき学生に届く通知。',
+    vars: '{{jobTitle}} {{companyName}}',
+    defSubject: '【内定】{{companyName}}「{{jobTitle}}」の選考結果',
+    defBody: 'おめでとうございます！内定のご連絡です。詳細は企業からの連絡をご確認ください。',
+  },
+  {
+    slug: 'status_rejected', title: '不採用（学生宛）',
+    desc: '選考ステータスが「不採用」になったとき学生に届く通知。',
+    vars: '{{jobTitle}} {{companyName}}',
+    defSubject: '【選考結果】{{companyName}}「{{jobTitle}}」の選考結果',
+    defBody: '今回は残念ながら選考を終了させていただきます。またぜひ他の求人にもご応募ください。',
+  },
+  {
+    slug: 'student_welcome', title: 'ウェルカム（学生宛）',
+    desc: '学生がプロフィール登録を完了したときに届くメール。',
+    vars: '{{studentName}}',
+    defSubject: 'トウコべインターンへようこそ！登録が完了しました',
+    defBody: '{{studentName}} さん、トウコべインターンへようこそ！\nプロフィールの登録が完了しました。さっそく求人を探して、理想のインターンシップに応募してみましょう。',
+  },
+];
+
+function AdminMailTab() {
+  const isMobile = useIsMobile();
+  const [selected, setSelected] = useState('application_received');
+  const [subjects, setSubjects] = useState<Record<string, string>>({});
+  const [bodies, setBodies] = useState<Record<string, string>>({});
+  const [updatedAt, setUpdatedAt] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
+  const [tableMissing, setTableMissing] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3500); };
+
+  useEffect(() => {
+    supabase.from('email_templates').select('*').then(({ data, error }) => {
+      if (error) { setTableMissing(true); setLoading(false); return; }
+      const s: Record<string, string> = {};
+      const b: Record<string, string> = {};
+      const u: Record<string, string> = {};
+      (data || []).forEach((t: any) => { s[t.slug] = t.subject; b[t.slug] = t.body; u[t.slug] = t.updated_at; });
+      setSubjects(s); setBodies(b); setUpdatedAt(u);
+      setLoading(false);
+    });
+  }, []);
+
+  const cur = MAIL_TEMPLATES.find(t => t.slug === selected)!;
+  const curSubject = subjects[selected] ?? '';
+  const curBody = bodies[selected] ?? '';
+
+  const save = async () => {
+    setSaving(true);
+    const now = new Date().toISOString();
+    const { error } = await supabase.from('email_templates').upsert({ slug: selected, subject: curSubject, body: curBody, updated_at: now });
+    setSaving(false);
+    if (error) { showToast('保存に失敗しました: ' + error.message, 'error'); return; }
+    setUpdatedAt(p => ({ ...p, [selected]: now }));
+    showToast('保存しました。以後の自動送信メールに反映されます');
+  };
+
+  const sendTest = async () => {
+    setSendingTest(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('セッションがありません');
+      const res = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          type: selected,
+          to: session.user.email,
+          jobTitle: '【サンプル】事業開発インターン',
+          companyName: 'サンプル株式会社',
+          studentName: '山田 太郎',
+          studentUniversity: '東京大学',
+          studentGrade: '学部3年生',
+          studentEmail: session.user.email,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || `HTTP ${res.status}`);
+      }
+      showToast(`テストメールを ${session.user.email} に送信しました。受信箱を確認してください`);
+    } catch (e: any) {
+      showToast('テスト送信に失敗: ' + e.message + '（Resendのドメイン認証が未完了の可能性）', 'error');
+    } finally {
+      setSendingTest(false);
+    }
+  };
+
+  if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><div style={{ width: 36, height: 36, border: '2.5px solid #F2620C', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /><style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style></div>;
+
+  if (tableMissing) return (
+    <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 16, padding: '28px 32px' }}>
+      <h3 style={{ fontWeight: 700, fontSize: 16, margin: '0 0 10px', color: '#B45309' }}>初期設定が必要です</h3>
+      <p style={{ fontSize: 14, color: '#57514A', lineHeight: 1.9, margin: 0 }}>
+        メール文面の編集機能を使うには、Supabase ダッシュボード → SQL Editor で <code style={{ background: '#FFF', padding: '2px 8px', borderRadius: 6, fontFamily: 'var(--font-mono)', fontSize: 12 }}>sql/2026-07-14_email_templates_and_job_details.sql</code> を実行してください。実行後にこのページを再読み込みしてください。
+      </p>
+    </div>
+  );
+
+  return (
+    <div>
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: toast.type === 'error' ? '#FEF2F2' : '#F0FDF4', border: `1px solid ${toast.type === 'error' ? '#FECACA' : '#BBF7D0'}`, color: toast.type === 'error' ? '#B91C1C' : '#15803D', borderRadius: 12, padding: '14px 24px', fontWeight: 700, fontSize: 14, boxShadow: '0 8px 32px rgba(0,0,0,.12)', maxWidth: '90vw' }}>
+          {toast.type === 'success' ? '✓ ' : '✕ '}{toast.msg}
+        </div>
+      )}
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: '#F2620C', letterSpacing: '.14em', marginBottom: 12 }}>EMAIL TEMPLATES</div>
+      <h2 style={{ fontWeight: 900, fontSize: 24, margin: '0 0 24px' }}>メール文面の編集</h2>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+        {MAIL_TEMPLATES.map(t => (
+          <button key={t.slug} onClick={() => setSelected(t.slug)}
+            style={{ border: selected === t.slug ? '2px solid #F2620C' : '1px solid #EFE8DF', background: selected === t.slug ? '#FFF1E8' : '#fff', color: selected === t.slug ? '#F2620C' : '#57514A', borderRadius: 999, padding: '9px 18px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+            {t.title}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: isMobile ? '20px 16px' : '28px 32px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 6, flexWrap: 'wrap' }}>
+          <h3 style={{ fontWeight: 700, fontSize: 16, margin: 0 }}>{cur.title}</h3>
+          {updatedAt[selected] && <span style={{ fontSize: 12, color: '#938B81' }}>最終更新: {new Date(updatedAt[selected]).toLocaleString('ja-JP')}</span>}
+        </div>
+        <p style={{ fontSize: 13, color: '#938B81', margin: '0 0 16px', lineHeight: 1.8 }}>{cur.desc}</p>
+
+        <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '12px 16px', fontSize: 12.5, color: '#57514A', lineHeight: 1.9, marginBottom: 16 }}>
+          使える差し込み変数: <code style={{ background: '#fff', padding: '2px 8px', borderRadius: 6, fontFamily: 'var(--font-mono)', fontSize: 12 }}>{cur.vars}</code>（送信時に実際の値に置き換わります）<br />
+          ※ 空欄で保存すると既定の文面に戻ります。件名・本文以外のデザイン（ヘッダー・ボタン等）は自動で付きます。
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#57514A', marginBottom: 8 }}>件名</label>
+          <input
+            value={curSubject}
+            onChange={e => setSubjects(p => ({ ...p, [selected]: e.target.value }))}
+            placeholder={cur.defSubject}
+            style={{ width: '100%', border: '1px solid #EFE8DF', borderRadius: 10, padding: '12px 16px', fontFamily: "var(--font-sans)", fontSize: 14, color: '#1C1813', outline: 'none', boxSizing: 'border-box' }}
+            onFocus={e => (e.target.style.borderColor = '#F2620C')}
+            onBlur={e => (e.target.style.borderColor = '#EFE8DF')}
+          />
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#57514A', marginBottom: 8 }}>本文</label>
+          <textarea
+            value={curBody}
+            onChange={e => setBodies(p => ({ ...p, [selected]: e.target.value }))}
+            placeholder={cur.defBody}
+            rows={7}
+            style={{ width: '100%', border: '1px solid #EFE8DF', borderRadius: 10, padding: '12px 16px', fontFamily: "var(--font-sans)", fontSize: 14, color: '#1C1813', outline: 'none', boxSizing: 'border-box', resize: 'vertical', lineHeight: 1.8 }}
+            onFocus={e => (e.target.style.borderColor = '#F2620C')}
+            onBlur={e => (e.target.style.borderColor = '#EFE8DF')}
+          />
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button onClick={save} disabled={saving}
+            style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '13px 32px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 14, cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+            {saving ? '保存中...' : '保存する'}
+          </button>
+          <button onClick={sendTest} disabled={sendingTest}
+            style={{ background: '#fff', color: '#F2620C', border: '1.5px solid #F2620C', borderRadius: 10, padding: '13px 24px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 14, cursor: 'pointer', opacity: sendingTest ? 0.7 : 1 }}>
+            {sendingTest ? '送信中...' : '自分にテスト送信'}
+          </button>
+        </div>
+        <p style={{ fontSize: 12, color: '#B6ADA2', margin: '12px 0 0' }}>テスト送信は保存済みの文面（未保存の変更は含まれません）で、あなたの管理者メール宛に送られます。</p>
       </div>
     </div>
   );

@@ -37,6 +37,11 @@ export default function PostJobPage() {
     job_title: '', salary: '', location: '', job_description: '', requirements: '',
     job_categories: [] as string[], work_days: [] as string[], work_conditions: [] as string[], job_features: [] as string[],
   });
+  // 募集要項の詳細（任意項目・2026-07-14追加）
+  const [extra, setExtra] = useState({
+    employment_type: '', address: '', intern_count: '', shift_info: '', benefits: '',
+    required_conditions: '', welcome_conditions: '', ideal_candidate: '', selection_process: '', training: '', alumni_placements: '',
+  });
 
   useEffect(() => {
     async function checkAuth() {
@@ -72,9 +77,17 @@ export default function PostJobPage() {
         const { data: urlData } = supabase.storage.from('job-covers').getPublicUrl(path);
         cover_image_url = urlData.publicUrl;
       }
-      const { error: jobError } = await supabase.from('jobs').insert([{
-        company_id: companyId, ...formData, status: 'pending', cover_image_url, cover_image_position: coverPosition,
+      // 空欄の任意項目は送らない
+      const extras = Object.fromEntries(Object.entries(extra).filter(([, v]) => v.trim()));
+      let { error: jobError } = await supabase.from('jobs').insert([{
+        company_id: companyId, ...formData, ...extras, status: 'pending', cover_image_url, cover_image_position: coverPosition,
       }]);
+      // 詳細カラム未追加の環境（マイグレーション未実行）では基本項目のみで投稿する
+      if (jobError && /column/i.test(jobError.message)) {
+        ({ error: jobError } = await supabase.from('jobs').insert([{
+          company_id: companyId, ...formData, status: 'pending', cover_image_url, cover_image_position: coverPosition,
+        }]));
+      }
       if (jobError) throw jobError;
       showToast('求人を投稿しました！');
       // リダイレクトまで saving を維持して二重送信を防ぐ
@@ -247,6 +260,45 @@ export default function PostJobPage() {
                   onFocus={e => (e.target as HTMLTextAreaElement).style.borderColor = '#F2620C'}
                   onBlur={e => (e.target as HTMLTextAreaElement).style.borderColor = '#EFE8DF'} />
               </div>
+            </div>
+          </div>
+
+          {/* 募集要項の詳細（任意） */}
+          <div style={F.section}>
+            <span style={F.sectionTitle}>募集要項の詳細（任意）</span>
+            <p style={{ fontSize: 12.5, color: '#938B81', margin: '0 0 16px', lineHeight: 1.8 }}>入力した項目だけが求人ページに表示されます。充実させるほど応募につながりやすくなります。</p>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16, marginBottom: 16 }}>
+              <div>
+                <label style={F.label}>雇用形態</label>
+                <input style={F.input} value={extra.employment_type} onChange={e => setExtra({ ...extra, employment_type: e.target.value })} placeholder="例: インターン契約" onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} />
+              </div>
+              <div>
+                <label style={F.label}>インターン生の在籍数</label>
+                <input style={F.input} value={extra.intern_count} onChange={e => setExtra({ ...extra, intern_count: e.target.value })} placeholder="例: 30人在籍（※2026年1月時点）" onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} />
+              </div>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={F.label}>勤務地の詳細住所</label>
+              <input style={F.input} value={extra.address} onChange={e => setExtra({ ...extra, address: e.target.value })} placeholder="例: 東京都 千代田区 内幸町2-1-6" onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {([
+                ['shift_info', 'シフト', '例: 週15時間以上稼働できる方を募集しています。\n学業の状況に合わせて柔軟にシフト変動できます。', 3],
+                ['benefits', '福利厚生', '例:\n・交通費支給\n・昇給制度あり', 3],
+                ['required_conditions', '必須条件', '例:\n・基礎的なPCスキルやコミュニケーションスキル\n・週15時間以上稼働できる方', 3],
+                ['welcome_conditions', '歓迎条件', '例:\n・半年以上の勤務ができる方\n・団体のリーダー経験がある方', 3],
+                ['ideal_candidate', '求める人物像', '例:\n・主体的に業務に取り組み、裁量を持って働きたい方\n・結果に妥協しない環境で成長したい方', 4],
+                ['selection_process', '選考プロセス', '例:\nSTEP1 書類選考を経て面談をいたします。\nSTEP2 面談後、1週間以内に合否を通知いたします。', 3],
+                ['training', '研修・教育制度', '例: 入社後は先輩メンバーから手厚いサポートが受けられます。', 3],
+                ['alumni_placements', 'インターン卒業生の内定実績', '例: 過去に弊社でインターンをしていた学生は、以下のような企業に内定しています。\n・外資系コンサルティングファーム\n・大手商社', 3],
+              ] as const).map(([key, label, ph, rows]) => (
+                <div key={key}>
+                  <label style={F.label}>{label}</label>
+                  <textarea style={{ ...F.input, resize: 'vertical' }} value={extra[key]} onChange={e => setExtra({ ...extra, [key]: e.target.value })} placeholder={ph} rows={rows}
+                    onFocus={e => (e.target as HTMLTextAreaElement).style.borderColor = '#F2620C'}
+                    onBlur={e => (e.target as HTMLTextAreaElement).style.borderColor = '#EFE8DF'} />
+                </div>
+              ))}
             </div>
           </div>
 
