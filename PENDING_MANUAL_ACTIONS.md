@@ -19,7 +19,22 @@ DNS反映後の状況（2026-07-14更新）:
 2. 🔴 Resend: DKIM/SPF/MXレコードはDNSに反映済みだが、**ダッシュボードで Verify ボタンを押すまで認証未完了 → メール送信は403で失敗する**。https://resend.com/domains で Verify を押すこと
 3. 🔴 Supabase → Authentication → URL Configuration: Site URL を `https://intern.toukobe.com` に変更、Redirect URLs に `https://intern.toukobe.com/**` を追加（未対応）
 4. 🔴 Resend認証後、管理者ページ「メール文面」タブの「自分にテスト送信」で送信確認
-5. 🔴 SQL未実行: `sql/2026-07-11_featured_jobs_and_site_documents.sql` と `sql/2026-07-14_email_templates_and_job_details.sql` を SQL Editor で実行（メール文面編集・注目求人・求人詳細項目・企業セルフ登録の穴塞ぎに必要）
+5. 🔴 SQL未実行: `sql/2026-07-11_featured_jobs_and_site_documents.sql` と `sql/2026-07-14_email_templates_and_job_details.sql` を SQL Editor で実行（メール文面編集・注目求人・求人詳細項目・企業セルフ登録の穴塞ぎに必要）。※07-14のSQLには user_types のユニーク制約(④)を後から追記したため、**以前に実行済みでももう一度実行すること**（何度実行しても安全）
+
+---
+
+## ✅ ローンチ前総点検（2026-07-14 自動監査）
+
+本番DBに対するE2Eテストで以下すべての通過を確認（テストデータは完全削除済み）:
+- 学生: サインアップ → 種別登録 → プロフィール保存 → 編集
+- 企業: アカウント発行(仮PW) → ログイン → パスワード変更 → 求人投稿(承認待ち) → 公開
+- 応募: 学生が公開求人を閲覧・応募 → 企業が応募・応募者プロフィール閲覧 → 選考ステータス更新
+- 本番の全公開ページ(19URL)が200、フルビルド成功
+
+修正したバグ:
+- 🔴 プロフィール保存時の user_types upsert がRLSにより必ず失敗する問題（全学生の登録を止める致命傷）
+- 🔴 user_types にユニーク制約が無く重複行を作れる問題（コード側ガード+SQLに制約追加）
+- 企業ページに代表者・関連URLが未表示 / 架空のAPI Docsタブ / 対象大学の曖昧な文言
 
 ---
 
