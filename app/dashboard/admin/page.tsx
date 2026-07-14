@@ -8,7 +8,7 @@ import { useIsMobile } from '@/utils/useIsMobile';
 
 interface User { id: string; email?: string; }
 interface Stats { totalUsers: number; totalStudents: number; totalCompanies: number; totalJobs: number; totalApplications: number; }
-type Tab = 'overview' | 'jobs' | 'companies' | 'forms' | 'legal' | 'mail' | 'docs';
+type Tab = 'overview' | 'jobs' | 'companies' | 'forms' | 'legal' | 'mail';
 
 const F = {
   label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#57514A', marginBottom: 8 } as React.CSSProperties,
@@ -57,7 +57,6 @@ export default function AdminDashboard() {
     { key: 'forms', label: 'フォーム申し込み' },
     { key: 'legal', label: '規約・ポリシー' },
     { key: 'mail', label: 'メール文面' },
-    { key: 'docs', label: 'API Docs' },
   ];
 
   const STAT_CARDS = [
@@ -120,11 +119,9 @@ export default function AdminDashboard() {
         {/* COMPANIES */}
         {tab === 'companies' && <AdminCompaniesTab />}
 
-        {/* DOCS */}
         {tab === 'forms' && <AdminFormsTab />}
         {tab === 'legal' && <AdminLegalTab />}
         {tab === 'mail' && <AdminMailTab />}
-        {tab === 'docs' && <AdminDocsTab />}
       </div>
     </div>
   );
@@ -1008,45 +1005,6 @@ function AdminMailTab() {
           </button>
         </div>
         <p style={{ fontSize: 12, color: '#B6ADA2', margin: '12px 0 0' }}>テスト送信は保存済みの文面（未保存の変更は含まれません）で、あなたの管理者メール宛に送られます。</p>
-      </div>
-    </div>
-  );
-}
-
-function AdminDocsTab() {
-  const endpoints = [
-    { method: 'POST', path: '/api/auth/login', desc: 'ログイン' },
-    { method: 'POST', path: '/api/auth/logout', desc: 'ログアウト' },
-    { method: 'GET', path: '/api/jobs', desc: '求人一覧取得' },
-    { method: 'GET', path: '/api/jobs/:id', desc: '求人詳細取得' },
-    { method: 'POST', path: '/api/jobs', desc: '求人作成（企業のみ）' },
-    { method: 'PUT', path: '/api/jobs/:id', desc: '求人更新（企業のみ）' },
-    { method: 'DELETE', path: '/api/jobs/:id', desc: '求人削除（企業のみ）' },
-    { method: 'GET', path: '/api/applications', desc: '応募一覧' },
-    { method: 'POST', path: '/api/applications', desc: '応募作成' },
-    { method: 'PUT', path: '/api/applications/:id', desc: '応募ステータス更新' },
-  ];
-  const METHOD_COLOR: Record<string, { bg: string; color: string }> = {
-    GET: { bg: '#EFF6FF', color: '#1D4ED8' },
-    POST: { bg: '#F0FDF4', color: '#15803D' },
-    PUT: { bg: '#FFFBEB', color: '#B45309' },
-    DELETE: { bg: '#FEF2F2', color: '#B91C1C' },
-  };
-  return (
-    <div>
-      <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: '#F2620C', letterSpacing: '.14em', marginBottom: 12 }}>API DOCS</div>
-      <h2 style={{ fontWeight: 900, fontSize: 24, margin: '0 0 24px' }}>APIドキュメント</h2>
-      <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, overflow: 'hidden' }}>
-        {endpoints.map((ep, i) => {
-          const mc = METHOD_COLOR[ep.method];
-          return (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px 24px', borderBottom: i < endpoints.length - 1 ? '1px solid #EFE8DF' : 'none' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, background: mc.bg, color: mc.color, fontFamily: "var(--font-mono)", width: 56, textAlign: 'center', flexShrink: 0 }}>{ep.method}</span>
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: '#1C1813', flex: 1 }}>{ep.path}</span>
-              <span style={{ fontSize: 13, color: '#938B81' }}>{ep.desc}</span>
-            </div>
-          );
-        })}
       </div>
     </div>
   );

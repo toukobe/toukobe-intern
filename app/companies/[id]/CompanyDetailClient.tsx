@@ -16,6 +16,8 @@ interface Company {
   location?: string;
   website?: string;
   founded_year?: string;
+  representative?: string | null;
+  related_links?: string | null;
   logo_url?: string;
   cover_url?: string;
 }
@@ -227,6 +229,7 @@ export default function CompanyProfilePage() {
                 { label: '従業員数', value: company.employee_count ? `${company.employee_count}名` : '—' },
                 { label: '所在地', value: company.location || '—' },
                 { label: '設立年', value: company.founded_year || '—' },
+                { label: '代表者', value: company.representative || '—' },
                 { label: 'Webサイト', value: company.website || null, isLink: true },
               ].map(item => (
                 <div key={item.label} style={{ background: '#FBF8F4', borderRadius: 10, padding: '14px 16px' }}>
@@ -239,6 +242,26 @@ export default function CompanyProfilePage() {
                 </div>
               ))}
             </div>
+
+            {/* 関連URL */}
+            {company.related_links?.trim() && (
+              <div style={{ background: '#FBF8F4', borderRadius: 12, padding: '20px 24px', marginTop: 20 }}>
+                <div style={{ fontSize: 12, color: '#938B81', marginBottom: 10, fontFamily: MONO, letterSpacing: '.1em' }}>LINKS</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {company.related_links.split('\n').map(l => l.trim()).filter(Boolean).map((line, i) => {
+                    const m = line.match(/https?:\/\/\S+/);
+                    const url = m?.[0];
+                    const label = url ? line.replace(url, '').trim().replace(/^[【\[]|[】\]]$/g, '') : line;
+                    if (!url) return <div key={i} style={{ fontSize: 13, color: '#57514A' }}>{line}</div>;
+                    return (
+                      <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: '#F2620C', textDecoration: 'none', lineHeight: 1.7 }}>
+                        {label || url} ↗
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
