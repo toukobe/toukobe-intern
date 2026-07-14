@@ -267,8 +267,19 @@ function AdminJobsTab() {
 
 function AdminCompaniesTab() {
   const isMobile = useIsMobile();
+  const router = useRouter();
   const [companies, setCompanies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  // 求人管理モーダル（管理者が企業の求人を作成・編集）
+  const [jobsFor, setJobsFor] = useState<any | null>(null);
+  const [companyJobs, setCompanyJobs] = useState<any[]>([]);
+  const [jobsLoading, setJobsLoading] = useState(false);
+  const openJobs = async (c: any) => {
+    setJobsFor(c); setJobsLoading(true); setCompanyJobs([]);
+    const { data } = await supabase.from('jobs').select('id, job_title, status, created_at').eq('company_id', c.id).order('created_at', { ascending: false });
+    setCompanyJobs(data || []); setJobsLoading(false);
+  };
+  const JOB_STATUS: Record<string, string> = { published: '公開中', pending: '承認待ち', paused: '募集停止', draft: '非公開' };
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ company_name: '', industry: '', contact_email: '', login_email: '', temp_password: '' });
   // 直近に発行したログイン情報（この画面でしか見られないため、閉じる前に企業へ共有する）
@@ -356,6 +367,36 @@ function AdminCompaniesTab() {
       {toast && (
         <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: toast.type === 'error' ? '#FEF2F2' : '#F0FDF4', border: `1px solid ${toast.type === 'error' ? '#FECACA' : '#BBF7D0'}`, color: toast.type === 'error' ? '#B91C1C' : '#15803D', borderRadius: 12, padding: '14px 24px', fontWeight: 700, fontSize: 14, boxShadow: '0 8px 32px rgba(0,0,0,.12)', whiteSpace: 'nowrap' }}>
           {toast.type === 'success' ? '✓ ' : '✕ '}{toast.msg}
+        </div>
+      )}
+      {/* 求人管理モーダル（管理者が企業の求人を作成・編集） */}
+      {jobsFor && (
+        <div onClick={() => setJobsFor(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, padding: 32, width: '100%', maxWidth: 560, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 24px 60px rgba(0,0,0,.2)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+              <h3 style={{ fontWeight: 900, fontSize: 18, margin: 0 }}>{jobsFor.company_name} の求人</h3>
+              <button onClick={() => setJobsFor(null)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#938B81' }}>✕</button>
+            </div>
+            <p style={{ fontSize: 12.5, color: '#938B81', margin: '0 0 18px' }}>管理者として、この企業の求人を新規作成・編集できます。</p>
+            <button onClick={() => router.push(`/dashboard/post-job?company=${jobsFor.id}`)} style={{ width: '100%', background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '13px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 14, cursor: 'pointer', marginBottom: 18 }}>＋ この企業の求人を新規作成</button>
+            {jobsLoading ? (
+              <div style={{ textAlign: 'center', padding: 24, color: '#938B81' }}>読み込み中...</div>
+            ) : companyJobs.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 24, color: '#938B81', fontSize: 14 }}>まだ求人がありません</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {companyJobs.map(j => (
+                  <div key={j.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, border: '1px solid #EFE8DF', borderRadius: 10, padding: '12px 14px' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{j.job_title}</div>
+                      <div style={{ fontSize: 11, color: '#938B81' }}>{JOB_STATUS[j.status] || j.status}</div>
+                    </div>
+                    <button onClick={() => router.push(`/dashboard/edit-job/${j.id}`)} style={{ flexShrink: 0, background: '#FFF1E8', color: '#F2620C', border: '1px solid #FBD5C0', borderRadius: 8, padding: '7px 16px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>編集</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
       {/* 編集モーダル */}
@@ -447,6 +488,7 @@ function AdminCompaniesTab() {
                 <td style={{ padding: '16px 20px', fontSize: 13, color: '#57514A', fontFamily: "var(--font-mono)" }}>{c.contact_email}</td>
                 <td style={{ padding: '16px 20px' }}>
                   <div style={{ display: 'flex', gap: 10 }}>
+                    <span onClick={() => openJobs(c)} style={{ fontSize: 13, color: '#1D4ED8', fontWeight: 700, cursor: 'pointer' }}>求人管理</span>
                     <span onClick={() => handleEditOpen(c)} style={{ fontSize: 13, color: '#F2620C', fontWeight: 700, cursor: 'pointer' }}>編集</span>
                     <span onClick={() => handleDelete(c.id, c.company_name)} style={{ fontSize: 13, color: '#B91C1C', fontWeight: 700, cursor: 'pointer' }}>削除</span>
                   </div>

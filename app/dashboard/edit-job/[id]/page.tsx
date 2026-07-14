@@ -57,6 +57,8 @@ export default function EditJobPage() {
   const jobId = params.id as string;
 
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const backHref = isAdmin ? '/dashboard/admin' : '/dashboard/company';
   useEffect(() => { document.title = '求人を編集する | トウコべインターン'; return () => { document.title = 'トウコべインターン'; }; }, []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,15 +80,18 @@ export default function EditJobPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push('/auth/company-login'); return; }
 
+      const admin = session.user.email === 'ru_matsumoto@manabiph.com';
+      setIsAdmin(admin);
       const { data: ut } = await supabase.from('user_types').select('company_id').eq('user_id', session.user.id).single();
-      if (!ut?.company_id) { router.push('/auth/company-login'); return; }
+      // 管理者は自分のcompany_idが無くても任意企業の求人を編集できる
+      if (!admin && !ut?.company_id) { router.push('/auth/company-login'); return; }
 
       const { data: job, error: jobError } = await supabase
         .from('jobs').select('*').eq('id', jobId).single();
 
       if (jobError || !job) { setError('求人が見つかりません'); setLoading(false); return; }
 
-      if (job.company_id !== ut.company_id) { setError('この求人を編集する権限がありません'); setLoading(false); return; }
+      if (!admin && job.company_id !== ut?.company_id) { setError('この求人を編集する権限がありません'); setLoading(false); return; }
 
       setFormData({
         ...job,
@@ -151,7 +156,7 @@ export default function EditJobPage() {
       if (updateError) throw updateError;
       showToast('求人を更新しました！');
       // リダイレクトまで saving を維持して二重送信を防ぐ
-      setTimeout(() => router.push('/dashboard/company'), 1200);
+      setTimeout(() => router.push(backHref), 1200);
     } catch (err) {
       setError('求人更新に失敗しました: ' + (err as any).message);
       setSaving(false);
@@ -185,7 +190,7 @@ export default function EditJobPage() {
       <div style={{ background: '#fff', borderBottom: '1px solid #EFE8DF', padding: isMobile ? '14px 16px' : '14px 48px', display: 'flex', alignItems: 'center', gap: 16, position: 'sticky', top: 0, zIndex: 50 }}>
         <img src="/toukobe-intern-logo.png" alt="トウコべインターン" style={{ height: 34, width: 'auto', cursor: 'pointer' }} onClick={() => router.push('/')} />
         <div style={{ width: 1, height: 20, background: '#EFE8DF' }} />
-        <span style={{ fontSize: 13, color: '#F2620C', fontWeight: 700, cursor: 'pointer' }} onClick={() => router.push('/dashboard/company')}>← ダッシュボードに戻る</span>
+        <span style={{ fontSize: 13, color: '#F2620C', fontWeight: 700, cursor: 'pointer' }} onClick={() => router.push(backHref)}>← ダッシュボードに戻る</span>
       </div>
 
       <div style={{ maxWidth: 760, margin: '0 auto', padding: isMobile ? '24px 16px 60px' : '48px 48px 80px' }}>
@@ -427,7 +432,7 @@ export default function EditJobPage() {
               style={{ flex: 1, background: saving ? '#D9B99B' : '#F2620C', color: '#fff', border: 'none', borderRadius: 12, padding: '16px', fontFamily: FF, fontWeight: 900, fontSize: 15, cursor: saving ? 'not-allowed' : 'pointer' }}>
               {saving ? '更新中...' : '求人を更新する'}
             </button>
-            <button type="button" onClick={() => router.push('/dashboard/company')}
+            <button type="button" onClick={() => router.push(backHref)}
               style={{ flex: 1, background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 12, padding: '16px', fontFamily: FF, fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
               キャンセル
             </button>

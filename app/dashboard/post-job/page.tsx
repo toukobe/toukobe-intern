@@ -23,6 +23,9 @@ export default function PostJobPage() {
   const router = useRouter();
   const isMobile = useIsMobile();
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminCompanyName, setAdminCompanyName] = useState<string | null>(null);
+  const backHref = isAdmin ? '/dashboard/admin' : '/dashboard/company';
   const [loading, setLoading] = useState(true);
   useEffect(() => { document.title = '求人を掲載する | トウコべインターン'; return () => { document.title = 'トウコべインターン'; }; }, []);
   const [saving, setSaving] = useState(false);
@@ -47,6 +50,16 @@ export default function PostJobPage() {
     async function checkAuth() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push('/auth/company-login'); return; }
+      // 管理者が ?company=<id> を指定した場合は、その企業の求人として作成する
+      const adminCompany = new URLSearchParams(window.location.search).get('company');
+      if (session.user.email === 'ru_matsumoto@manabiph.com' && adminCompany) {
+        setIsAdmin(true);
+        setCompanyId(adminCompany);
+        const { data: c } = await supabase.from('companies').select('company_name').eq('id', adminCompany).maybeSingle();
+        setAdminCompanyName(c?.company_name || null);
+        setLoading(false);
+        return;
+      }
       const { data: userType } = await supabase.from('user_types').select('company_id').eq('user_id', session.user.id).single();
       if (!userType?.company_id) { router.push('/auth/company-login'); return; }
       setCompanyId(userType.company_id);
@@ -91,7 +104,7 @@ export default function PostJobPage() {
       if (jobError) throw jobError;
       showToast('求人を投稿しました！');
       // リダイレクトまで saving を維持して二重送信を防ぐ
-      setTimeout(() => router.push('/dashboard/company'), 1200);
+      setTimeout(() => router.push(backHref), 1200);
     } catch (err) {
       setError('求人投稿に失敗しました: ' + (err as any).message);
       setSaving(false);
@@ -125,7 +138,7 @@ export default function PostJobPage() {
       <div style={{ background: '#fff', borderBottom: '1px solid #EFE8DF', padding: isMobile ? '14px 16px' : '14px 48px', display: 'flex', alignItems: 'center', gap: 16, position: 'sticky', top: 0, zIndex: 50 }}>
         <img src="/toukobe-intern-logo.png" alt="トウコべインターン" style={{ height: 34, width: 'auto', cursor: 'pointer' }} onClick={() => router.push('/')} />
         <div style={{ width: 1, height: 20, background: '#EFE8DF' }} />
-        <span style={{ fontSize: 13, color: '#F2620C', fontWeight: 700, cursor: 'pointer' }} onClick={() => router.push('/dashboard/company')}>← ダッシュボードに戻る</span>
+        <span style={{ fontSize: 13, color: '#F2620C', fontWeight: 700, cursor: 'pointer' }} onClick={() => router.push(backHref)}>← ダッシュボードに戻る</span>
       </div>
 
       <div style={{ maxWidth: 760, margin: '0 auto', padding: isMobile ? '24px 16px 60px' : '48px 48px 80px' }}>
@@ -135,6 +148,13 @@ export default function PostJobPage() {
           <h1 style={{ fontWeight: 900, fontSize: 30, margin: 0 }}>求人を投稿</h1>
           <p style={{ fontSize: 13, color: '#938B81', marginTop: 8 }}>新しいインターン求人情報を入力してください</p>
         </div>
+
+        {isAdmin && (
+          <div style={{ background: '#1C1813', color: '#fff', borderRadius: 12, padding: '14px 18px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: '.2em', background: 'rgba(251,169,76,.2)', color: '#FBA94C', padding: '3px 8px', borderRadius: 999 }}>ADMIN</span>
+            <span style={{ fontSize: 13 }}>管理者として <b>{adminCompanyName || 'この企業'}</b> の求人を作成しています</span>
+          </div>
+        )}
 
         {error && (
           <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '14px 18px', marginBottom: 20 }}>
@@ -371,7 +391,7 @@ export default function PostJobPage() {
               style={{ flex: 1, background: saving ? '#D9B99B' : '#F2620C', color: '#fff', border: 'none', borderRadius: 12, padding: '16px', fontFamily: "var(--font-sans)", fontWeight: 900, fontSize: 15, cursor: saving ? 'not-allowed' : 'pointer' }}>
               {saving ? '投稿中...' : '求人を投稿する'}
             </button>
-            <button type="button" onClick={() => router.push('/dashboard/company')}
+            <button type="button" onClick={() => router.push(backHref)}
               style={{ flex: 1, background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 12, padding: '16px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
               キャンセル
             </button>
