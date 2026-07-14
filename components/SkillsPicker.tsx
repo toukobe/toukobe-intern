@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { SKILL_GROUPS } from '@/utils/profileOptions';
 
 // スキルをチップのタップで選択するピッカー。候補にないスキルは自由追加できる。
-export default function SkillsPicker({ value, onChange }: { value: string[]; onChange: (skills: string[]) => void }) {
+// groups を渡せば語学など別の候補セットにも使い回せる。
+export default function SkillsPicker({ value, onChange, groups = SKILL_GROUPS, addPlaceholder = 'リストにないスキルを入力して追加' }: { value: string[]; onChange: (skills: string[]) => void; groups?: { label: string; skills: string[] }[]; addPlaceholder?: string }) {
   const [custom, setCustom] = useState('');
   const selected = new Set(value);
 
@@ -43,12 +44,12 @@ export default function SkillsPicker({ value, onChange }: { value: string[]; onC
   );
 
   // 候補リストに無い（自由追加した）スキル
-  const knownSkills = new Set(SKILL_GROUPS.flatMap((g) => g.skills));
+  const knownSkills = new Set(groups.flatMap((g) => g.skills));
   const customSkills = value.filter((s) => !knownSkills.has(s));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {SKILL_GROUPS.map((g) => (
+      {groups.map((g) => (
         <div key={g.label}>
           <div style={{ fontSize: 11.5, fontWeight: 700, color: '#938B81', marginBottom: 8 }}>{g.label}</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -71,7 +72,7 @@ export default function SkillsPicker({ value, onChange }: { value: string[]; onC
           value={custom}
           onChange={(e) => setCustom(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } }}
-          placeholder="リストにないスキルを入力して追加"
+          placeholder={addPlaceholder}
           style={{ flex: 1, border: '1px solid #EFE8DF', borderRadius: 10, padding: '10px 14px', fontFamily: 'var(--font-sans)', fontSize: 13, color: '#1C1813', outline: 'none', boxSizing: 'border-box' }}
           onFocus={(e) => (e.target.style.borderColor = '#F2620C')}
           onBlur={(e) => (e.target.style.borderColor = '#EFE8DF')}

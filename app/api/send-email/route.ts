@@ -137,7 +137,8 @@ function statusChangedHtml(p: EmailPayload, bodyHtml: string) {
     <p style="font-size:14px;line-height:1.8;margin:0 0 20px;color:#57514A">
       <strong>${p.companyName}</strong>「${p.jobTitle}」の選考結果をお知らせします。<br>${bodyHtml}
     </p>
-    ${p.jobId ? `<a href="${SITE}/jobs/${p.jobId}" style="display:inline-block;background:#F2620C;color:#fff;text-decoration:none;border-radius:8px;padding:13px 28px;font-weight:700;font-size:14px">求人を確認する →</a>` : ''}
+    <a href="${p.jobId ? `${SITE}/jobs/${p.jobId}` : `${SITE}/dashboard/student`}" style="display:inline-block;background:#F2620C;color:#fff;text-decoration:none;border-radius:8px;padding:13px 28px;font-weight:700;font-size:14px">${p.jobId ? '求人を確認する' : 'マイページを開く'} →</a>
+    <p style="font-size:13px;line-height:1.7;margin:20px 0 0"><a href="${SITE}" style="color:#F2620C;text-decoration:none">トウコべインターンを開く →</a></p>
     <p style="font-size:12px;color:#B6ADA2;margin:24px 0 0">このメールはトウコべインターンから自動送信されています。</p>
   </div>
 </div>`;

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 import { useIsMobile } from '@/utils/useIsMobile';
 import SkillsPicker from '@/components/SkillsPicker';
-import { UNIVERSITIES, isProfileComplete } from '@/utils/profileOptions';
+import { UNIVERSITIES, isProfileComplete, GRAD_YEARS, LANGUAGE_GROUPS, CERT_PLACEHOLDER } from '@/utils/profileOptions';
 
 interface User { id: string; email?: string; }
 interface StudentProfile {
@@ -13,6 +13,8 @@ interface StudentProfile {
   university: string; department: string; grade: string;
   skills: string[]; experience: string; contact_email: string;
   birth_date: string;
+  university_email?: string; graduation_year?: string; is_tutor?: boolean;
+  languages?: string[]; certifications?: string;
 }
 
 const GRADES = ['学部1年生','学部2年生','学部3年生','学部4年生','修士1年生','修士2年生','博士1年生','博士2年生','博士3年生','卒業済み','その他'];
@@ -174,13 +176,17 @@ export default function StudentDashboard() {
     e.preventDefault();
     if (!user) return;
     const skills = (editForm.skills || []).filter(s => typeof s === 'string');
+    const languages = (editForm.languages || []).filter(s => typeof s === 'string');
     const last_name = (editForm.last_name || '').trim();
     const first_name = (editForm.first_name || '').trim();
     const fullName = `${last_name} ${first_name}`.trim();
-    const { error } = await supabase.from('student_profiles').upsert(
-      { user_id: user.id, last_name, first_name, name: fullName, university: editForm.university, department: editForm.department || null, grade: editForm.grade, skills, experience: editForm.experience, contact_email: editForm.contact_email, birth_date: editForm.birth_date || null },
-      { onConflict: 'user_id' }
-    );
+    const payload: Record<string, unknown> = { user_id: user.id, last_name, first_name, name: fullName, university: editForm.university, department: editForm.department || null, grade: editForm.grade, skills, experience: editForm.experience, contact_email: editForm.contact_email, birth_date: editForm.birth_date || null, university_email: editForm.university_email, graduation_year: editForm.graduation_year || null, is_tutor: !!editForm.is_tutor, languages, certifications: editForm.certifications || null };
+    let { error } = await supabase.from('student_profiles').upsert(payload, { onConflict: 'user_id' });
+    // 新カラム未追加の環境では既存カラムのみで保存
+    if (error && /column/i.test(error.message)) {
+      const { university_email, graduation_year, is_tutor, languages: _l, certifications, ...base } = payload;
+      ({ error } = await supabase.from('student_profiles').upsert(base, { onConflict: 'user_id' }));
+    }
     if (error) { showToast('更新に失敗しました', 'error'); return; }
     setProfile(editForm as StudentProfile);
     setEditing(false);
@@ -294,23 +300,47 @@ export default function StudentDashboard() {
                   </div>
                   <div><label style={F.label}>学部・学科 <span style={{ color: '#F2620C' }}>*</span></label><input style={F.input} value={editForm.department || ''} onChange={e => setEditForm({ ...editForm, department: e.target.value })} placeholder="経済学部 経済学科" required onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} /></div>
                 </div>
-                <div><label style={F.label}>学年 <span style={{ color: '#F2620C' }}>*</span></label>
-                  <select style={{ ...F.input, appearance: 'none' as const }} value={editForm.grade || ''} onChange={e => setEditForm({ ...editForm, grade: e.target.value })} required>
-                    <option value="">選択</option>
-                    {GRADES.map(g => <option key={g}>{g}</option>)}
-                  </select>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
+                  <div><label style={F.label}>学年 <span style={{ color: '#F2620C' }}>*</span></label>
+                    <select style={{ ...F.input, appearance: 'none' as const }} value={editForm.grade || ''} onChange={e => setEditForm({ ...editForm, grade: e.target.value })} required>
+                      <option value="">選択</option>
+                      {GRADES.map(g => <option key={g}>{g}</option>)}
+                    </select>
+                  </div>
+                  <div><label style={F.label}>卒業予定年（就職予定年） <span style={{ color: '#F2620C' }}>*</span></label>
+                    <select style={{ ...F.input, appearance: 'none' as const }} value={editForm.graduation_year || ''} onChange={e => setEditForm({ ...editForm, graduation_year: e.target.value })} required>
+                      <option value="">選択</option>
+                      {GRAD_YEARS.map(y => <option key={y} value={y}>{y}年</option>)}
+                    </select>
+                  </div>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: '#FBF8F4', border: '1px solid #EFE8DF', borderRadius: 10, padding: '14px 16px', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={!!editForm.is_tutor} onChange={e => setEditForm({ ...editForm, is_tutor: e.target.checked })} style={{ width: 18, height: 18, marginTop: 1, accentColor: '#F2620C', flexShrink: 0 }} />
+                  <span style={{ fontSize: 13.5, color: '#3A352F', lineHeight: 1.6 }}>トウコべ・キョウコべの講師登録をしています</span>
+                </label>
+                {/* 大学メール（在学確認用） */}
+                <div>
+                  <label style={F.label}>大学メールアドレス <span style={{ color: '#F2620C' }}>*</span></label>
+                  <input type="email" style={F.input} value={editForm.university_email || ''} onChange={e => setEditForm({ ...editForm, university_email: e.target.value })} required placeholder="example@univ.ac.jp" onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} />
+                  <p style={{ fontSize: 12, color: '#938B81', margin: '6px 0 0' }}>在学確認用に使用します（大学発行のメールアドレス）。</p>
                 </div>
                 {/* Contact email */}
                 <div>
                   <label style={F.label}>連絡用メールアドレス <span style={{ color: '#F2620C' }}>*</span></label>
-                  <input type="email" style={F.input} value={editForm.contact_email || ''} onChange={e => setEditForm({ ...editForm, contact_email: e.target.value })} required placeholder="example@university.ac.jp" onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} />
+                  <input type="email" style={F.input} value={editForm.contact_email || ''} onChange={e => setEditForm({ ...editForm, contact_email: e.target.value })} required placeholder="example@example.com" onFocus={e => (e.target as HTMLInputElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLInputElement).style.borderColor = '#EFE8DF'} />
                   <div style={{ marginTop: 8, padding: '10px 14px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 8, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                     <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>📧</span>
-                    <p style={{ fontSize: 12, color: '#92400E', margin: 0, lineHeight: 1.7 }}>このアドレスに企業からの選考連絡・面接案内が届きます。普段よく確認できるメールアドレスを登録してください。</p>
+                    <p style={{ fontSize: 12, color: '#92400E', margin: 0, lineHeight: 1.7 }}>このアドレスに企業からの選考連絡・面接案内が届きます。上の大学メールと同じでも構いません。</p>
                   </div>
                 </div>
-                <div><label style={F.label}>スキル（当てはまるものをタップ）</label>
+                <div><label style={F.label}>語学（当てはまるものをタップ）</label>
+                  <SkillsPicker value={Array.isArray(editForm.languages) ? editForm.languages.filter(s => typeof s === 'string' && s) : []} onChange={languages => setEditForm({ ...editForm, languages })} groups={LANGUAGE_GROUPS} addPlaceholder="その他の言語を入力して追加" />
+                </div>
+                <div><label style={F.label}>その他スキル（当てはまるものをタップ）</label>
                   <SkillsPicker value={Array.isArray(editForm.skills) ? editForm.skills.filter(s => typeof s === 'string' && s) : []} onChange={skills => setEditForm({ ...editForm, skills })} />
+                </div>
+                <div><label style={F.label}>資格・検定（級・スコアも記入できます）</label>
+                  <textarea style={{ ...F.input, resize: 'vertical' }} value={editForm.certifications || ''} onChange={e => setEditForm({ ...editForm, certifications: e.target.value })} rows={4} placeholder={CERT_PLACEHOLDER} />
                 </div>
                 <div><label style={F.label}>経歴・自己紹介</label><textarea style={{ ...F.input, resize: 'vertical' }} value={editForm.experience || ''} onChange={e => setEditForm({ ...editForm, experience: e.target.value })} rows={5} onFocus={e => (e.target as HTMLTextAreaElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLTextAreaElement).style.borderColor = '#EFE8DF'} /></div>
                 <button type="submit" style={{ alignSelf: isMobile ? 'stretch' : 'flex-start', background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 32px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>更新する</button>
@@ -326,6 +356,8 @@ export default function StudentDashboard() {
                   <div><div style={{ fontSize: 12, color: '#938B81', marginBottom: 4 }}>大学</div><div style={{ fontWeight: 600, fontSize: 15 }}>{profile?.university || '未設定'}</div></div>
                   <div><div style={{ fontSize: 12, color: '#938B81', marginBottom: 4 }}>学部・学科</div><div style={{ fontWeight: 600, fontSize: 15 }}>{profile?.department || '未設定'}</div></div>
                   <div><div style={{ fontSize: 12, color: '#938B81', marginBottom: 4 }}>学年</div><div style={{ fontWeight: 600, fontSize: 15 }}>{profile?.grade || '未設定'}</div></div>
+                  <div><div style={{ fontSize: 12, color: '#938B81', marginBottom: 4 }}>卒業予定年</div><div style={{ fontWeight: 600, fontSize: 15 }}>{profile?.graduation_year ? `${profile.graduation_year}年` : '未設定'}</div></div>
+                  <div><div style={{ fontSize: 12, color: '#938B81', marginBottom: 4 }}>講師登録</div><div style={{ fontWeight: 600, fontSize: 15 }}>{profile?.is_tutor ? '✓ 登録あり' : '—'}</div></div>
                 </div>
                 <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 12, padding: '16px 20px' }}>
                   <div style={{ fontSize: 12, color: '#92400E', marginBottom: 6, fontWeight: 600 }}>📧 連絡用メールアドレス</div>
@@ -333,13 +365,28 @@ export default function StudentDashboard() {
                   <div style={{ fontSize: 12, color: '#92400E', marginTop: 6 }}>企業からの選考連絡・面接案内がこのアドレスに届きます</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 12, color: '#938B81', marginBottom: 8 }}>スキル</div>
+                  <div style={{ fontSize: 12, color: '#938B81', marginBottom: 4 }}>🎓 大学メールアドレス（在学確認用）</div>
+                  <div style={{ fontWeight: 600, fontSize: 15 }}>{profile?.university_email || '未設定'}</div>
+                </div>
+                {profile?.languages?.length ? (
+                  <div>
+                    <div style={{ fontSize: 12, color: '#938B81', marginBottom: 8 }}>語学</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {profile.languages.map((s, i) => <span key={i} style={{ fontSize: 12, background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE', borderRadius: 999, padding: '4px 12px' }}>{s}</span>)}
+                    </div>
+                  </div>
+                ) : null}
+                <div>
+                  <div style={{ fontSize: 12, color: '#938B81', marginBottom: 8 }}>その他スキル</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                     {profile?.skills?.length ? profile.skills.map((s, i) => (
                       <span key={i} style={{ fontSize: 12, background: '#FFF1E8', color: '#F2620C', border: '1px solid #FBD5C0', borderRadius: 999, padding: '4px 12px' }}>{s}</span>
                     )) : <span style={{ fontSize: 13, color: '#B6ADA2' }}>未登録</span>}
                   </div>
                 </div>
+                {profile?.certifications?.trim() ? (
+                  <div><div style={{ fontSize: 12, color: '#938B81', marginBottom: 6 }}>資格・検定</div><p style={{ fontSize: 14, lineHeight: 1.85, color: '#57514A', margin: 0, whiteSpace: 'pre-wrap' }}>{profile.certifications}</p></div>
+                ) : null}
                 <div><div style={{ fontSize: 12, color: '#938B81', marginBottom: 6 }}>経歴・自己紹介</div><p style={{ fontSize: 14, lineHeight: 1.85, color: '#57514A', margin: 0, whiteSpace: 'pre-wrap' }}>{profile?.experience || '未記入'}</p></div>
               </div>
             )}
