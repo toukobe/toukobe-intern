@@ -50,11 +50,21 @@ export default function ApplicantsPage() {
         setCompanyJobIds(jobIds);
         if (jobIds.length === 0) { setApplications([]); setLoading(false); return; }
 
-        const { data: appsData } = await supabase
+        const firstRes = await supabase
           .from('applications')
-          .select('id, status, created_at, user_id, job_id, jobs(job_title)')
+          .select('id, status, created_at, user_id, job_id, available_hours, motivation, jobs(job_title)')
           .in('job_id', jobIds)
           .order('created_at', { ascending: false });
+        let appsData: any[] | null = firstRes.data as any;
+        // 新カラム未追加の環境では基本項目のみで取得
+        if (!appsData) {
+          const secondRes = await supabase
+            .from('applications')
+            .select('id, status, created_at, user_id, job_id, jobs(job_title)')
+            .in('job_id', jobIds)
+            .order('created_at', { ascending: false });
+          appsData = secondRes.data as any;
+        }
 
         if (!appsData) { setApplications([]); setLoading(false); return; }
 
@@ -203,6 +213,23 @@ export default function ApplicantsPage() {
                       <div style={{ fontSize: 12, color: '#938B81' }}>{new Date(app.created_at).toLocaleDateString('ja-JP')}</div>
                     </div>
                   </div>
+
+                  {(app.available_hours || app.motivation) && (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 10, marginBottom: 16 }}>
+                      {app.available_hours && (
+                        <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 10, padding: '12px 16px' }}>
+                          <div style={{ fontSize: 11, color: '#1D4ED8', fontWeight: 700, marginBottom: 4 }}>⏰ 勤務可能時間</div>
+                          <div style={{ fontSize: 13.5, color: '#1C1813', whiteSpace: 'pre-wrap' }}>{app.available_hours}</div>
+                        </div>
+                      )}
+                      {app.motivation && (
+                        <div style={{ background: '#FBF8F4', border: '1px solid #EFE8DF', borderRadius: 10, padding: '12px 16px' }}>
+                          <div style={{ fontSize: 11, color: '#938B81', fontWeight: 700, marginBottom: 4 }}>📝 志望理由</div>
+                          <div style={{ fontSize: 13.5, color: '#3A352F', whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{app.motivation}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '12px 16px', marginBottom: 20 }}>
                     <span style={{ fontSize: 12, color: '#938B81' }}>応募職種　</span>

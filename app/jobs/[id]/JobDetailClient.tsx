@@ -78,6 +78,8 @@ export default function JobDetailPage() {
   const [relatedJobs, setRelatedJobs] = useState<{ id: string; job_title: string; salary: string; location: string; cover_image_url?: string; cover_image_position?: string; companies?: { company_name: string; logo_url?: string } | null }[]>([]);
   const [studentProfile, setStudentProfile] = useState<{ last_name?: string; first_name?: string; birth_date?: string; university?: string; department?: string; grade?: string; contact_email?: string; skills?: string[]; experience?: string } | null>(null);
   const [contactEmail, setContactEmail] = useState('');
+  const [availableHours, setAvailableHours] = useState('');
+  const [motivation, setMotivation] = useState('');
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
 
@@ -326,11 +328,19 @@ export default function JobDetailPage() {
         await supabase.from('student_profiles').update({ contact_email: email }).eq('user_id', user.id);
         setStudentProfile({ ...profile, contact_email: email });
       }
-      const { data: appData, error } = await supabase
+      let { data: appData, error } = await supabase
         .from('applications')
-        .insert([{ user_id: user.id, job_id: jobId, status: 'unread' }])
+        .insert([{ user_id: user.id, job_id: jobId, status: 'unread', available_hours: availableHours.trim() || null, motivation: motivation.trim() || null }])
         .select('id')
         .single();
+      // 新カラム未追加の環境では基本項目のみで応募する
+      if (error && /column/i.test(error.message)) {
+        ({ data: appData, error } = await supabase
+          .from('applications')
+          .insert([{ user_id: user.id, job_id: jobId, status: 'unread' }])
+          .select('id')
+          .single());
+      }
       if (error) {
         setError('応募に失敗しました');
       } else {
@@ -902,6 +912,41 @@ export default function JobDetailPage() {
                   企業からの連絡は <strong style={{ wordBreak: 'break-all' }}>{job.companies.contact_email}</strong> から届きます。迷惑メールフォルダに振り分けられないようご注意ください。
                 </p>
               )}
+            </div>
+
+            {/* プロフィール確認・編集の導線 */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: '#FBF8F4', border: '1px solid #EFE8DF', borderRadius: 12, padding: '12px 16px', marginBottom: 16 }}>
+              <div style={{ fontSize: 12.5, color: '#57514A', lineHeight: 1.6 }}>
+                応募には<strong>プロフィール</strong>が企業に共有されます。<br />内容を確認・編集できます。
+              </div>
+              <button type="button" onClick={() => window.open('/auth/signup-profile?redirect=/jobs/' + jobId, '_blank')} style={{ flexShrink: 0, background: '#fff', color: '#F2620C', border: '1px solid #FBD5C0', borderRadius: 8, padding: '9px 14px', fontFamily: FF, fontWeight: 700, fontSize: 12.5, cursor: 'pointer', whiteSpace: 'nowrap' }}>編集する</button>
+            </div>
+
+            {/* 勤務可能時間 */}
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#57514A', marginBottom: 6 }}>勤務可能時間</label>
+              <input
+                value={availableHours}
+                onChange={e => setAvailableHours(e.target.value)}
+                placeholder="例: 週15時間以上、平日夕方と土日"
+                style={{ width: '100%', border: '1px solid #EFE8DF', borderRadius: 8, padding: '11px 14px', fontFamily: FF, fontSize: 14, color: '#1C1813', outline: 'none', boxSizing: 'border-box', background: '#fff' }}
+                onFocus={e => (e.target.style.borderColor = '#F2620C')}
+                onBlur={e => (e.target.style.borderColor = '#EFE8DF')}
+              />
+            </div>
+
+            {/* 志望理由（任意） */}
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#57514A', marginBottom: 6 }}>このインターンを希望した理由 <span style={{ fontWeight: 400, color: '#938B81' }}>（任意）</span></label>
+              <textarea
+                value={motivation}
+                onChange={e => setMotivation(e.target.value)}
+                rows={4}
+                placeholder="このインターンに興味を持った理由や、活かせる経験などがあれば記入してください（企業に共有されます）"
+                style={{ width: '100%', border: '1px solid #EFE8DF', borderRadius: 8, padding: '11px 14px', fontFamily: FF, fontSize: 14, color: '#1C1813', outline: 'none', boxSizing: 'border-box', background: '#fff', resize: 'vertical' }}
+                onFocus={e => (e.target.style.borderColor = '#F2620C')}
+                onBlur={e => (e.target.style.borderColor = '#EFE8DF')}
+              />
             </div>
 
             {/* ボタン */}
