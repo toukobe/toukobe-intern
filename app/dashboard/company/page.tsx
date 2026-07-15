@@ -31,7 +31,7 @@ export default function CompanyDashboard() {
   const [loading, setLoading] = useState(true);
   useEffect(() => { document.title = 'ダッシュボード | トウコべインターン'; return () => { document.title = 'トウコべインターン'; }; }, []);
   const [showEdit, setShowEdit] = useState(false);
-  const [editForm, setEditForm] = useState({ company_name: '', industry: '', contact_email: '', description: '', website: '', employee_count: '', location: '', founded_year: '', representative: '', related_links: '' });
+  const [editForm, setEditForm] = useState({ company_name: '', industry: '', contact_email: '', description: '', website: '', employee_count: '', location: '', founded_year: '', representative: '', related_links: '', alumni_placements: '', intern_voices: '' });
   const [logoUploading, setLogoUploading] = useState(false);
   const [coverUploading, setCoverUploading] = useState(false);
   const [coverPosition, setCoverPosition] = useState('50% 50%');
@@ -79,7 +79,7 @@ export default function CompanyDashboard() {
       const { data: c } = await supabase.from('companies').select('*').eq('id', ut.company_id).single();
       if (c) {
         setCompany(c);
-        setEditForm({ company_name: c.company_name || '', industry: c.industry || '', contact_email: c.contact_email || '', description: c.description || '', website: c.website || '', employee_count: c.employee_count || '', location: c.location || '', founded_year: c.founded_year || '', representative: (c as any).representative || '', related_links: (c as any).related_links || '' });
+        setEditForm({ company_name: c.company_name || '', industry: c.industry || '', contact_email: c.contact_email || '', description: c.description || '', website: c.website || '', employee_count: c.employee_count || '', location: c.location || '', founded_year: c.founded_year || '', representative: (c as any).representative || '', related_links: (c as any).related_links || '', alumni_placements: (c as any).alumni_placements || '', intern_voices: (c as any).intern_voices || '' });
         if (c.cover_position) setCoverPosition(c.cover_position);
       }
 
@@ -156,9 +156,9 @@ export default function CompanyDashboard() {
     e.preventDefault();
     if (!company) return;
     let { error } = await supabase.from('companies').update(editForm).eq('id', company.id);
-    // 代表者・関連URLカラム未追加の環境（マイグレーション未実行）では基本項目のみ更新する
+    // 拡張カラム未追加の環境（マイグレーション未実行）では基本項目のみ更新する
     if (error && /column/i.test(error.message)) {
-      const { representative, related_links, ...base } = editForm;
+      const { representative, related_links, alumni_placements, intern_voices, ...base } = editForm;
       ({ error } = await supabase.from('companies').update(base).eq('id', company.id));
     }
     if (error) { showToast('更新に失敗しました', 'error'); return; }
@@ -446,6 +446,14 @@ export default function CompanyDashboard() {
               <div>
                 <label style={F.label}>会社概要</label>
                 <textarea style={{ ...F.input, minHeight: 120, resize: 'vertical' } as React.CSSProperties} value={editForm.description} placeholder="会社の事業内容・文化・インターン生に期待することなどを記載してください" onChange={e => setEditForm({ ...editForm, description: e.target.value })} onFocus={e => (e.target as HTMLTextAreaElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLTextAreaElement).style.borderColor = '#EFE8DF'} />
+              </div>
+              <div>
+                <label style={F.label}>インターン卒業生の内定先</label>
+                <textarea style={{ ...F.input, minHeight: 90, resize: 'vertical' } as React.CSSProperties} value={editForm.alumni_placements} placeholder={'例：過去に弊社でインターンをしていた学生は、以下のような企業に内定しています。\n・外資系コンサルティングファーム\n・大手商社'} onChange={e => setEditForm({ ...editForm, alumni_placements: e.target.value })} onFocus={e => (e.target as HTMLTextAreaElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLTextAreaElement).style.borderColor = '#EFE8DF'} />
+              </div>
+              <div>
+                <label style={F.label}>インターン経験者の声</label>
+                <textarea style={{ ...F.input, minHeight: 90, resize: 'vertical' } as React.CSSProperties} value={editForm.intern_voices} placeholder={'例：\n「裁量を持って事業に関われた」（Aさん・東京大学）\n「経営陣と近い距離で働けた」（Bさん・早稲田大学）'} onChange={e => setEditForm({ ...editForm, intern_voices: e.target.value })} onFocus={e => (e.target as HTMLTextAreaElement).style.borderColor = '#F2620C'} onBlur={e => (e.target as HTMLTextAreaElement).style.borderColor = '#EFE8DF'} />
               </div>
               <button type="submit" style={{ alignSelf: 'flex-start', background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 32px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>更新する</button>
             </form>

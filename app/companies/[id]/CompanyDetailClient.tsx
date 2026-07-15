@@ -18,6 +18,8 @@ interface Company {
   founded_year?: string;
   representative?: string | null;
   related_links?: string | null;
+  alumni_placements?: string | null;
+  intern_voices?: string | null;
   logo_url?: string;
   cover_url?: string;
 }
@@ -260,6 +262,24 @@ export default function CompanyProfilePage() {
                     );
                   })}
                 </div>
+              </div>
+            )}
+
+            {/* インターン卒業生の内定先 */}
+            {company.alumni_placements?.trim() && (
+              <div style={{ background: '#FBF8F4', borderRadius: 12, padding: '20px 24px', marginTop: 20 }}>
+                <div style={{ fontSize: 12, color: '#938B81', marginBottom: 10, fontFamily: MONO, letterSpacing: '.1em' }}>ALUMNI PLACEMENTS</div>
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8, color: '#1C1813' }}>インターン卒業生の内定先</div>
+                <p style={{ fontSize: 14, lineHeight: 1.9, color: '#3A352F', margin: 0, whiteSpace: 'pre-wrap' }}>{company.alumni_placements}</p>
+              </div>
+            )}
+
+            {/* インターン経験者の声 */}
+            {company.intern_voices?.trim() && (
+              <div style={{ background: '#FFF6EE', border: '1px solid #FBD5C0', borderRadius: 12, padding: '20px 24px', marginTop: 20 }}>
+                <div style={{ fontSize: 12, color: '#C2530A', marginBottom: 10, fontFamily: MONO, letterSpacing: '.1em' }}>INTERN VOICES</div>
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8, color: '#1C1813' }}>インターン経験者の声</div>
+                <p style={{ fontSize: 14, lineHeight: 1.9, color: '#3A352F', margin: 0, whiteSpace: 'pre-wrap' }}>{company.intern_voices}</p>
               </div>
             )}
           </div>
