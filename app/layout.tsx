@@ -20,6 +20,8 @@ const plexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://intern.toukobe.com"),
+  // Google Search Console のサイト所有権確認（HTMLタグ方式）
+  verification: { google: "L68jr_DK0S9tcfW_84sJJYLxyKG4a3w3xjEl7cpIQpI" },
   title: "トウコべインターン | 難関大生に特化した長期インターン",
   description: "東大・京大・早慶など難関大生のための長期インターンマッチングサービス。厳選企業の求人に、簡単に応募できます。",
   openGraph: {
