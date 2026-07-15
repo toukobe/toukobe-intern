@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 import { useIsMobile } from '@/utils/useIsMobile';
+import { fetchFeatureTagOptions } from '@/utils/featureTags';
 import SiteFooter from '@/components/SiteFooter';
 
 // スクロールで1回だけふわっと表示する（globals.cssに依存しない自己完結実装）
@@ -73,7 +74,7 @@ const steps = [
   { no: '3', title: '応募・面談', desc: '気になる企業へ応募。選考・面談を経てインターンをスタートできます。' },
 ];
 
-const pills = ['コンサルティング', '事業開発', '投資銀行', 'プロダクト', 'マーケティング'];
+const FALLBACK_TAGS = ['営業', 'コンサルティング', 'フルリモート', '未経験OK', '週2からOK', 'スタートアップ', '機械学習・AI', '事業立案'];
 
 const categoryList = [
   'マーケティング', 'エンジニア', 'コンサルティング', '経営・企画',
@@ -93,6 +94,8 @@ export default function Home() {
   const [selectedLocation, setSelectedLocation] = useState('');
   const [filteredJobs, setFilteredJobs] = useState<Job[]>([]);
   const [deletedNotice, setDeletedNotice] = useState(false);
+  const [popularTags, setPopularTags] = useState<string[]>(FALLBACK_TAGS);
+  useEffect(() => { fetchFeatureTagOptions().then(t => setPopularTags(t.length ? t : FALLBACK_TAGS)); }, []);
 
   // 退会完了直後の通知（/?deleted=1 で遷移してくる）
   useEffect(() => {
@@ -301,9 +304,9 @@ export default function Home() {
 
           <div className="anim-fade-up anim-delay-4" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 11.5, color: '#938B81' }}>人気：</span>
-            {(isMobile ? pills.slice(0, 3) : pills).map((p) => (
-              <span key={p} className="pill-link" style={{ fontSize: 11.5, color: '#57514A', background: '#fff', border: '1px solid #EFE8DF', borderRadius: 999, padding: '5px 12px', cursor: 'pointer' }} onClick={() => router.push(`/search?q=${encodeURIComponent(p)}`)}>
-                {p}
+            {(isMobile ? popularTags.slice(0, 4) : popularTags.slice(0, 8)).map((p) => (
+              <span key={p} className="pill-link" style={{ fontSize: 11.5, color: '#6D28D9', background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 999, padding: '5px 12px', cursor: 'pointer' }} onClick={() => router.push(`/search?tag=${encodeURIComponent(p)}`)}>
+                #{p}
               </span>
             ))}
           </div>

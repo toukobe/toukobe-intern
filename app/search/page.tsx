@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 import { useIsMobile } from '@/utils/useIsMobile';
 import { PREFECTURES, TOKYO_AREAS } from '@/utils/constants';
+import { fetchFeatureTagOptions } from '@/utils/featureTags';
 import SiteFooter from '@/components/SiteFooter';
 
 interface Job {
@@ -52,7 +53,10 @@ function SearchContent() {
   const [tokyoArea, setTokyoArea] = useState(searchParams.get('area') || '');
   const [condition, setCondition] = useState(searchParams.get('condition') || '');
   const [feature, setFeature] = useState(searchParams.get('feature') || '');
+  const [tag, setTag] = useState(searchParams.get('tag') || '');
   const [activeOnly, setActiveOnly] = useState(searchParams.get('active') === '1');
+  const [tagOptions, setTagOptions] = useState<string[]>([]);
+  useEffect(() => { fetchFeatureTagOptions().then(setTagOptions); }, []);
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,6 +100,7 @@ function SearchContent() {
     const area = searchParams.get('area') || '';
     const cond = searchParams.get('condition') || '';
     const feat = searchParams.get('feature') || '';
+    const tg = searchParams.get('tag') || '';
     const active = searchParams.get('active') === '1';
     setKeyword(kw);
     setCategory(cat);
@@ -103,12 +108,13 @@ function SearchContent() {
     setTokyoArea(area);
     setCondition(cond);
     setFeature(feat);
+    setTag(tg);
     setActiveOnly(active);
-    fetchJobs(kw, cat, loc, area, cond, feat, active);
+    fetchJobs(kw, cat, loc, area, cond, feat, active, tg);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  const fetchJobs = async (kw: string, cat: string, loc: string, area: string = '', cond: string = '', feat: string = '', active: boolean = false) => {
+  const fetchJobs = async (kw: string, cat: string, loc: string, area: string = '', cond: string = '', feat: string = '', active: boolean = false, tg: string = '') => {
     setLoading(true);
     try {
       // Step 1: fetch jobs without join
@@ -120,6 +126,7 @@ function SearchContent() {
       if (cat) query = (query as any).contains('job_categories', [cat]);
       if (cond) query = (query as any).contains('work_conditions', [cond]);
       if (feat) query = (query as any).contains('job_features', [feat]);
+      if (tg) query = (query as any).contains('feature_tags', [tg]);
       // 東京の詳細地域が選ばれていればそちらで絞り込む
       if (area) query = query.ilike('location', `%${area}%`);
       else if (loc) query = query.ilike('location', `%${loc}%`);
@@ -175,7 +182,7 @@ function SearchContent() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    const params = new URLSearchParams();
+    const params = new URLSearchParams(); if (tag) params.set('tag', tag);
     if (keyword) params.set('q', keyword);
     if (category) params.set('category', category);
     if (location) params.set('location', location);
@@ -332,7 +339,7 @@ function SearchContent() {
                   onClick={() => {
                     const next = !activeOnly;
                     setActiveOnly(next);
-                    const params = new URLSearchParams();
+                    const params = new URLSearchParams(); if (tag) params.set('tag', tag);
                     if (keyword) params.set('q', keyword);
                     if (category) params.set('category', category);
                     if (location) params.set('location', location);
@@ -406,6 +413,39 @@ function SearchContent() {
                 </div>
               </div>
             </div>
+
+            {/* 特徴タグ */}
+            {tagOptions.length > 0 && (
+              <div style={{ marginTop: 16 }}>
+                <div style={{ fontSize: 11, color: '#938B81', marginBottom: 8, fontWeight: 600 }}>特徴タグ</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {tagOptions.map(t => {
+                    const on = tag === t;
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => {
+                          const p = new URLSearchParams();
+                          if (keyword) p.set('q', keyword);
+                          if (category) p.set('category', category);
+                          if (location) p.set('location', location);
+                          if (location === '東京都' && tokyoArea) p.set('area', tokyoArea);
+                          if (condition) p.set('condition', condition);
+                          if (feature) p.set('feature', feature);
+                          if (activeOnly) p.set('active', '1');
+                          if (!on) p.set('tag', t); // 同じタグを再クリックで解除
+                          router.push(`/search?${p.toString()}`);
+                        }}
+                        style={{ fontSize: 12, padding: '6px 14px', borderRadius: 999, border: `1px solid ${on ? '#6D28D9' : '#DDD6FE'}`, background: on ? '#6D28D9' : '#F5F3FF', color: on ? '#fff' : '#6D28D9', fontFamily: FF, fontWeight: on ? 700 : 500, cursor: 'pointer', transition: '.15s' }}
+                      >
+                        #{t}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </form>
         </div>
       </div>
@@ -440,42 +480,48 @@ function SearchContent() {
         ) : (
           <>
             {/* アクティブフィルターチップ */}
-            {(keyword || category || location || condition || feature || activeOnly) && (
+            {(keyword || category || location || condition || feature || tag || activeOnly) && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+                {tag && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, background: '#F5F3FF', color: '#6D28D9', border: '1px solid #DDD6FE', borderRadius: 999, padding: '5px 12px' }}>
+                    #{tag}
+                    <button onClick={() => { setTag(''); const p = new URLSearchParams(); if (keyword) p.set('q', keyword); if (category) p.set('category', category); if (location) p.set('location', location); if (condition) p.set('condition', condition); if (feature) p.set('feature', feature); if (activeOnly) p.set('active', '1'); router.push(`/search?${p.toString()}`); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6D28D9', padding: 0, lineHeight: 1, fontSize: 14, fontWeight: 900 }}>×</button>
+                  </span>
+                )}
                 {keyword && (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, background: '#FFF1E8', color: '#F2620C', border: '1px solid #FBD5C0', borderRadius: 999, padding: '5px 12px' }}>
                     🔍 {keyword}
-                    <button onClick={() => { setKeyword(''); const p = new URLSearchParams(); if (category) p.set('category', category); if (location) p.set('location', location); if (condition) p.set('condition', condition); if (feature) p.set('feature', feature); if (activeOnly) p.set('active', '1'); router.push(`/search?${p.toString()}`); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#F2620C', padding: 0, lineHeight: 1, fontSize: 14, fontWeight: 900 }}>×</button>
+                    <button onClick={() => { setKeyword(''); const p = new URLSearchParams(); if (tag) p.set('tag', tag); if (category) p.set('category', category); if (location) p.set('location', location); if (condition) p.set('condition', condition); if (feature) p.set('feature', feature); if (activeOnly) p.set('active', '1'); router.push(`/search?${p.toString()}`); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#F2620C', padding: 0, lineHeight: 1, fontSize: 14, fontWeight: 900 }}>×</button>
                   </span>
                 )}
                 {category && (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, background: '#FFF1E8', color: '#F2620C', border: '1px solid #FBD5C0', borderRadius: 999, padding: '5px 12px' }}>
                     {category}
-                    <button onClick={() => { setCategory(''); const p = new URLSearchParams(); if (keyword) p.set('q', keyword); if (location) p.set('location', location); if (condition) p.set('condition', condition); if (feature) p.set('feature', feature); if (activeOnly) p.set('active', '1'); router.push(`/search?${p.toString()}`); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#F2620C', padding: 0, lineHeight: 1, fontSize: 14, fontWeight: 900 }}>×</button>
+                    <button onClick={() => { setCategory(''); const p = new URLSearchParams(); if (tag) p.set('tag', tag); if (keyword) p.set('q', keyword); if (location) p.set('location', location); if (condition) p.set('condition', condition); if (feature) p.set('feature', feature); if (activeOnly) p.set('active', '1'); router.push(`/search?${p.toString()}`); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#F2620C', padding: 0, lineHeight: 1, fontSize: 14, fontWeight: 900 }}>×</button>
                   </span>
                 )}
                 {location && (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, background: '#FFF1E8', color: '#F2620C', border: '1px solid #FBD5C0', borderRadius: 999, padding: '5px 12px' }}>
                     📍 {location}
-                    <button onClick={() => { setLocation(''); setTokyoArea(''); const p = new URLSearchParams(); if (keyword) p.set('q', keyword); if (category) p.set('category', category); if (condition) p.set('condition', condition); if (feature) p.set('feature', feature); if (activeOnly) p.set('active', '1'); router.push(`/search?${p.toString()}`); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#F2620C', padding: 0, lineHeight: 1, fontSize: 14, fontWeight: 900 }}>×</button>
+                    <button onClick={() => { setLocation(''); setTokyoArea(''); const p = new URLSearchParams(); if (tag) p.set('tag', tag); if (keyword) p.set('q', keyword); if (category) p.set('category', category); if (condition) p.set('condition', condition); if (feature) p.set('feature', feature); if (activeOnly) p.set('active', '1'); router.push(`/search?${p.toString()}`); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#F2620C', padding: 0, lineHeight: 1, fontSize: 14, fontWeight: 900 }}>×</button>
                   </span>
                 )}
                 {condition && (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, background: '#FFF1E8', color: '#F2620C', border: '1px solid #FBD5C0', borderRadius: 999, padding: '5px 12px' }}>
                     {condition}
-                    <button onClick={() => { setCondition(''); const p = new URLSearchParams(); if (keyword) p.set('q', keyword); if (category) p.set('category', category); if (location) p.set('location', location); if (feature) p.set('feature', feature); if (activeOnly) p.set('active', '1'); router.push(`/search?${p.toString()}`); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#F2620C', padding: 0, lineHeight: 1, fontSize: 14, fontWeight: 900 }}>×</button>
+                    <button onClick={() => { setCondition(''); const p = new URLSearchParams(); if (tag) p.set('tag', tag); if (keyword) p.set('q', keyword); if (category) p.set('category', category); if (location) p.set('location', location); if (feature) p.set('feature', feature); if (activeOnly) p.set('active', '1'); router.push(`/search?${p.toString()}`); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#F2620C', padding: 0, lineHeight: 1, fontSize: 14, fontWeight: 900 }}>×</button>
                   </span>
                 )}
                 {feature && (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, background: '#FFF1E8', color: '#F2620C', border: '1px solid #FBD5C0', borderRadius: 999, padding: '5px 12px' }}>
                     ✓ {feature}
-                    <button onClick={() => { setFeature(''); const p = new URLSearchParams(); if (keyword) p.set('q', keyword); if (category) p.set('category', category); if (location) p.set('location', location); if (condition) p.set('condition', condition); if (activeOnly) p.set('active', '1'); router.push(`/search?${p.toString()}`); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#F2620C', padding: 0, lineHeight: 1, fontSize: 14, fontWeight: 900 }}>×</button>
+                    <button onClick={() => { setFeature(''); const p = new URLSearchParams(); if (tag) p.set('tag', tag); if (keyword) p.set('q', keyword); if (category) p.set('category', category); if (location) p.set('location', location); if (condition) p.set('condition', condition); if (activeOnly) p.set('active', '1'); router.push(`/search?${p.toString()}`); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#F2620C', padding: 0, lineHeight: 1, fontSize: 14, fontWeight: 900 }}>×</button>
                   </span>
                 )}
                 {activeOnly && (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, background: '#FFF1E8', color: '#F2620C', border: '1px solid #FBD5C0', borderRadius: 999, padding: '5px 12px' }}>
                     募集中のみ
-                    <button onClick={() => { setActiveOnly(false); const p = new URLSearchParams(); if (keyword) p.set('q', keyword); if (category) p.set('category', category); if (location) p.set('location', location); if (condition) p.set('condition', condition); if (feature) p.set('feature', feature); router.push(`/search?${p.toString()}`); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#F2620C', padding: 0, lineHeight: 1, fontSize: 14, fontWeight: 900 }}>×</button>
+                    <button onClick={() => { setActiveOnly(false); const p = new URLSearchParams(); if (tag) p.set('tag', tag); if (keyword) p.set('q', keyword); if (category) p.set('category', category); if (location) p.set('location', location); if (condition) p.set('condition', condition); if (feature) p.set('feature', feature); router.push(`/search?${p.toString()}`); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#F2620C', padding: 0, lineHeight: 1, fontSize: 14, fontWeight: 900 }}>×</button>
                   </span>
                 )}
               </div>
@@ -486,7 +532,7 @@ function SearchContent() {
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 14, color: '#938B81', fontWeight: 400, marginLeft: 10 }}>{jobs.length} 件</span>
               </h2>
               <button
-                onClick={() => { setKeyword(''); setCategory(''); setLocation(''); setTokyoArea(''); setCondition(''); setFeature(''); setActiveOnly(false); router.push('/search'); }}
+                onClick={() => { setKeyword(''); setCategory(''); setLocation(''); setTokyoArea(''); setCondition(''); setFeature(''); setTag(''); setActiveOnly(false); router.push('/search'); }}
                 style={{ fontSize: 13, color: '#938B81', background: '#fff', border: '1px solid #EFE8DF', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', fontFamily: FF }}
               >
                 条件をリセット

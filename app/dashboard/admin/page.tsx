@@ -8,7 +8,7 @@ import { useIsMobile } from '@/utils/useIsMobile';
 
 interface User { id: string; email?: string; }
 interface Stats { totalUsers: number; totalStudents: number; totalCompanies: number; totalJobs: number; totalApplications: number; }
-type Tab = 'overview' | 'jobs' | 'companies' | 'students' | 'forms' | 'legal' | 'mail';
+type Tab = 'overview' | 'jobs' | 'companies' | 'students' | 'forms' | 'tags' | 'legal' | 'mail';
 
 const F = {
   label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#57514A', marginBottom: 8 } as React.CSSProperties,
@@ -56,6 +56,7 @@ export default function AdminDashboard() {
     { key: 'companies', label: '企業管理' },
     { key: 'students', label: '学生管理' },
     { key: 'forms', label: 'フォーム申し込み' },
+    { key: 'tags', label: 'タグ管理' },
     { key: 'legal', label: '規約・ポリシー' },
     { key: 'mail', label: 'メール文面' },
   ];
@@ -122,6 +123,7 @@ export default function AdminDashboard() {
         {tab === 'students' && <AdminStudentsTab />}
 
         {tab === 'forms' && <AdminFormsTab />}
+        {tab === 'tags' && <AdminTagsTab />}
         {tab === 'legal' && <AdminLegalTab />}
         {tab === 'mail' && <AdminMailTab />}
       </div>
@@ -501,6 +503,83 @@ function AdminCompaniesTab() {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function AdminTagsTab() {
+  const [tags, setTags] = useState<{ name: string; sort: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newTag, setNewTag] = useState('');
+  const [tableMissing, setTableMissing] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
+
+  const load = () => {
+    supabase.from('feature_tag_options').select('name, sort').order('sort', { ascending: true }).then(({ data, error }) => {
+      if (error) { setTableMissing(true); setLoading(false); return; }
+      setTags(data || []); setLoading(false);
+    });
+  };
+  useEffect(() => { load(); }, []);
+
+  const add = async () => {
+    const name = newTag.trim();
+    if (!name) return;
+    if (tags.some(t => t.name === name)) { showToast('同じタグが既にあります', 'error'); return; }
+    const sort = (tags.reduce((m, t) => Math.max(m, t.sort), 0) || 0) + 10;
+    const { error } = await supabase.from('feature_tag_options').insert([{ name, sort }]);
+    if (error) { showToast('追加に失敗しました: ' + error.message, 'error'); return; }
+    setTags([...tags, { name, sort }]); setNewTag('');
+    showToast('タグを追加しました');
+  };
+  const remove = async (name: string) => {
+    if (!confirm(`タグ「${name}」を削除しますか？`)) return;
+    const { error } = await supabase.from('feature_tag_options').delete().eq('name', name);
+    if (error) { showToast('削除に失敗しました', 'error'); return; }
+    setTags(tags.filter(t => t.name !== name));
+  };
+
+  if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><div style={{ width: 36, height: 36, border: '2.5px solid #F2620C', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /><style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style></div>;
+
+  if (tableMissing) return (
+    <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 16, padding: '28px 32px' }}>
+      <h3 style={{ fontWeight: 700, fontSize: 16, margin: '0 0 10px', color: '#B45309' }}>初期設定が必要です</h3>
+      <p style={{ fontSize: 14, color: '#57514A', lineHeight: 1.9, margin: 0 }}>
+        タグ管理を使うには、Supabase → SQL Editor で <code style={{ background: '#FFF', padding: '2px 8px', borderRadius: 6, fontFamily: 'var(--font-mono)', fontSize: 12 }}>sql/2026-07-15_feature_tags.sql</code> を実行してください。実行後にこのページを再読み込みしてください。
+      </p>
+    </div>
+  );
+
+  return (
+    <div>
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: toast.type === 'error' ? '#FEF2F2' : '#F0FDF4', border: `1px solid ${toast.type === 'error' ? '#FECACA' : '#BBF7D0'}`, color: toast.type === 'error' ? '#B91C1C' : '#15803D', borderRadius: 12, padding: '14px 24px', fontWeight: 700, fontSize: 14, boxShadow: '0 8px 32px rgba(0,0,0,.12)' }}>
+          {toast.type === 'success' ? '✓ ' : '✕ '}{toast.msg}
+        </div>
+      )}
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: '#F2620C', letterSpacing: '.14em', marginBottom: 12 }}>FEATURE TAGS</div>
+      <h2 style={{ fontWeight: 900, fontSize: 24, margin: '0 0 8px' }}>タグ管理 ({tags.length})</h2>
+      <p style={{ fontSize: 13, color: '#938B81', margin: '0 0 24px' }}>ここで管理するタグが、求人投稿フォームの候補・検索チップ・トップページの人気タグに使われます。</p>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 24, maxWidth: 480 }}>
+        <input value={newTag} onChange={e => setNewTag(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') add(); }} placeholder="新しいタグ名（例: フルリモート）"
+          style={{ flex: 1, border: '1px solid #EFE8DF', borderRadius: 10, padding: '11px 16px', fontFamily: "var(--font-sans)", fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
+        <button onClick={add} style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '0 24px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>追加</button>
+      </div>
+
+      {tags.length === 0 ? (
+        <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: 40, textAlign: 'center', color: '#938B81' }}>タグがありません。上のフォームから追加してください。</div>
+      ) : (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+          {tags.map(t => (
+            <span key={t.name} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#F5F3FF', color: '#6D28D9', border: '1px solid #DDD6FE', borderRadius: 999, padding: '8px 14px', fontSize: 13, fontWeight: 600 }}>
+              #{t.name}
+              <button onClick={() => remove(t.name)} title="削除" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6D28D9', padding: 0, lineHeight: 1, fontSize: 16, fontWeight: 900 }}>×</button>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

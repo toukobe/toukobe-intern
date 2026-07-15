@@ -33,6 +33,7 @@ interface JobDetail {
   selection_process?: string | null;
   training?: string | null;
   alumni_placements?: string | null;
+  feature_tags?: string[] | null;
   companies: {
     company_name: string;
     industry: string;
@@ -523,6 +524,13 @@ export default function JobDetailPage() {
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                     {job.job_categories.map(cat => (
                       <span key={cat} style={{ fontSize: 12, background: '#FFF1E8', color: '#F2620C', border: '1px solid #FBD5C0', borderRadius: 6, padding: '4px 12px', fontWeight: 600 }}>{cat}</span>
+                    ))}
+                  </div>
+                )}
+                {job.feature_tags && job.feature_tags.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+                    {job.feature_tags.map(t => (
+                      <span key={t} onClick={() => router.push(`/search?tag=${encodeURIComponent(t)}`)} style={{ fontSize: 12, background: '#F5F3FF', color: '#6D28D9', border: '1px solid #DDD6FE', borderRadius: 999, padding: '4px 12px', cursor: 'pointer' }}>#{t}</span>
                     ))}
                   </div>
                 )}

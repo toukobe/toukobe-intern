@@ -6,6 +6,8 @@ import { supabase } from '@/utils/supabase';
 import { TOKYO_AREAS, PREFECTURES } from '@/utils/constants';
 import ImagePositionPicker from '@/components/ImagePositionPicker';
 import StepsEditor from '@/components/StepsEditor';
+import SkillsPicker from '@/components/SkillsPicker';
+import { fetchFeatureTagOptions } from '@/utils/featureTags';
 import { useIsMobile } from '@/utils/useIsMobile';
 
 interface Job {
@@ -33,10 +35,11 @@ interface Job {
   selection_process?: string | null;
   training?: string | null;
   alumni_placements?: string | null;
+  feature_tags?: string[] | null;
 }
 
 // 募集要項の詳細カラム（未マイグレーション環境では update に含めない）
-const EXTRA_KEYS = ['employment_type', 'address', 'intern_count', 'shift_info', 'benefits', 'required_conditions', 'welcome_conditions', 'ideal_candidate', 'selection_process', 'training', 'alumni_placements'] as const;
+const EXTRA_KEYS = ['employment_type', 'address', 'intern_count', 'shift_info', 'benefits', 'required_conditions', 'welcome_conditions', 'ideal_candidate', 'selection_process', 'training', 'alumni_placements', 'feature_tags'] as const;
 
 const JOB_CATEGORIES = ['コンサルティング','経営・企画','金融・ファイナンス','マーケティング','エンジニア','デザイナー','営業','ライター・メディア','経理','人事・広報','事務・アシスタント','その他'];
 const WORK_DAYS = ['週2から','週3から','週4から'];
@@ -69,6 +72,8 @@ export default function EditJobPage() {
   const [coverPosition, setCoverPosition] = useState('50% 50%');
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
+  const [tagOptions, setTagOptions] = useState<string[]>([]);
+  useEffect(() => { fetchFeatureTagOptions().then(setTagOptions); }, []);
   const [formData, setFormData] = useState<Job>({
     id: '', company_id: '', job_title: '', salary: '', location: '',
     job_description: '', requirements: '',
@@ -139,7 +144,7 @@ export default function EditJobPage() {
       const extras = Object.fromEntries(
         EXTRA_KEYS.filter(k => (formData as any)[k] !== undefined).map(k => [k, (formData as any)[k] || null])
       );
-      const { error: updateError } = await supabase.from('jobs').update({
+      const baseUpdate = {
         job_title: formData.job_title,
         salary: formData.salary,
         location: formData.location,
@@ -151,8 +156,12 @@ export default function EditJobPage() {
         job_features: formData.job_features,
         cover_image_url,
         cover_image_position: coverPosition,
-        ...extras,
-      }).eq('id', jobId);
+      };
+      let { error: updateError } = await supabase.from('jobs').update({ ...baseUpdate, ...extras }).eq('id', jobId);
+      // 拡張カラム未追加の環境では基本項目のみで更新する
+      if (updateError && /column/i.test(updateError.message)) {
+        ({ error: updateError } = await supabase.from('jobs').update(baseUpdate).eq('id', jobId));
+      }
 
       if (updateError) throw updateError;
       showToast('求人を更新しました！');
@@ -438,6 +447,13 @@ export default function EditJobPage() {
                 })}
               </div>
             </div>
+          </div>
+
+          {/* 特徴タグ（ハッシュタグ・検索に使われる） */}
+          <div style={F.section}>
+            <span style={F.sectionTitle}>特徴タグ</span>
+            <p style={{ fontSize: 12.5, color: '#938B81', margin: '0 0 16px', lineHeight: 1.8 }}>当てはまるタグを選んでください（自由に追加も可能）。学生はこのタグで求人を検索できます。</p>
+            <SkillsPicker value={formData.feature_tags || []} onChange={tags => setFormData({ ...formData, feature_tags: tags })} groups={[{ label: '求人の特徴タグ', skills: tagOptions }]} addPlaceholder="タグを追加（例: 事業立案）" />
           </div>
 
           {/* ボタン */}

@@ -6,6 +6,8 @@ import { supabase } from '@/utils/supabase';
 import { TOKYO_AREAS, PREFECTURES } from '@/utils/constants';
 import ImagePositionPicker from '@/components/ImagePositionPicker';
 import StepsEditor from '@/components/StepsEditor';
+import SkillsPicker from '@/components/SkillsPicker';
+import { fetchFeatureTagOptions } from '@/utils/featureTags';
 import { useIsMobile } from '@/utils/useIsMobile';
 
 const JOB_CATEGORIES = ['コンサルティング','経営・企画','金融・ファイナンス','マーケティング','エンジニア','デザイナー','営業','ライター・メディア','経理','人事・広報','事務・アシスタント','その他'];
@@ -46,6 +48,10 @@ export default function PostJobPage() {
     employment_type: '', address: '', intern_count: '', shift_info: '', benefits: '',
     required_conditions: '', welcome_conditions: '', ideal_candidate: '', selection_process: '', training: '', alumni_placements: '',
   });
+  // 特徴タグ（ハッシュタグ）
+  const [featureTags, setFeatureTags] = useState<string[]>([]);
+  const [tagOptions, setTagOptions] = useState<string[]>([]);
+  useEffect(() => { fetchFeatureTagOptions().then(setTagOptions); }, []);
 
   useEffect(() => {
     async function checkAuth() {
@@ -94,7 +100,7 @@ export default function PostJobPage() {
       // 空欄の任意項目は送らない
       const extras = Object.fromEntries(Object.entries(extra).filter(([, v]) => v.trim()));
       let { error: jobError } = await supabase.from('jobs').insert([{
-        company_id: companyId, ...formData, ...extras, status: 'pending', cover_image_url, cover_image_position: coverPosition,
+        company_id: companyId, ...formData, ...extras, feature_tags: featureTags, status: 'pending', cover_image_url, cover_image_position: coverPosition,
       }]);
       // 詳細カラム未追加の環境（マイグレーション未実行）では基本項目のみで投稿する
       if (jobError && /column/i.test(jobError.message)) {
@@ -397,6 +403,13 @@ export default function PostJobPage() {
                 })}
               </div>
             </div>
+          </div>
+
+          {/* 特徴タグ（ハッシュタグ・検索に使われる） */}
+          <div style={F.section}>
+            <span style={F.sectionTitle}>特徴タグ</span>
+            <p style={{ fontSize: 12.5, color: '#938B81', margin: '0 0 16px', lineHeight: 1.8 }}>当てはまるタグを選んでください（自由に追加も可能）。学生はこのタグで求人を検索できます。</p>
+            <SkillsPicker value={featureTags} onChange={setFeatureTags} groups={[{ label: '求人の特徴タグ', skills: tagOptions }]} addPlaceholder="タグを追加（例: 事業立案）" />
           </div>
 
           {/* BUTTONS */}
