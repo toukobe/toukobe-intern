@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 import { TOKYO_AREAS, PREFECTURES } from '@/utils/constants';
 import ImagePositionPicker from '@/components/ImagePositionPicker';
+import StepsEditor from '@/components/StepsEditor';
 import { useIsMobile } from '@/utils/useIsMobile';
 
 interface Job {
@@ -349,7 +350,20 @@ export default function EditJobPage() {
                 ['required_conditions', '必須条件', 3],
                 ['welcome_conditions', '歓迎条件', 3],
                 ['ideal_candidate', '求める人物像', 4],
-                ['selection_process', '選考プロセス', 3],
+              ] as const).map(([key, label, rows]) => (
+                <div key={key}>
+                  <label style={F.label}>{label}</label>
+                  <textarea style={{ ...F.input, resize: 'vertical' }} value={(formData as any)[key] || ''} onChange={e => setFormData({ ...formData, [key]: e.target.value })} rows={rows}
+                    onFocus={e => (e.target as HTMLTextAreaElement).style.borderColor = '#F2620C'}
+                    onBlur={e => (e.target as HTMLTextAreaElement).style.borderColor = '#EFE8DF'} />
+                </div>
+              ))}
+              {/* 選考プロセス（工程数可変・プリセット＋自由入力） */}
+              <div>
+                <label style={F.label}>選考プロセス</label>
+                <StepsEditor value={formData.selection_process || ''} onChange={v => setFormData({ ...formData, selection_process: v })} />
+              </div>
+              {([
                 ['training', '研修・教育制度', 3],
                 ['alumni_placements', 'インターン卒業生の内定実績', 3],
               ] as const).map(([key, label, rows]) => (

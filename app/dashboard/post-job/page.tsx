@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 import { TOKYO_AREAS, PREFECTURES } from '@/utils/constants';
 import ImagePositionPicker from '@/components/ImagePositionPicker';
+import StepsEditor from '@/components/StepsEditor';
 import { useIsMobile } from '@/utils/useIsMobile';
 
 const JOB_CATEGORIES = ['コンサルティング','経営・企画','金融・ファイナンス','マーケティング','エンジニア','デザイナー','営業','ライター・メディア','経理','人事・広報','事務・アシスタント','その他'];
@@ -308,7 +309,20 @@ export default function PostJobPage() {
                 ['required_conditions', '必須条件', '例:\n・基礎的なPCスキルやコミュニケーションスキル\n・週15時間以上稼働できる方', 3],
                 ['welcome_conditions', '歓迎条件', '例:\n・半年以上の勤務ができる方\n・団体のリーダー経験がある方', 3],
                 ['ideal_candidate', '求める人物像', '例:\n・主体的に業務に取り組み、裁量を持って働きたい方\n・結果に妥協しない環境で成長したい方', 4],
-                ['selection_process', '選考プロセス', '例:\nSTEP1 書類選考を経て面談をいたします。\nSTEP2 面談後、1週間以内に合否を通知いたします。', 3],
+              ] as const).map(([key, label, ph, rows]) => (
+                <div key={key}>
+                  <label style={F.label}>{label}</label>
+                  <textarea style={{ ...F.input, resize: 'vertical' }} value={extra[key]} onChange={e => setExtra({ ...extra, [key]: e.target.value })} placeholder={ph} rows={rows}
+                    onFocus={e => (e.target as HTMLTextAreaElement).style.borderColor = '#F2620C'}
+                    onBlur={e => (e.target as HTMLTextAreaElement).style.borderColor = '#EFE8DF'} />
+                </div>
+              ))}
+              {/* 選考プロセス（工程数可変・プリセット＋自由入力） */}
+              <div>
+                <label style={F.label}>選考プロセス</label>
+                <StepsEditor value={extra.selection_process} onChange={v => setExtra({ ...extra, selection_process: v })} />
+              </div>
+              {([
                 ['training', '研修・教育制度', '例: 入社後は先輩メンバーから手厚いサポートが受けられます。', 3],
                 ['alumni_placements', 'インターン卒業生の内定実績', '例: 過去に弊社でインターンをしていた学生は、以下のような企業に内定しています。\n・外資系コンサルティングファーム\n・大手商社', 3],
               ] as const).map(([key, label, ph, rows]) => (

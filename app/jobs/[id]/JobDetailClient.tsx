@@ -94,6 +94,34 @@ export default function JobDetailPage() {
     );
   };
 
+  // 選考プロセスを STEP1, STEP2… の縦タイムラインで表示する（改行区切りテキストを整形）
+  const StepsSection = ({ title, text }: { title: string; text?: string | null }) => {
+    const steps = (text || '').replace(/\r\n/g, '\n').split('\n').map(s => s.trim().replace(/^STEP\s*\d+[\s:：.]*/i, '').trim()).filter(Boolean);
+    if (steps.length === 0) return null;
+    return (
+      <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 14, padding: isMobile ? '20px 16px' : '28px 32px', marginBottom: 16 }}>
+        <h2 style={{ fontWeight: 900, fontSize: 18, margin: '0 0 20px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ width: 4, height: 20, background: '#F2620C', borderRadius: 2, display: 'inline-block' }} />{title}
+        </h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+          {steps.map((s, i) => (
+            <div key={i} style={{ display: 'flex', gap: 16 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#F2620C', color: '#fff', fontWeight: 900, fontSize: 11, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'var(--font-mono)', lineHeight: 1.1 }}>
+                  <span style={{ fontSize: 8 }}>STEP</span>{i + 1}
+                </div>
+                {i < steps.length - 1 && <div style={{ width: 2, flex: 1, background: '#EFE8DF', margin: '6px 0' }} />}
+              </div>
+              <div style={{ paddingBottom: i < steps.length - 1 ? 20 : 0, paddingTop: 10, flex: 1 }}>
+                <p style={{ fontSize: 14.5, color: '#3A352F', margin: 0, lineHeight: 1.7 }}>{s}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   // Fetch job — no auth required
   useEffect(() => {
     async function fetchJobDetail() {
@@ -573,7 +601,7 @@ export default function JobDetailPage() {
             <TextSection title="必須条件" text={job.required_conditions} />
             <TextSection title="歓迎条件" text={job.welcome_conditions} />
             <TextSection title="求める人物像" text={job.ideal_candidate} />
-            <TextSection title="選考プロセス" text={job.selection_process} />
+            <StepsSection title="選考プロセス" text={job.selection_process} />
             <TextSection title="研修・教育制度" text={job.training} />
 
             {/* 企業情報 */}
