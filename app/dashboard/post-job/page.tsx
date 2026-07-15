@@ -7,7 +7,9 @@ import { TOKYO_AREAS, PREFECTURES } from '@/utils/constants';
 import ImagePositionPicker from '@/components/ImagePositionPicker';
 import StepsEditor from '@/components/StepsEditor';
 import SkillsPicker from '@/components/SkillsPicker';
+import QuickInsertChips from '@/components/QuickInsertChips';
 import { fetchFeatureTagOptions } from '@/utils/featureTags';
+import { FIELD_PRESETS } from '@/utils/jobPresets';
 import { useIsMobile } from '@/utils/useIsMobile';
 
 const JOB_CATEGORIES = ['コンサルティング','経営・企画','金融・ファイナンス','マーケティング','エンジニア','デザイナー','営業','ライター・メディア','経理','人事・広報','事務・アシスタント','その他'];
@@ -318,6 +320,7 @@ export default function PostJobPage() {
               ] as const).map(([key, label, ph, rows]) => (
                 <div key={key}>
                   <label style={F.label}>{label}</label>
+                  {FIELD_PRESETS[key] && <QuickInsertChips options={FIELD_PRESETS[key]} value={extra[key]} onChange={v => setExtra({ ...extra, [key]: v })} />}
                   <textarea style={{ ...F.input, resize: 'vertical' }} value={extra[key]} onChange={e => setExtra({ ...extra, [key]: e.target.value })} placeholder={ph} rows={rows}
                     onFocus={e => (e.target as HTMLTextAreaElement).style.borderColor = '#F2620C'}
                     onBlur={e => (e.target as HTMLTextAreaElement).style.borderColor = '#EFE8DF'} />

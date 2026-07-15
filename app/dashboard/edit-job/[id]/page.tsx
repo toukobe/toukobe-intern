@@ -7,7 +7,9 @@ import { TOKYO_AREAS, PREFECTURES } from '@/utils/constants';
 import ImagePositionPicker from '@/components/ImagePositionPicker';
 import StepsEditor from '@/components/StepsEditor';
 import SkillsPicker from '@/components/SkillsPicker';
+import QuickInsertChips from '@/components/QuickInsertChips';
 import { fetchFeatureTagOptions } from '@/utils/featureTags';
+import { FIELD_PRESETS } from '@/utils/jobPresets';
 import { useIsMobile } from '@/utils/useIsMobile';
 
 interface Job {
@@ -362,6 +364,7 @@ export default function EditJobPage() {
               ] as const).map(([key, label, rows]) => (
                 <div key={key}>
                   <label style={F.label}>{label}</label>
+                  {FIELD_PRESETS[key] && <QuickInsertChips options={FIELD_PRESETS[key]} value={(formData as any)[key] || ''} onChange={v => setFormData({ ...formData, [key]: v })} />}
                   <textarea style={{ ...F.input, resize: 'vertical' }} value={(formData as any)[key] || ''} onChange={e => setFormData({ ...formData, [key]: e.target.value })} rows={rows}
                     onFocus={e => (e.target as HTMLTextAreaElement).style.borderColor = '#F2620C'}
                     onBlur={e => (e.target as HTMLTextAreaElement).style.borderColor = '#EFE8DF'} />
