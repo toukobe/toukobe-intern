@@ -23,7 +23,7 @@ function blur(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) {
 export default function EarlyFormPage() {
   const router = useRouter();
   const isMobile = useIsMobile();
-  const [form, setForm] = useState({ company_name: '', contact_name: '', legal_email: '', billing_email: '', account_email: '', notes: '' });
+  const [form, setForm] = useState({ company_name: '', contact_name: '', phone: '', legal_email: '', billing_email: '', account_email: '', notes: '' });
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,6 +87,12 @@ export default function EarlyFormPage() {
               <label style={S.label}>法務担当者様のお名前<span style={S.req}>*</span></label>
               <input style={S.input} value={form.contact_name} onChange={e => set('contact_name', e.target.value)} onFocus={focus} onBlur={blur} placeholder="山田太郎" required />
               <p style={S.hint}>ご回答いただいたメールアドレス宛に、弊社より契約書を送付させていただきます。</p>
+            </div>
+
+            <div>
+              <label style={S.label}>電話番号<span style={S.req}>*</span></label>
+              <input type="tel" style={S.input} value={form.phone} onChange={e => set('phone', e.target.value)} onFocus={focus} onBlur={blur} placeholder="09012345678" required />
+              <p style={S.hint}>担当者よりお電話でご連絡する場合がございます。</p>
             </div>
 
             <div>

@@ -730,11 +730,11 @@ function AdminFormsTab() {
   const FORM_LABEL: Record<string, string> = { early: '早期申し込み', normal: '通常申し込み', material: '資料請求', contact: 'お問い合わせ' };
 
   const exportCsv = () => {
-    const headers = ['フォーム種別', '企業名', '担当者名/お名前', 'メール（法務/返信先）', '請求先メール', 'アカウントメール', '情報源/お問い合わせ種別', '内容・要望', 'ステータス', '管理メモ', '申し込み日時'];
+    const headers = ['フォーム種別', '企業名', '担当者名/お名前', '電話番号', 'メール（法務/返信先）', '請求先メール', 'アカウントメール', '情報源/お問い合わせ種別', '内容・要望', 'ステータス', '管理メモ', '申し込み日時'];
     const target = rows.filter(r => (filterStatus === 'all' || (r.status || 'new') === filterStatus) && (filterType === 'all' || r.form_type === filterType));
     const csvRows = target.map(r => [
       FORM_LABEL[r.form_type] || r.form_type,
-      r.company_name || '', r.contact_name || '', r.legal_email || '',
+      r.company_name || '', r.contact_name || '', r.phone || '', r.legal_email || '',
       r.billing_email || '', r.account_email || '', r.source || '',
       (r.notes || '').replace(/\n/g, ' '),
       FORM_STATUS[r.status as keyof typeof FORM_STATUS]?.label || r.status || '未対応',
@@ -870,12 +870,14 @@ function AdminFormsTab() {
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2,1fr)', gap: '5px 20px', fontSize: 13, marginBottom: 14 }}>
                   {r.form_type === 'contact' ? (
                     <>
+                      {r.phone       && <div><span style={{ color: '#938B81' }}>電話番号：</span><a href={`tel:${r.phone}`} style={{ color: '#F2620C' }}>{r.phone}</a></div>}
                       {r.legal_email && <div><span style={{ color: '#938B81' }}>返信先メール：</span><a href={`mailto:${r.legal_email}`} style={{ color: '#F2620C' }}>{r.legal_email}</a></div>}
                       {r.source      && <div><span style={{ color: '#938B81' }}>お問い合わせ種別：</span>{r.source}</div>}
                     </>
                   ) : (
                     <>
                       {r.contact_name  && <div><span style={{ color: '#938B81' }}>担当者：</span>{r.contact_name}</div>}
+                      {r.phone         && <div><span style={{ color: '#938B81' }}>電話番号：</span><a href={`tel:${r.phone}`} style={{ color: '#F2620C' }}>{r.phone}</a></div>}
                       {r.legal_email   && <div><span style={{ color: '#938B81' }}>法務メール：</span><a href={`mailto:${r.legal_email}`} style={{ color: '#F2620C' }}>{r.legal_email}</a></div>}
                       {r.billing_email && <div><span style={{ color: '#938B81' }}>請求先：</span>{r.billing_email}</div>}
                       {r.account_email && <div><span style={{ color: '#938B81' }}>アカウント：</span>{r.account_email}</div>}
