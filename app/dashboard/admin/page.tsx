@@ -1054,6 +1054,13 @@ const MAIL_TEMPLATES = [
     defBody: '{{companyName}} 様\n新しい応募がありました。ダッシュボードから確認・選考を進めてください。',
   },
   {
+    slug: 'application_viewed', title: '応募確認（学生宛）',
+    desc: '企業が応募を確認（未確認→検討中に変更）したとき学生に届く通知。企業から連絡が来る可能性がある旨を案内します。',
+    vars: '{{jobTitle}} {{companyName}}',
+    defSubject: '【応募確認】{{companyName}}があなたの応募を確認しました',
+    defBody: '{{companyName}} が「{{jobTitle}}」へのあなたの応募を確認しました。\n今後、企業から選考のご連絡が届くことがあります。登録した連絡用メールアドレスへのメールを見逃さないようご注意ください（迷惑メールフォルダも合わせてご確認ください）。',
+  },
+  {
     slug: 'status_interview', title: '面接予定（学生宛）',
     desc: '企業が選考ステータスを「面接予定」にしたとき学生に届く通知。',
     vars: '{{jobTitle}} {{companyName}}',

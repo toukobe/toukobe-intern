@@ -112,7 +112,7 @@ export default function ApplicantsPage() {
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
             body: JSON.stringify({
               type: emailType,
-              to: contactEmail,
+              applicationId,
               jobTitle: app?.jobs?.job_title || '',
               companyName,
               jobId: app?.job_id,
