@@ -168,16 +168,20 @@ export default function CompanyDashboard() {
     showToast('企業情報を更新しました');
   };
 
+  // 求人の削除・公開状態の変更は必ず自社IDで絞り込む（RLSに加えた多重防御。
+  // 応募者管理と同じく、IDだけを指定して他社の求人を操作できないようにする）
   const handleDeleteJob = async (jobId: string) => {
+    if (!company) return;
     if (!confirm('この求人を削除しますか？')) return;
-    const { error } = await supabase.from('jobs').delete().eq('id', jobId);
+    const { error } = await supabase.from('jobs').delete().eq('id', jobId).eq('company_id', company.id);
     if (error) { showToast('削除に失敗しました', 'error'); return; }
     setJobs(jobs.filter(j => j.id !== jobId));
     showToast('求人を削除しました');
   };
 
   const handleStatusChange = async (jobId: string, newStatus: string) => {
-    const { error } = await supabase.from('jobs').update({ status: newStatus }).eq('id', jobId);
+    if (!company) return;
+    const { error } = await supabase.from('jobs').update({ status: newStatus }).eq('id', jobId).eq('company_id', company.id);
     if (error) { showToast('更新に失敗しました', 'error'); return; }
     setJobs(jobs.map(j => j.id === jobId ? { ...j, status: newStatus } : j));
   };
