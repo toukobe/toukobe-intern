@@ -4,6 +4,7 @@ import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 import { useIsMobile } from '@/utils/useIsMobile';
+import { LEGAL_VERSION } from '@/utils/legal';
 
 // 新規登録は学生専用。企業アカウントは運営（管理者ページ）のみが発行する。
 
@@ -47,8 +48,10 @@ function SignupInner() {
   useEffect(() => { document.title = '学生新規登録 | トウコべインターン'; return () => { document.title = 'トウコべインターン'; }; }, []);
   const [error, setError] = useState<string | null>(null);
   const [verifyStep, setVerifyStep] = useState(false);
+  const [agreed, setAgreed] = useState(false);
 
   const handleGoogleSignup = async () => {
+    if (!agreed) { setError('利用規約とプライバシーポリシーに同意してください'); return; }
     setLoading(true);
     setError(null);
     const callbackUrl = redirectTo
@@ -64,6 +67,7 @@ function SignupInner() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (!agreed) { setError('利用規約とプライバシーポリシーに同意してください'); return; }
     if (password !== confirmPassword) { setError('パスワードが一致しません'); return; }
     if (password.length < 6) { setError('パスワードは6文字以上で設定してください'); return; }
     setLoading(true);
@@ -86,7 +90,13 @@ function SignupInner() {
         return;
       }
 
-      const { error: userTypeError } = await supabase.from('user_types').insert([{ user_id: data.user.id, user_type: 'student', company_id: null }]);
+      // 同意記録（日時・規約バージョン）を含めてINSERT。
+      // マイグレーション未実行の環境では該当カラムが無く失敗するので、基本項目のみで再試行する。
+      const consent = { agreed_terms_at: new Date().toISOString(), terms_version: LEGAL_VERSION };
+      let { error: userTypeError } = await supabase.from('user_types').insert([{ user_id: data.user.id, user_type: 'student', company_id: null, ...consent }]);
+      if (userTypeError && /column/i.test(userTypeError.message)) {
+        ({ error: userTypeError } = await supabase.from('user_types').insert([{ user_id: data.user.id, user_type: 'student', company_id: null }]));
+      }
       if (userTypeError) {
         // アカウント自体は作成済みなので、setupページで種別登録をやり直せる
         router.push('/auth/setup');
@@ -132,9 +142,25 @@ function SignupInner() {
           <p style={{ fontSize: 13, color: '#938B81', margin: 0 }}>無料でアカウントを作成できます</p>
         </div>
 
+        {/* 利用規約・プライバシーポリシー同意（メール登録・Google登録の両方で必須） */}
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: '#FBF8F4', border: '1px solid #EFE8DF', borderRadius: 10, padding: '12px 14px', cursor: 'pointer', marginBottom: 16 }}>
+          <input type="checkbox" checked={agreed} onChange={e => { setAgreed(e.target.checked); if (e.target.checked) setError(null); }} style={{ width: 18, height: 18, marginTop: 1, accentColor: '#F2620C', flexShrink: 0 }} />
+          <span style={{ fontSize: 13, color: '#3A352F', lineHeight: 1.7 }}>
+            <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: '#F2620C', fontWeight: 700 }}>利用規約</a>
+            {' '}と{' '}
+            <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" style={{ color: '#F2620C', fontWeight: 700 }}>プライバシーポリシー</a>
+            {' '}に同意します <span style={{ color: '#F2620C' }}>*</span>
+          </span>
+        </label>
+        {!agreed && (
+          <p style={{ fontSize: 12, color: '#938B81', margin: '-6px 0 16px', paddingLeft: 2 }}>
+            ※ ご登録には利用規約とプライバシーポリシーへの同意が必要です。
+          </p>
+        )}
+
         {/* Google signup */}
-        <button onClick={handleGoogleSignup} disabled={loading}
-          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: '#fff', border: '1px solid #EFE8DF', borderRadius: 10, padding: '13px', fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 600, color: '#1C1813', cursor: 'pointer', marginBottom: 4, opacity: loading ? 0.6 : 1 }}
+        <button onClick={handleGoogleSignup} disabled={loading || !agreed}
+          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: '#fff', border: '1px solid #EFE8DF', borderRadius: 10, padding: '13px', fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 600, color: '#1C1813', cursor: loading || !agreed ? 'not-allowed' : 'pointer', marginBottom: 4, opacity: loading || !agreed ? 0.6 : 1 }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -171,7 +197,7 @@ function SignupInner() {
               <button type="button" onClick={() => setShowCf(!showCf)} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#938B81', padding: 0, display: 'flex' }}><EyeIcon show={showCf} /></button>
             </div>
           </div>
-          <button type="submit" disabled={loading} style={{ ...S.btn, marginTop: 8, opacity: loading ? 0.7 : 1 }}>
+          <button type="submit" disabled={loading || !agreed} style={{ ...S.btn, marginTop: 8, cursor: loading || !agreed ? 'not-allowed' : 'pointer', opacity: loading || !agreed ? 0.7 : 1 }}>
             {loading ? '登録中...' : '登録する'}
           </button>
         </form>

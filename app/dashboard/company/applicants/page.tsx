@@ -25,6 +25,8 @@ export default function ApplicantsPage() {
   useEffect(() => { document.title = '応募者管理 | トウコべインターン'; return () => { document.title = 'トウコべインターン'; }; }, []);
   const [error, setError] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState('all');
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpand = (id: string) => setExpanded(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
 
@@ -69,8 +71,13 @@ export default function ApplicantsPage() {
         if (!appsData) { setApplications([]); setLoading(false); return; }
 
         const userIds = [...new Set((appsData as any[]).map(app => app.user_id))];
-        const { data: profiles } = await supabase.from('student_profiles').select('user_id, name, university, grade, contact_email').in('user_id', userIds);
-        const profileMap = new Map((profiles || []).map(p => [p.user_id, p]));
+        // 応募者の詳細プロフィールを取得（新カラム未追加の環境では基本項目のみ）
+        const fullCols = 'user_id, name, university, department, grade, graduation_year, contact_email, skills, languages, certifications, experience, is_tutor';
+        let profiles: any[] | null = (await supabase.from('student_profiles').select(fullCols).in('user_id', userIds)).data as any;
+        if (!profiles) {
+          profiles = (await supabase.from('student_profiles').select('user_id, name, university, grade, contact_email').in('user_id', userIds)).data as any;
+        }
+        const profileMap = new Map((profiles || []).map((p: any) => [p.user_id, p]));
         setApplications((appsData as any[]).map(app => ({
           ...app,
           profile: profileMap.get(app.user_id) || { name: '未登録', university: '未設定', grade: '未設定' },
@@ -91,9 +98,10 @@ export default function ApplicantsPage() {
     if (error) { showToast('更新に失敗しました', 'error'); return; }
     setApplications(applications.map(app => app.id === applicationId ? { ...app, status: newStatus } : app));
 
-    // メール通知（面接・内定・不採用時のみ）
+    // メール通知（面接・内定・不採用時、および未確認→検討中の応募確認時）
     const notifyStatuses: Record<string, string> = { interview: 'status_interview', offer: 'status_offer', rejected: 'status_rejected' };
-    const emailType = notifyStatuses[newStatus];
+    const emailType = notifyStatuses[newStatus]
+      || (newStatus === 'pending' && app.status === 'unread' ? 'application_viewed' : undefined);
     if (emailType) {
       const contactEmail = app?.profile?.contact_email;
       if (contactEmail) {
@@ -231,9 +239,56 @@ export default function ApplicantsPage() {
                     </div>
                   )}
 
-                  <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '12px 16px', marginBottom: 20 }}>
+                  <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
                     <span style={{ fontSize: 12, color: '#938B81' }}>応募職種　</span>
                     <span style={{ fontWeight: 700, fontSize: 14 }}>{app.jobs?.job_title || '不明'}</span>
+                  </div>
+
+                  {/* 応募者プロフィール詳細（開閉式） */}
+                  <div style={{ marginBottom: 20 }}>
+                    <button onClick={() => toggleExpand(app.id)}
+                      style={{ width: '100%', background: expanded.has(app.id) ? '#FFF8F5' : '#fff', color: '#F2620C', border: '1px solid #FBD5C0', borderRadius: 10, padding: '11px 16px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span>👤 プロフィール詳細を{expanded.has(app.id) ? '閉じる' : '見る'}</span>
+                      <span style={{ transform: expanded.has(app.id) ? 'rotate(180deg)' : 'none', transition: '.2s' }}>▾</span>
+                    </button>
+                    {expanded.has(app.id) && (() => {
+                      const p = app.profile || {};
+                      const skills: string[] = Array.isArray(p.skills) ? p.skills.filter((s: any) => typeof s === 'string' && s) : [];
+                      const languages: string[] = Array.isArray(p.languages) ? p.languages.filter((s: any) => typeof s === 'string' && s) : [];
+                      const row = (label: string, value?: string | null) => (
+                        <div style={{ marginBottom: 12 }}>
+                          <div style={{ fontSize: 11, color: '#938B81', fontWeight: 700, marginBottom: 3 }}>{label}</div>
+                          <div style={{ fontSize: 13.5, color: '#1C1813', whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{value || '未設定'}</div>
+                        </div>
+                      );
+                      const chips = (label: string, items: string[], bg: string, color: string, border: string) => (
+                        <div style={{ marginBottom: 12 }}>
+                          <div style={{ fontSize: 11, color: '#938B81', fontWeight: 700, marginBottom: 6 }}>{label}</div>
+                          {items.length ? (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                              {items.map((s, i) => <span key={i} style={{ fontSize: 12, background: bg, color, border: `1px solid ${border}`, borderRadius: 999, padding: '4px 12px' }}>{s}</span>)}
+                            </div>
+                          ) : <div style={{ fontSize: 13.5, color: '#1C1813' }}>未設定</div>}
+                        </div>
+                      );
+                      return (
+                        <div style={{ marginTop: 12, background: '#FBF8F4', border: '1px solid #EFE8DF', borderRadius: 12, padding: isMobile ? '16px' : '18px 20px' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '0 24px' }}>
+                            {row('大学', p.university)}
+                            {row('学部・学科', p.department)}
+                            {row('学年', p.grade)}
+                            {row('卒業予定年', p.graduation_year ? `${p.graduation_year}年` : null)}
+                          </div>
+                          {chips('語学', languages, '#EFF6FF', '#1D4ED8', '#BFDBFE')}
+                          {chips('スキル', skills, '#FFF1E8', '#C2530A', '#FBD5C0')}
+                          {row('資格・検定', p.certifications)}
+                          {row('経歴・自己紹介', p.experience)}
+                          {p.is_tutor && (
+                            <div style={{ display: 'inline-block', fontSize: 12, fontWeight: 700, background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0', borderRadius: 999, padding: '4px 12px' }}>✓ トウコべ・キョウコべ講師登録あり</div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   <div style={{ borderTop: '1px solid #EFE8DF', paddingTop: 16, display: 'flex', gap: 8, justifyContent: isMobile ? 'stretch' : 'flex-end', flexWrap: 'wrap' }}>

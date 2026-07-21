@@ -27,7 +27,7 @@ const flow = [
 ];
 
 const faqs = [
-  { q: 'どのタイミングで料金が発生しますか？', a: 'ご契約時に初期費用100,000円（税抜）を申し受けます。契約開始から2〜3ヶ月目は無料で、無料期間終了後は月額40,000円（税抜）でのご継続となります。' },
+  { q: 'どのタイミングで料金が発生しますか？', a: 'ご契約時に初期費用50,000円（税抜）を申し受けます。契約開始から2〜3ヶ月目は無料で、無料期間終了後は月額30,000円（税抜）でのご継続となります。' },
   { q: 'なぜ東大生・京大生にアプローチできるのですか？', a: '親会社が運営するオンライン個別指導「トウコベ」の講師学生 約1,500名にリーチ済みで、サービス開始と同時に登録をご案内するためです。' },
   { q: '求人情報を修正できますか？', a: '法人アカウントにてログインいただければ、何度でも自由に求人情報を編集可能です。' },
   { q: '新しいサービスですが、実績はありますか？', a: '2026年8月開始の新サービスです。掲載企業が少ない初期は、貴社の求人が学生の目に留まりやすくなります。' },
@@ -152,13 +152,13 @@ export default function ForCompaniesPage() {
           <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'stretch', justifyContent: 'center', gap: 16, margin: '40px 0 12px' }}>
             <div style={{ flex: 1, maxWidth: isMobile ? 'none' : 340, background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: '28px 24px', textAlign: 'center' }}>
               <div style={{ fontSize: 13, color: '#7A7268', marginBottom: 8 }}>初期費用（ご契約時に一度のみ・税抜）</div>
-              <div style={{ fontWeight: 900, fontSize: 32 }}>100,000<span style={{ fontSize: 15, marginLeft: 4 }}>円</span></div>
+              <div style={{ fontWeight: 900, fontSize: 32 }}>50,000<span style={{ fontSize: 15, marginLeft: 4 }}>円</span></div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 22, color: '#938B81' }}>＋</div>
             <div style={{ flex: 1, maxWidth: isMobile ? 'none' : 340, background: '#fff', border: '2px solid #F2620C', borderRadius: 16, padding: '28px 24px', textAlign: 'center', position: 'relative' }}>
               <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: '#F2620C', color: '#fff', fontSize: 11, fontWeight: 700, borderRadius: 999, padding: '3px 14px', whiteSpace: 'nowrap' }}>2〜3ヶ月目は無料</div>
               <div style={{ fontSize: 13, color: '#7A7268', marginBottom: 8 }}>月額掲載料（4ヶ月目以降・税抜）</div>
-              <div style={{ fontWeight: 900, fontSize: 32 }}>月額 40,000<span style={{ fontSize: 15, marginLeft: 4 }}>円</span></div>
+              <div style={{ fontWeight: 900, fontSize: 32 }}>月額 30,000<span style={{ fontSize: 15, marginLeft: 4 }}>円</span></div>
             </div>
           </div>
           <p style={{ textAlign: 'center', fontSize: 13, color: '#938B81', margin: '0 0 40px' }}>金額はいずれも税抜価格です。求人掲載数にかかわらず、料金は一律です。</p>
@@ -166,7 +166,7 @@ export default function ForCompaniesPage() {
           <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: '28px 24px', maxWidth: 560, margin: '0 auto' }}>
             <h3 style={{ fontWeight: 700, fontSize: 17, margin: '0 0 12px' }}>月額プランの内容</h3>
             <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13.5, color: '#57514A', lineHeight: 2 }}>
-              <li>月額 40,000円（税抜）で掲載を継続</li>
+              <li>月額 30,000円（税抜）で掲載を継続</li>
               <li>何名採用しても追加費用なしの定額制</li>
               <li>30日前までのご連絡で、いつでも解約可能</li>
             </ul>

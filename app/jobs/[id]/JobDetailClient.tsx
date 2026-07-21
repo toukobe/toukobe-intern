@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 import { useIsMobile } from '@/utils/useIsMobile';
+import { COVER_ASPECT } from '@/utils/coverImage';
 import SiteFooter from '@/components/SiteFooter';
 
 interface JobDetail {
@@ -485,7 +486,7 @@ export default function JobDetailPage() {
               {(() => {
                 const coverSrc = job.cover_image_url;
                 return coverSrc ? (
-                  <div style={{ height: 260, overflow: 'hidden', position: 'relative', borderRadius: '18px 18px 0 0' }}>
+                  <div style={{ aspectRatio: COVER_ASPECT, overflow: 'hidden', position: 'relative', borderRadius: '18px 18px 0 0' }}>
                     <img src={coverSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: job.cover_image_position || '50% 50%', display: 'block' }} />
                     <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 40%, rgba(0,0,0,.45) 100%)' }} />
                   </div>
@@ -863,12 +864,12 @@ export default function JobDetailPage() {
       {showApplyModal && (
         <div
           className="anim-fade"
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, animationDuration: '.25s' }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? 12 : 24, animationDuration: '.25s' }}
           onClick={() => setShowApplyModal(false)}
         >
           <div
             className="anim-fade-up"
-            style={{ background: '#fff', borderRadius: 20, padding: '36px 32px', maxWidth: 460, width: '100%', boxShadow: '0 24px 64px rgba(0,0,0,.2)', fontFamily: FF, animationDuration: '.35s' }}
+            style={{ background: '#fff', borderRadius: 20, padding: isMobile ? '24px 20px' : '32px 32px', maxWidth: 460, width: '100%', maxHeight: 'calc(100dvh - 48px)', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,.2)', fontFamily: FF, animationDuration: '.35s' }}
             onClick={e => e.stopPropagation()}
           >
             {/* 企業ロゴ・求人名 */}

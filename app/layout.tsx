@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Zen_Kaku_Gothic_New, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
+import ImageFallback from "@/components/ImageFallback";
 
 const zenKaku = Zen_Kaku_Gothic_New({
   weight: ["400", "500", "700", "900"],
@@ -84,6 +85,8 @@ export default function RootLayout({
             ]).replace(/</g, '\\u003c'),
           }}
         />
+        {/* 画像読み込み失敗時の全アプリ共通フォールバック（壊れ画像アイコンを出さない） */}
+        <ImageFallback />
         {children}
       </body>
     </html>

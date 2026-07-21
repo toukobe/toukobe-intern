@@ -6,6 +6,7 @@ import { supabase } from '@/utils/supabase';
 import { useIsMobile } from '@/utils/useIsMobile';
 import { PREFECTURES, TOKYO_AREAS } from '@/utils/constants';
 import { fetchFeatureTagOptions } from '@/utils/featureTags';
+import { COVER_ASPECT } from '@/utils/coverImage';
 import SiteFooter from '@/components/SiteFooter';
 
 interface Job {
@@ -458,7 +459,7 @@ function SearchContent() {
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap: 20 }}>
               {[0,1,2,3,4,5].map(i => (
                 <div key={i} style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, overflow: 'hidden' }}>
-                  <div className="skeleton" style={{ height: 120, borderRadius: 0 }} />
+                  <div className="skeleton" style={{ aspectRatio: COVER_ASPECT, borderRadius: 0 }} />
                   <div style={{ padding: '16px 18px 20px' }}>
                     <div className="skeleton" style={{ height: 11, marginBottom: 10, width: '50%' }} />
                     <div className="skeleton" style={{ height: 16, marginBottom: 8, width: '80%' }} />
@@ -554,7 +555,7 @@ function SearchContent() {
                       const idx = jobs.indexOf(j);
                       const [c1,c2] = cats2[idx % cats2.length];
                       return (
-                        <div style={{ height: 120, position: 'relative', overflow: 'hidden', flexShrink: 0 }}
+                        <div style={{ aspectRatio: COVER_ASPECT, position: 'relative', overflow: 'hidden', flexShrink: 0 }}
                           onClick={() => router.push(`/jobs/${j.id}`)}>
                           {j.cover_image_url || j.companies?.cover_url
                             ? <img className="job-cover" src={j.cover_image_url || j.companies?.cover_url || ''} alt="" loading="lazy" decoding="async" style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:j.cover_image_position || '50% 50%', display:'block' }} />

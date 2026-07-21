@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 import { useIsMobile } from '@/utils/useIsMobile';
 import { fetchFeatureTagOptions } from '@/utils/featureTags';
+import { COVER_ASPECT } from '@/utils/coverImage';
 import SiteFooter from '@/components/SiteFooter';
 
 // スクロールで1回だけふわっと表示する（globals.cssに依存しない自己完結実装）
@@ -318,7 +319,7 @@ export default function Home() {
               <div style={{ position: 'absolute', inset: 0, borderRadius: 18, background: 'linear-gradient(205deg, rgba(242,98,12,.16) 0%, rgba(242,98,12,0) 42%, rgba(28,24,19,.10) 100%)', pointerEvents: 'none' }} />
               <div style={{ position: 'absolute', inset: 0, borderRadius: 18, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.35)', pointerEvents: 'none' }} />
               <div style={{ position: 'absolute', left: 18, bottom: 18, background: 'rgba(255,255,255,.94)', backdropFilter: 'blur(4px)', borderRadius: 10, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                <img src="/icon.png" alt="" style={{ width: 26, height: 26 }} />
+                <img src="/icon.svg" alt="" style={{ width: 26, height: 26 }} />
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#1C1813', lineHeight: 1.4 }}>審査を通過した企業のみ掲載</div>
                   <div style={{ fontSize: 11, color: '#938B81' }}>上場企業・資金調達済スタートアップ</div>
@@ -398,7 +399,7 @@ export default function Home() {
                   onClick={() => router.push(`/jobs/${j.id}`)}
                   style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: 'pointer' }}
                 >
-                  <div style={{ height: isMobile ? 100 : 148, position: 'relative', overflow: 'hidden', background: '#F3EEE7', flexShrink: 0 }}>
+                  <div style={{ aspectRatio: COVER_ASPECT, position: 'relative', overflow: 'hidden', background: '#F3EEE7', flexShrink: 0 }}>
                     {(j.cover_image_url || j.companies?.cover_url) ? (
                       <img className="job-cover" src={j.cover_image_url || j.companies?.cover_url || ''} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: j.cover_image_position || '50% 50%', display: 'block' }} />
                     ) : (
@@ -451,7 +452,7 @@ export default function Home() {
                   onClick={() => router.push(`/jobs/${j.id}`)}
                   style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 12, overflow: 'hidden', display: 'flex', flexDirection: 'column', cursor: 'pointer' }}
                 >
-                  <div style={{ height: 110, position: 'relative', overflow: 'hidden', background: '#F3EEE7', flexShrink: 0 }}>
+                  <div style={{ aspectRatio: COVER_ASPECT, position: 'relative', overflow: 'hidden', background: '#F3EEE7', flexShrink: 0 }}>
                     {(j.cover_image_url || j.companies?.cover_url) ? (
                       <img
                         className="job-cover"

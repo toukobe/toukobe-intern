@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 import { TOKYO_AREAS, PREFECTURES } from '@/utils/constants';
 import ImagePositionPicker from '@/components/ImagePositionPicker';
+import { COVER_ASPECT } from '@/utils/coverImage';
 import StepsEditor from '@/components/StepsEditor';
 import SkillsPicker from '@/components/SkillsPicker';
 import QuickInsertChips from '@/components/QuickInsertChips';
@@ -178,7 +179,7 @@ export default function PostJobPage() {
             <span style={F.sectionTitle}>カバー画像</span>
             {coverPreview ? (
               <div style={{ position: 'relative' }}>
-                <ImagePositionPicker src={coverPreview} position={coverPosition} onChange={setCoverPosition} height={200} />
+                <ImagePositionPicker src={coverPreview} position={coverPosition} onChange={setCoverPosition} aspectRatio={COVER_ASPECT} />
                 <button
                   type="button"
                   onClick={() => { setCoverFile(null); setCoverPreview(null); setCoverPosition('50% 50%'); }}
@@ -189,13 +190,14 @@ export default function PostJobPage() {
               </div>
             ) : (
               <div
-                style={{ width: '100%', height: 200, borderRadius: 12, background: '#F3EDE5', border: '2px dashed #EFE8DF', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                style={{ width: '100%', aspectRatio: COVER_ASPECT, borderRadius: 12, background: '#F3EDE5', border: '2px dashed #EFE8DF', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                 onClick={() => document.getElementById('cover-input')?.click()}
               >
                 <div style={{ textAlign: 'center', color: '#938B81' }}>
                   <div style={{ fontSize: 32, marginBottom: 8 }}>🖼️</div>
                   <div style={{ fontSize: 13, fontWeight: 600 }}>クリックして画像を選択</div>
-                  <div style={{ fontSize: 11, marginTop: 4 }}>JPG / PNG / WebP・5MB以内・推奨 1200×630px</div>
+                  <div style={{ fontSize: 11, marginTop: 4 }}>JPG / PNG / WebP・5MB以内・推奨 1600×600px（横長）</div>
+                  <div style={{ fontSize: 11, marginTop: 2 }}>この枠の比率で一覧に表示されます</div>
                 </div>
               </div>
             )}

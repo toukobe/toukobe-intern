@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 import ImagePositionPicker from '@/components/ImagePositionPicker';
+import { COVER_ASPECT } from '@/utils/coverImage';
 import { useIsMobile } from '@/utils/useIsMobile';
 
 interface User { id: string; email?: string; }
@@ -285,7 +286,7 @@ export default function CompanyDashboard() {
               return (
                 <div key={job.id} style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                   {/* カバー画像 */}
-                  <div style={{ height: 120, position: 'relative', overflow: 'hidden', cursor: 'pointer', flexShrink: 0 }} onClick={() => router.push(`/jobs/${job.id}`)}>
+                  <div style={{ aspectRatio: COVER_ASPECT, position: 'relative', overflow: 'hidden', cursor: 'pointer', flexShrink: 0 }} onClick={() => router.push(`/jobs/${job.id}`)}>
                     {job.cover_image_url
                       ? <img src={job.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: job.cover_image_position || '50% 50%', display: 'block' }} />
                       : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#F2620C,#FB8A3C)' }} />

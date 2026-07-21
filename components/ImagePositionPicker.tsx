@@ -6,9 +6,10 @@ interface Props {
   position: string; // e.g. "50% 30%"
   onChange: (pos: string) => void;
   height?: number;
+  aspectRatio?: string; // 指定すると高さ固定ではなくこの比率（例 "16 / 6"）で表示
 }
 
-export default function ImagePositionPicker({ src, position, onChange, height = 200 }: Props) {
+export default function ImagePositionPicker({ src, position, onChange, height = 200, aspectRatio }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
 
@@ -27,7 +28,7 @@ export default function ImagePositionPicker({ src, position, onChange, height = 
   return (
     <div
       ref={ref}
-      style={{ position: 'relative', width: '100%', height, borderRadius: 12, overflow: 'hidden', cursor: 'crosshair', userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
+      style={{ position: 'relative', width: '100%', ...(aspectRatio ? { aspectRatio } : { height }), borderRadius: 12, overflow: 'hidden', cursor: 'crosshair', userSelect: 'none', WebkitUserSelect: 'none' } as React.CSSProperties}
       onMouseDown={e => { dragging.current = true; calc(e.clientX, e.clientY); }}
       onMouseMove={e => { if (dragging.current) calc(e.clientX, e.clientY); }}
       onMouseUp={() => { dragging.current = false; }}

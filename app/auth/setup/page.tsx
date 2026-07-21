@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 import { useIsMobile } from '@/utils/useIsMobile';
+import { LEGAL_VERSION } from '@/utils/legal';
 
 // メール確認後の初回ログイン時などに、user_types 未登録のアカウントの登録を完了させるページ。
 // 新規登録は学生専用（企業アカウントは運営が管理者ページから発行する）。
@@ -20,6 +21,7 @@ export default function SetupPage() {
   const [userEmail, setUserEmail] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [agreed, setAgreed] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -31,9 +33,15 @@ export default function SetupPage() {
 
   const handleStudent = async () => {
     if (!userId) return;
+    if (!agreed) { setError('利用規約とプライバシーポリシーに同意してください'); return; }
     setLoading(true);
     setError(null);
-    const { error: insertError } = await supabase.from('user_types').insert([{ user_id: userId, user_type: 'student', company_id: null }]);
+    // 同意記録（日時・規約バージョン）を含めてINSERT。カラム未追加の環境では基本項目のみで再試行。
+    const consent = { agreed_terms_at: new Date().toISOString(), terms_version: LEGAL_VERSION };
+    let { error: insertError } = await supabase.from('user_types').insert([{ user_id: userId, user_type: 'student', company_id: null, ...consent }]);
+    if (insertError && /column/i.test(insertError.message)) {
+      ({ error: insertError } = await supabase.from('user_types').insert([{ user_id: userId, user_type: 'student', company_id: null }]));
+    }
     if (insertError) { setError('登録に失敗しました。もう一度お試しください。'); setLoading(false); return; }
     // プロフィール入力は必須（Google登録でもここを通る）
     router.push('/auth/signup-profile');
@@ -48,9 +56,24 @@ export default function SetupPage() {
           <p style={{ fontSize: 13, color: '#938B81', margin: 0 }}>{userEmail}</p>
         </div>
         {error && <div style={{ background: '#FFF1EE', border: '1px solid #FBCFBE', borderRadius: 10, padding: '12px 16px', fontSize: 13, color: '#C2390A', marginBottom: 20 }}>{error}</div>}
-        <button onClick={handleStudent} disabled={loading}
-          style={{ width: '100%', border: '1.5px solid #EFE8DF', borderRadius: 14, padding: '24px', textAlign: 'left', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 20 }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = '#F2620C'; e.currentTarget.style.background = '#FFF8F5'; }}
+        {/* 利用規約・プライバシーポリシー同意（Google初回ログインはsignupページを通らないためここでも必須） */}
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: '#FBF8F4', border: '1px solid #EFE8DF', borderRadius: 10, padding: '12px 14px', cursor: 'pointer', marginBottom: 16 }}>
+          <input type="checkbox" checked={agreed} onChange={e => { setAgreed(e.target.checked); if (e.target.checked) setError(null); }} style={{ width: 18, height: 18, marginTop: 1, accentColor: '#F2620C', flexShrink: 0 }} />
+          <span style={{ fontSize: 13, color: '#3A352F', lineHeight: 1.7 }}>
+            <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: '#F2620C', fontWeight: 700 }}>利用規約</a>
+            {' '}と{' '}
+            <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" style={{ color: '#F2620C', fontWeight: 700 }}>プライバシーポリシー</a>
+            {' '}に同意します <span style={{ color: '#F2620C' }}>*</span>
+          </span>
+        </label>
+        {!agreed && (
+          <p style={{ fontSize: 12, color: '#938B81', margin: '-8px 0 16px', paddingLeft: 2 }}>
+            ※ 登録の完了には利用規約とプライバシーポリシーへの同意が必要です。
+          </p>
+        )}
+        <button onClick={handleStudent} disabled={loading || !agreed}
+          style={{ width: '100%', border: '1.5px solid #EFE8DF', borderRadius: 14, padding: '24px', textAlign: 'left', background: '#fff', cursor: loading || !agreed ? 'not-allowed' : 'pointer', opacity: loading || !agreed ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: 20 }}
+          onMouseEnter={e => { if (loading || !agreed) return; e.currentTarget.style.borderColor = '#F2620C'; e.currentTarget.style.background = '#FFF8F5'; }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = '#EFE8DF'; e.currentTarget.style.background = '#fff'; }}
         >
           <div style={{ width: 52, height: 52, borderRadius: '50%', background: '#FFF1E8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>🎓</div>

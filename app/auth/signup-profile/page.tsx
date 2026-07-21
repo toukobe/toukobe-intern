@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 import { useIsMobile } from '@/utils/useIsMobile';
 import SkillsPicker from '@/components/SkillsPicker';
-import { UNIVERSITIES, GRADES, BIRTH_YEARS, GRAD_YEARS, LANGUAGE_GROUPS, CERT_PLACEHOLDER } from '@/utils/profileOptions';
+import UniversitySelect from '@/components/UniversitySelect';
+import { GRADES, BIRTH_YEARS, GRAD_YEARS, LANGUAGE_GROUPS, CERT_PLACEHOLDER } from '@/utils/profileOptions';
+import { LEGAL_VERSION } from '@/utils/legal';
 
 const FF = "var(--font-sans)";
 const F = {
@@ -81,8 +83,15 @@ export default function SignupProfilePage() {
       const { data: existingTypes } = await supabase.from('user_types')
         .select('id').eq('user_id', userId).limit(1);
       if (!existingTypes || existingTypes.length === 0) {
-        const { error: typeError } = await supabase.from('user_types')
-          .insert([{ user_id: userId, user_type: 'student', company_id: null }]);
+        // このページに到達している時点で登録時に同意済み。念のため同意記録も付与する。
+        // カラム未追加の環境では基本項目のみで再試行する。
+        const consent = { agreed_terms_at: new Date().toISOString(), terms_version: LEGAL_VERSION };
+        let { error: typeError } = await supabase.from('user_types')
+          .insert([{ user_id: userId, user_type: 'student', company_id: null, ...consent }]);
+        if (typeError && /column/i.test(typeError.message)) {
+          ({ error: typeError } = await supabase.from('user_types')
+            .insert([{ user_id: userId, user_type: 'student', company_id: null }]));
+        }
         if (typeError && typeError.code !== '23505') throw typeError;
       }
 
@@ -193,11 +202,7 @@ export default function SignupProfilePage() {
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
             <div>
               <label style={F.label}>大学 <span style={{ color: '#F2620C' }}>*</span></label>
-              <select style={sel} value={formData.university} onChange={e => setFormData({ ...formData, university: e.target.value })} required>
-                <option value="">選択してください</option>
-                {UNIVERSITIES.map(u => <option key={u} value={u}>{u}</option>)}
-                {formData.university && !UNIVERSITIES.includes(formData.university) && <option value={formData.university}>{formData.university}</option>}
-              </select>
+              <UniversitySelect value={formData.university} onChange={v => setFormData({ ...formData, university: v })} selectStyle={sel} inputStyle={F.input} required />
             </div>
             <div>
               <label style={F.label}>学部・学科 <span style={{ color: '#F2620C' }}>*</span></label>

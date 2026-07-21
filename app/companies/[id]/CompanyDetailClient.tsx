@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 import { useIsMobile } from '@/utils/useIsMobile';
+import { COVER_ASPECT } from '@/utils/coverImage';
 import SiteFooter from '@/components/SiteFooter';
 
 interface Company {
@@ -310,7 +311,7 @@ export default function CompanyProfilePage() {
                   onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = 'none'; (e.currentTarget as HTMLDivElement).style.transform = 'none'; }}
                 >
                   {/* カバー */}
-                  <div style={{ height: 140, position: 'relative', overflow: 'hidden', flexShrink: 0 }}>
+                  <div style={{ aspectRatio: COVER_ASPECT, position: 'relative', overflow: 'hidden', flexShrink: 0 }}>
                     {job.cover_image_url
                       ? <img src={job.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: job.cover_image_position || '50% 50%', display: 'block' }} />
                       : <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg,#F2620C,#FB8A3C)' }} />
