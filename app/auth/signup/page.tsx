@@ -16,6 +16,10 @@ const S = {
   btn: { width: '100%', background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '15px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 15, cursor: 'pointer', boxShadow: '0 4px 14px rgba(242,98,12,.28)' } as React.CSSProperties,
   err: { background: '#FFF1EE', border: '1px solid #FBCFBE', borderRadius: 10, padding: '12px 16px', fontSize: 13, color: '#C2390A', marginBottom: 20 } as React.CSSProperties,
   divider: { display: 'flex', alignItems: 'center', gap: 12, margin: '22px 0' } as React.CSSProperties,
+  consent: { display: 'flex', alignItems: 'flex-start', gap: 10, background: '#FBF8F4', border: '1px solid #EFE8DF', borderRadius: 10, padding: '12px 14px', cursor: 'pointer' } as React.CSSProperties,
+  consentBox: { width: 18, height: 18, marginTop: 1, accentColor: '#F2620C', flexShrink: 0 } as React.CSSProperties,
+  consentText: { fontSize: 13, color: '#3A352F', lineHeight: 1.7 } as React.CSSProperties,
+  consentLink: { color: '#F2620C', fontWeight: 700 } as React.CSSProperties,
 };
 
 function EyeIcon({ show }: { show: boolean }) {
@@ -48,10 +52,13 @@ function SignupInner() {
   useEffect(() => { document.title = '学生新規登録 | トウコべインターン'; return () => { document.title = 'トウコべインターン'; }; }, []);
   const [error, setError] = useState<string | null>(null);
   const [verifyStep, setVerifyStep] = useState(false);
-  const [agreed, setAgreed] = useState(false);
+  // 利用規約とプライバシーポリシーは個別に同意を取る（両方チェックで登録可）
+  const [agreedTerms, setAgreedTerms] = useState(false);
+  const [agreedPrivacy, setAgreedPrivacy] = useState(false);
+  const agreed = agreedTerms && agreedPrivacy;
 
   const handleGoogleSignup = async () => {
-    if (!agreed) { setError('利用規約とプライバシーポリシーに同意してください'); return; }
+    if (!agreed) { setError('下部の「利用規約」「プライバシーポリシー」の両方にチェックしてください'); return; }
     setLoading(true);
     setError(null);
     const callbackUrl = redirectTo
@@ -67,7 +74,7 @@ function SignupInner() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!agreed) { setError('利用規約とプライバシーポリシーに同意してください'); return; }
+    if (!agreed) { setError('利用規約とプライバシーポリシーの両方に同意してください'); return; }
     if (password !== confirmPassword) { setError('パスワードが一致しません'); return; }
     if (password.length < 6) { setError('パスワードは6文字以上で設定してください'); return; }
     setLoading(true);
@@ -142,25 +149,9 @@ function SignupInner() {
           <p style={{ fontSize: 13, color: '#938B81', margin: 0 }}>無料でアカウントを作成できます</p>
         </div>
 
-        {/* 利用規約・プライバシーポリシー同意（メール登録・Google登録の両方で必須） */}
-        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: '#FBF8F4', border: '1px solid #EFE8DF', borderRadius: 10, padding: '12px 14px', cursor: 'pointer', marginBottom: 16 }}>
-          <input type="checkbox" checked={agreed} onChange={e => { setAgreed(e.target.checked); if (e.target.checked) setError(null); }} style={{ width: 18, height: 18, marginTop: 1, accentColor: '#F2620C', flexShrink: 0 }} />
-          <span style={{ fontSize: 13, color: '#3A352F', lineHeight: 1.7 }}>
-            <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: '#F2620C', fontWeight: 700 }}>利用規約</a>
-            {' '}と{' '}
-            <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" style={{ color: '#F2620C', fontWeight: 700 }}>プライバシーポリシー</a>
-            {' '}に同意します <span style={{ color: '#F2620C' }}>*</span>
-          </span>
-        </label>
-        {!agreed && (
-          <p style={{ fontSize: 12, color: '#938B81', margin: '-6px 0 16px', paddingLeft: 2 }}>
-            ※ ご登録には利用規約とプライバシーポリシーへの同意が必要です。
-          </p>
-        )}
-
-        {/* Google signup */}
-        <button onClick={handleGoogleSignup} disabled={loading || !agreed}
-          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: '#fff', border: '1px solid #EFE8DF', borderRadius: 10, padding: '13px', fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 600, color: '#1C1813', cursor: loading || !agreed ? 'not-allowed' : 'pointer', marginBottom: 4, opacity: loading || !agreed ? 0.6 : 1 }}
+        {/* Google signup（同意チェックはフォーム下部。未同意ならクリック時に案内する） */}
+        <button onClick={handleGoogleSignup} disabled={loading}
+          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: '#fff', border: '1px solid #EFE8DF', borderRadius: 10, padding: '13px', fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 600, color: '#1C1813', cursor: loading ? 'not-allowed' : 'pointer', marginBottom: 4, opacity: loading ? 0.6 : 1 }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -197,6 +188,29 @@ function SignupInner() {
               <button type="button" onClick={() => setShowCf(!showCf)} style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#938B81', padding: 0, display: 'flex' }}><EyeIcon show={showCf} /></button>
             </div>
           </div>
+          {/* 利用規約・プライバシーポリシー同意（メール登録・Google登録の両方で必須） */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <label style={S.consent}>
+              <input type="checkbox" checked={agreedTerms} onChange={e => { setAgreedTerms(e.target.checked); if (e.target.checked) setError(null); }} style={S.consentBox} />
+              <span style={S.consentText}>
+                <a href="/terms" target="_blank" rel="noopener noreferrer" style={S.consentLink}>利用規約</a>
+                {' '}に同意します <span style={{ color: '#F2620C' }}>*</span>
+              </span>
+            </label>
+            <label style={S.consent}>
+              <input type="checkbox" checked={agreedPrivacy} onChange={e => { setAgreedPrivacy(e.target.checked); if (e.target.checked) setError(null); }} style={S.consentBox} />
+              <span style={S.consentText}>
+                <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" style={S.consentLink}>プライバシーポリシー</a>
+                {' '}に同意します <span style={{ color: '#F2620C' }}>*</span>
+              </span>
+            </label>
+            {!agreed && (
+              <p style={{ fontSize: 12, color: '#938B81', margin: '2px 0 0', paddingLeft: 2 }}>
+                ※ ご登録には両方への同意が必要です。
+              </p>
+            )}
+          </div>
+
           <button type="submit" disabled={loading || !agreed} style={{ ...S.btn, marginTop: 8, cursor: loading || !agreed ? 'not-allowed' : 'pointer', opacity: loading || !agreed ? 0.7 : 1 }}>
             {loading ? '登録中...' : '登録する'}
           </button>

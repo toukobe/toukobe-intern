@@ -45,7 +45,10 @@ export default function EarlyFormPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ form_type: 'early', ...form }),
       });
-      if (!res.ok) throw new Error(res.status === 429 ? '短時間に送信が集中しています。しばらく時間をおいてからもう一度お試しください。' : '');
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(res.status === 429 ? '短時間に送信が集中しています。しばらく時間をおいてからもう一度お試しください。' : (data?.message || ''));
+      }
       setDone(true);
     } catch (err) {
       setError((err as Error)?.message || '送信に失敗しました。もう一度お試しください。');

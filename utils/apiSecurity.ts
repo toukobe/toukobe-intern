@@ -20,6 +20,14 @@ export function isValidEmail(value: unknown): value is string {
   return typeof value === 'string' && value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+// カンマ区切りで複数指定できるメール欄用（請求先・法人アカウント登録メール）。
+// フォーム側が「複数ある場合はカンマ区切り」と案内しているため、1件ずつに分解して検証する。
+export function isValidEmailList(value: unknown, maxEmails = 10): value is string {
+  if (typeof value !== 'string' || value.length > 1000) return false;
+  const parts = value.split(',').map(v => v.trim()).filter(Boolean);
+  return parts.length > 0 && parts.length <= maxEmails && parts.every(isValidEmail);
+}
+
 // シンプルなインメモリレート制限（サーバーレス環境ではインスタンス単位のベストエフォート）
 const buckets = new Map<string, { count: number; resetAt: number }>();
 

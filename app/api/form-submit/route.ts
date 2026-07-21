@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
-import { escapeHtml, sanitizeSubject, isValidEmail, rateLimit } from '@/utils/apiSecurity';
+import { escapeHtml, sanitizeSubject, isValidEmail, isValidEmailList, rateLimit } from '@/utils/apiSecurity';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -61,18 +61,23 @@ export async function POST(req: NextRequest) {
     const contact_name = clip(body.contact_name, 100);
     const phone = clip(body.phone, 40);
     const legal_email = clip(body.legal_email, 254);
-    const billing_email = clip(body.billing_email, 254);
-    const account_email = clip(body.account_email, 254);
+    // 請求先・アカウント登録メールはカンマ区切りで複数入力できるため、1件分より長い上限にする
+    const billing_email = clip(body.billing_email, 1000);
+    const account_email = clip(body.account_email, 1000);
     const notes = clip(body.notes, 5000);
     const source = clip(body.source, 200);
 
     const isContact = form_type === 'contact';
     if (!form_type || !(form_type in FORM_LABELS) || !phone || (!isContact && !company_name) || (isContact && !contact_name)) {
-      return NextResponse.json({ error: 'missing required fields' }, { status: 400 });
+      return NextResponse.json({ error: 'missing required fields', message: '未入力の必須項目があります。すべてご入力のうえ再度お試しください。' }, { status: 400 });
     }
-    for (const email of [legal_email, billing_email, account_email]) {
-      if (email && !isValidEmail(email)) {
-        return NextResponse.json({ error: 'invalid email format' }, { status: 400 });
+    if (legal_email && !isValidEmail(legal_email)) {
+      return NextResponse.json({ error: 'invalid email format', message: 'メールアドレスの形式が正しくありません。' }, { status: 400 });
+    }
+    // これらは「複数ある場合はカンマ区切り」とフォームで案内しているので、リストとして検証する
+    for (const email of [billing_email, account_email]) {
+      if (email && !isValidEmailList(email)) {
+        return NextResponse.json({ error: 'invalid email format', message: 'メールアドレスの形式が正しくありません。複数入力する場合は「,」（カンマ）で区切ってください。' }, { status: 400 });
       }
     }
 
