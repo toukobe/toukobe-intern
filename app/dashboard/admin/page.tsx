@@ -958,14 +958,48 @@ function AdminSiteTab() {
   const [saving, setSaving] = useState<SiteMode | null>(null);
   const [tableMissing, setTableMissing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [previewKey, setPreviewKey] = useState<string | null>(null);
+  const [previewMissing, setPreviewMissing] = useState(false);
+  const [origin, setOrigin] = useState('');
+  const [regenerating, setRegenerating] = useState(false);
 
   useEffect(() => {
-    supabase.from('site_settings').select('site_mode').eq('id', 1).maybeSingle().then(({ data, error }) => {
-      if (error) { setTableMissing(true); setLoading(false); return; }
+    setOrigin(window.location.origin);
+    (async () => {
+      // preview_key 列が未追加なら site_mode のみで再取得
+      let res = await supabase.from('site_settings').select('site_mode, preview_key').eq('id', 1).maybeSingle();
+      if (res.error && /preview_key|column/i.test(res.error.message)) {
+        setPreviewMissing(true);
+        res = await supabase.from('site_settings').select('site_mode').eq('id', 1).maybeSingle() as typeof res;
+      }
+      if (res.error) { setTableMissing(true); setLoading(false); return; }
+      const data = res.data as { site_mode?: string; preview_key?: string } | null;
       setMode(((data?.site_mode as SiteMode) || 'public'));
+      setPreviewKey(data?.preview_key ?? null);
       setLoading(false);
-    });
+    })();
   }, []);
+
+  const previewUrl = previewKey && origin ? `${origin}/?preview=${previewKey}` : '';
+
+  const copyPreview = async () => {
+    if (!previewUrl) return;
+    try { await navigator.clipboard.writeText(previewUrl); setToast('プレビューリンクをコピーしました'); }
+    catch { setToast('コピーに失敗しました。リンクを手動で選択してください'); }
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const regeneratePreview = async () => {
+    setRegenerating(true);
+    const next = (crypto.randomUUID?.() || `${Date.now()}${Math.round(Math.random() * 1e9)}`).replace(/-/g, '');
+    const { error } = await supabase.from('site_settings')
+      .upsert({ id: 1, preview_key: next, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+    setRegenerating(false);
+    if (error) { setToast('再生成に失敗しました：' + error.message); setTimeout(() => setToast(null), 5000); return; }
+    setPreviewKey(next);
+    setToast('新しいプレビューリンクを発行しました（以前のリンクは無効になりました）');
+    setTimeout(() => setToast(null), 4000);
+  };
 
   const change = async (next: SiteMode) => {
     if (next === mode) return;
@@ -1024,6 +1058,37 @@ function AdminSiteTab() {
           );
         })}
       </div>
+
+      {/* プレビュー共有リンク（ログイン不要で全画面を見せる） */}
+      {!tableMissing && (
+        <div style={{ marginTop: 28, background: '#fff', border: '1px solid #EFE8DF', borderRadius: 14, padding: isMobile ? '16px' : '20px 22px' }}>
+          <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 6, color: '#1C1813' }}>🔗 プレビュー共有リンク</div>
+          <p style={{ fontSize: 12.5, color: '#57514A', lineHeight: 1.7, margin: '0 0 14px' }}>
+            公開前・メンテナンス中でも、このリンクを開いた相手（管理者ログイン不要）はその端末で本番画面を全て閲覧できます。商談で共有する用です。検索エンジンには引き続き表示されません。
+          </p>
+          {previewMissing ? (
+            <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10, padding: '12px 16px', fontSize: 13, color: '#92400E', lineHeight: 1.7 }}>
+              プレビューリンク機能を使うには <code>sql/2026-07-24_preview_key.sql</code> を Supabase の SQL Editor で実行してください。
+            </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <input readOnly value={previewUrl} onFocus={(e) => e.currentTarget.select()}
+                  style={{ flex: 1, minWidth: 220, border: '1px solid #EFE8DF', borderRadius: 10, padding: '11px 14px', fontFamily: 'var(--font-mono)', fontSize: 12.5, color: '#1C1813', background: '#FBF8F4', outline: 'none' }} />
+                <button onClick={copyPreview} disabled={!previewUrl}
+                  style={{ background: '#F2620C', color: '#fff', border: 'none', borderRadius: 10, padding: '11px 18px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>コピー</button>
+                <button onClick={regeneratePreview} disabled={regenerating}
+                  style={{ background: '#fff', color: '#B91C1C', border: '1px solid #FECACA', borderRadius: 10, padding: '11px 16px', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: 13, cursor: regenerating ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
+                  {regenerating ? '再生成中...' : 'リンクを無効化して再生成'}
+                </button>
+              </div>
+              <p style={{ fontSize: 11.5, color: '#938B81', margin: '10px 0 0', lineHeight: 1.6 }}>
+                ※「再生成」すると以前に共有したリンクは使えなくなります。相手はリンクを開くと以後その端末で見られ続けます（閲覧をやめさせたい場合は再生成してください）。
+              </p>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
