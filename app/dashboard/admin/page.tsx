@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/utils/supabase';
 import { usePendingJobs } from '@/utils/useNotifications';
 import { useIsMobile } from '@/utils/useIsMobile';
+import { SITE_MODES, SITE_MODE_LABELS, type SiteMode } from '@/utils/siteMode';
 
 interface User { id: string; email?: string; }
 interface Stats { totalUsers: number; totalStudents: number; totalCompanies: number; totalJobs: number; totalApplications: number; }
-type Tab = 'overview' | 'jobs' | 'companies' | 'students' | 'forms' | 'tags' | 'legal' | 'mail';
+type Tab = 'overview' | 'jobs' | 'companies' | 'students' | 'forms' | 'tags' | 'legal' | 'mail' | 'site';
 
 const F = {
   label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#57514A', marginBottom: 8 } as React.CSSProperties,
@@ -59,6 +60,7 @@ export default function AdminDashboard() {
     { key: 'tags', label: 'タグ管理' },
     { key: 'legal', label: '規約・ポリシー' },
     { key: 'mail', label: 'メール文面' },
+    { key: 'site', label: 'サイト状態' },
   ];
 
   const STAT_CARDS = [
@@ -126,6 +128,7 @@ export default function AdminDashboard() {
         {tab === 'tags' && <AdminTagsTab />}
         {tab === 'legal' && <AdminLegalTab />}
         {tab === 'mail' && <AdminMailTab />}
+        {tab === 'site' && <AdminSiteTab />}
       </div>
     </div>
   );
@@ -946,6 +949,84 @@ const LEGAL_DOCS = [
   { slug: 'terms-company', title: '利用規約（企業版）', path: '/terms/company' },
   { slug: 'privacy-policy', title: 'プライバシーポリシー', path: '/privacy-policy' },
 ];
+
+// サイト公開モードの切り替え（公開／公開前／メンテナンス）
+function AdminSiteTab() {
+  const isMobile = useIsMobile();
+  const [mode, setMode] = useState<SiteMode | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<SiteMode | null>(null);
+  const [tableMissing, setTableMissing] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.from('site_settings').select('site_mode').eq('id', 1).maybeSingle().then(({ data, error }) => {
+      if (error) { setTableMissing(true); setLoading(false); return; }
+      setMode(((data?.site_mode as SiteMode) || 'public'));
+      setLoading(false);
+    });
+  }, []);
+
+  const change = async (next: SiteMode) => {
+    if (next === mode) return;
+    setSaving(next);
+    // 1行のみ（id=1）。無ければINSERT、あればUPDATE。
+    const { error } = await supabase.from('site_settings')
+      .upsert({ id: 1, site_mode: next, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+    setSaving(null);
+    if (error) { setToast('切り替えに失敗しました：' + error.message); setTimeout(() => setToast(null), 5000); return; }
+    setMode(next);
+    setToast(`「${SITE_MODE_LABELS[next]}」に切り替えました`);
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  const DESC: Record<SiteMode, string> = {
+    public: '通常公開。全ページを一般公開し、検索エンジンにも登録されます。',
+    prelaunch: '公開前。一般訪問者には「準備中」ページのみ表示し、学生登録・企業の方への導線だけ通します。求人検索・一覧・詳細は非表示。検索エンジンには登録されません（noindex）。',
+    maintenance: 'メンテナンス中。一般訪問者には「メンテナンス」ページを表示します。検索エンジンには登録されません（noindex）。',
+  };
+
+  if (loading) return <div style={{ color: '#938B81', fontSize: 14 }}>読み込み中...</div>;
+
+  return (
+    <div>
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: '#F0FDF4', border: '1px solid #BBF7D0', color: '#15803D', borderRadius: 12, padding: '14px 24px', fontWeight: 700, fontSize: 14, boxShadow: '0 8px 32px rgba(0,0,0,.12)' }}>{toast}</div>
+      )}
+      <h2 style={{ fontWeight: 900, fontSize: 22, margin: '0 0 6px' }}>サイト状態</h2>
+      <p style={{ fontSize: 13, color: '#938B81', margin: '0 0 20px' }}>サイト全体の公開状態を切り替えます。管理者（あなた）はどのモードでも全ページを閲覧できます（商談・保守用）。</p>
+
+      {tableMissing && (
+        <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '12px 16px', marginBottom: 20, fontSize: 13, color: '#B91C1C', lineHeight: 1.7 }}>
+          <strong>site_settings テーブルが未作成です。</strong><br />
+          <code>sql/2026-07-24_site_mode.sql</code> を Supabase の SQL Editor で実行してください。実行するまで切り替えは保存されません。
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {SITE_MODES.map((m) => {
+          const active = mode === m;
+          return (
+            <button key={m} onClick={() => change(m)} disabled={!!saving || tableMissing}
+              style={{ textAlign: 'left', background: active ? '#FFF8F5' : '#fff', border: `1.5px solid ${active ? '#F2620C' : '#EFE8DF'}`, borderRadius: 14, padding: isMobile ? '16px' : '18px 22px', cursor: saving || tableMissing ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 16, opacity: tableMissing ? 0.6 : 1 }}>
+              <div style={{ width: 22, height: 22, borderRadius: '50%', border: `2px solid ${active ? '#F2620C' : '#C2B8AC'}`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {active && <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#F2620C' }} />}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 4, color: '#1C1813' }}>
+                  {SITE_MODE_LABELS[m]}
+                  {active && <span style={{ marginLeft: 10, fontSize: 11, fontWeight: 700, color: '#15803D', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 999, padding: '2px 10px' }}>現在</span>}
+                </div>
+                <div style={{ fontSize: 12.5, color: '#57514A', lineHeight: 1.7 }}>{DESC[m]}</div>
+              </div>
+              {saving === m && <div style={{ fontSize: 12, color: '#938B81', flexShrink: 0 }}>切替中...</div>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function AdminLegalTab() {
   const isMobile = useIsMobile();
