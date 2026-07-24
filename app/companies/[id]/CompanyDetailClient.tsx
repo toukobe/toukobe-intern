@@ -220,7 +220,7 @@ export default function CompanyProfilePage() {
             {/* 会社概要 */}
             <div style={{ background: '#FBF8F4', borderRadius: 12, padding: '20px 24px' }}>
               <div style={{ fontSize: 12, color: '#938B81', marginBottom: 8, fontFamily: MONO, letterSpacing: '.1em' }}>ABOUT</div>
-              <p style={{ fontSize: 14, lineHeight: 1.9, color: '#3A352F', margin: 0 }}>
+              <p style={{ fontSize: 14, lineHeight: 1.9, color: '#3A352F', margin: 0, whiteSpace: 'pre-wrap' }}>
                 {company.description || PLACEHOLDER.description}
               </p>
             </div>

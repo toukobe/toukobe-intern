@@ -423,7 +423,7 @@ export default function CompanyDashboard() {
               {company?.description && (
                 <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '16px 20px' }}>
                   <div style={{ fontSize: 12, color: '#938B81', marginBottom: 6 }}>会社概要</div>
-                  <p style={{ margin: 0, fontSize: 14, lineHeight: 1.8, color: '#3A352F' }}>{company.description}</p>
+                  <p style={{ margin: 0, fontSize: 14, lineHeight: 1.8, color: '#3A352F', whiteSpace: 'pre-wrap' }}>{company.description}</p>
                 </div>
               )}
               {!company?.description && (
