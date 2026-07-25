@@ -641,7 +641,7 @@ export default function JobDetailPage() {
                   </div>
                 </div>
                 {job.companies.description && (
-                  <p style={{ fontSize: 14, lineHeight: 1.85, color: '#57514A', margin: '0 0 18px', padding: '14px 16px', background: '#FBF8F4', borderRadius: 10 }}>{job.companies.description}</p>
+                  <p style={{ fontSize: 14, lineHeight: 1.85, color: '#57514A', margin: '0 0 18px', padding: '14px 16px', background: '#FBF8F4', borderRadius: 10, whiteSpace: 'pre-wrap' }}>{job.companies.description}</p>
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 10, marginBottom: 18 }}>
                   {job.companies.location && <div style={{ background: '#FBF8F4', borderRadius: 10, padding: '12px 14px' }}><div style={{ fontSize: 11, color: '#938B81', marginBottom: 4 }}>📍 所在地</div><div style={{ fontWeight: 600, fontSize: 13 }}>{job.companies.location}</div></div>}

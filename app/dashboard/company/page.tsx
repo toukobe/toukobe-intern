@@ -99,11 +99,11 @@ export default function CompanyDashboard() {
     try {
       const ext = file.name.split('.').pop();
       const path = `${company.id}/logo_${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from('company-logos').upload(path, file);
-      if (upErr) { showToast('アップロードに失敗しました', 'error'); return; }
+      const { error: upErr } = await supabase.storage.from('company-logos').upload(path, file, { contentType: file.type || undefined });
+      if (upErr) { showToast('アップロードに失敗しました：' + upErr.message, 'error'); return; }
       const { data: urlData } = supabase.storage.from('company-logos').getPublicUrl(path);
       const { error: dbErr } = await supabase.from('companies').update({ logo_url: urlData.publicUrl }).eq('id', company.id);
-      if (dbErr) { showToast('ロゴの保存に失敗しました', 'error'); return; }
+      if (dbErr) { showToast('ロゴの保存に失敗しました：' + dbErr.message, 'error'); return; }
       showToast('ロゴを更新しました');
       setCompany({ ...company, logo_url: urlData.publicUrl });
     } finally {
@@ -126,11 +126,11 @@ export default function CompanyDashboard() {
     try {
       const ext = file.name.split('.').pop();
       const path = `${company.id}/cover_${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from('company-logos').upload(path, file);
-      if (upErr) { showToast('アップロードに失敗しました', 'error'); return; }
+      const { error: upErr } = await supabase.storage.from('company-logos').upload(path, file, { contentType: file.type || undefined });
+      if (upErr) { showToast('アップロードに失敗しました：' + upErr.message, 'error'); return; }
       const { data: urlData } = supabase.storage.from('company-logos').getPublicUrl(path);
       const { error: dbErr } = await supabase.from('companies').update({ cover_url: urlData.publicUrl }).eq('id', company.id);
-      if (dbErr) { showToast('背景画像の保存に失敗しました', 'error'); return; }
+      if (dbErr) { showToast('背景画像の保存に失敗しました：' + dbErr.message, 'error'); return; }
       showToast('背景画像を更新しました');
       setCompany({ ...company, cover_url: urlData.publicUrl });
     } finally {
