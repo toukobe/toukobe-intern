@@ -131,16 +131,21 @@ export default function EditJobPage() {
       let cover_image_url = formData.cover_image_url ?? null;
 
       if (coverFile) {
-        const ext = coverFile.name.split('.').pop();
-        const path = `${formData.company_id}/${jobId}.${ext}`;
-        const oldPath = formData.cover_image_url ? formData.cover_image_url.split('/job-covers/')[1]?.split('?')[0] : null;
-        if (oldPath && oldPath !== path) {
-          await supabase.storage.from('job-covers').remove([oldPath]);
-        }
-        const { error: upErr } = await supabase.storage.from('job-covers').upload(path, coverFile, { upsert: true });
+        // 毎回ユニークなパスに新規アップロード(INSERT)する。
+        // 固定パスへの upsert 上書きは、既存ファイルの所有者が異なるとRLSで失敗する
+        // （＝「既存カバーの差し替えだけエラー」の原因）ため避ける。新URLになるので表示キャッシュ対策にもなる。
+        const ext = (coverFile.name.split('.').pop() || 'png').toLowerCase();
+        const folder = formData.company_id || 'jobs';
+        const path = `${folder}/${jobId}_${Date.now()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from('job-covers').upload(path, coverFile, { contentType: coverFile.type || undefined });
         if (upErr) throw upErr;
         const { data: urlData } = supabase.storage.from('job-covers').getPublicUrl(path);
         cover_image_url = urlData.publicUrl;
+        // 古いカバーはベストエフォートで削除（失敗しても差し替え自体は成功させる）
+        const oldPath = formData.cover_image_url ? formData.cover_image_url.split('/job-covers/')[1]?.split('?')[0] : null;
+        if (oldPath && oldPath !== path) {
+          supabase.storage.from('job-covers').remove([oldPath]).catch(() => {});
+        }
       }
 
       // 詳細カラムはDBから読み込めた場合のみ更新対象に含める（マイグレーション未実行でも壊れない）
