@@ -35,6 +35,8 @@ interface JobDetail {
   training?: string | null;
   alumni_placements?: string | null;
   feature_tags?: string[] | null;
+  // 求人ごとの自由項目（2026-08-18追加）
+  custom_fields?: { label: string; value: string }[] | null;
   companies: {
     company_name: string;
     industry: string;
@@ -58,6 +60,47 @@ interface User {
 
 interface UserType {
   user_type: string;
+}
+
+// 任意入力のテキストセクション（未入力なら非表示）
+function TextSection({ title, text, isMobile }: { title: string; text?: string | null; isMobile: boolean }) {
+  if (!text?.trim()) return null;
+  return (
+    <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 14, padding: isMobile ? '20px 16px' : '28px 32px', marginBottom: 16 }}>
+      <h2 style={{ fontWeight: 900, fontSize: 18, margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ width: 4, height: 20, background: '#F2620C', borderRadius: 2, display: 'inline-block' }} />{title}
+      </h2>
+      <p style={{ fontSize: 14, lineHeight: 1.9, color: '#3A352F', margin: 0, whiteSpace: 'pre-wrap' }}>{text}</p>
+    </div>
+  );
+}
+
+// 選考プロセスを STEP1, STEP2… の縦タイムラインで表示する（改行区切りテキストを整形）
+function StepsSection({ title, text, isMobile }: { title: string; text?: string | null; isMobile: boolean }) {
+  const steps = (text || '').replace(/\r\n/g, '\n').split('\n').map(s => s.trim().replace(/^STEP\s*\d+[\s:：.]*/i, '').trim()).filter(Boolean);
+  if (steps.length === 0) return null;
+  return (
+    <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 14, padding: isMobile ? '20px 16px' : '28px 32px', marginBottom: 16 }}>
+      <h2 style={{ fontWeight: 900, fontSize: 18, margin: '0 0 20px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ width: 4, height: 20, background: '#F2620C', borderRadius: 2, display: 'inline-block' }} />{title}
+      </h2>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+        {steps.map((s, i) => (
+          <div key={i} style={{ display: 'flex', gap: 16 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#F2620C', color: '#fff', fontWeight: 900, fontSize: 11, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'var(--font-mono)', lineHeight: 1.1 }}>
+                <span style={{ fontSize: 8 }}>STEP</span>{i + 1}
+              </div>
+              {i < steps.length - 1 && <div style={{ width: 2, flex: 1, background: '#EFE8DF', margin: '6px 0' }} />}
+            </div>
+            <div style={{ paddingBottom: i < steps.length - 1 ? 20 : 0, paddingTop: 10, flex: 1 }}>
+              <p style={{ fontSize: 14.5, color: '#3A352F', margin: 0, lineHeight: 1.7 }}>{s}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function JobDetailPage() {
@@ -84,47 +127,6 @@ export default function JobDetailPage() {
   const [motivation, setMotivation] = useState('');
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
-
-  // 任意入力のテキストセクション（未入力なら非表示）
-  const TextSection = ({ title, text }: { title: string; text?: string | null }) => {
-    if (!text?.trim()) return null;
-    return (
-      <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 14, padding: isMobile ? '20px 16px' : '28px 32px', marginBottom: 16 }}>
-        <h2 style={{ fontWeight: 900, fontSize: 18, margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ width: 4, height: 20, background: '#F2620C', borderRadius: 2, display: 'inline-block' }} />{title}
-        </h2>
-        <p style={{ fontSize: 14, lineHeight: 1.9, color: '#3A352F', margin: 0, whiteSpace: 'pre-wrap' }}>{text}</p>
-      </div>
-    );
-  };
-
-  // 選考プロセスを STEP1, STEP2… の縦タイムラインで表示する（改行区切りテキストを整形）
-  const StepsSection = ({ title, text }: { title: string; text?: string | null }) => {
-    const steps = (text || '').replace(/\r\n/g, '\n').split('\n').map(s => s.trim().replace(/^STEP\s*\d+[\s:：.]*/i, '').trim()).filter(Boolean);
-    if (steps.length === 0) return null;
-    return (
-      <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 14, padding: isMobile ? '20px 16px' : '28px 32px', marginBottom: 16 }}>
-        <h2 style={{ fontWeight: 900, fontSize: 18, margin: '0 0 20px', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ width: 4, height: 20, background: '#F2620C', borderRadius: 2, display: 'inline-block' }} />{title}
-        </h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-          {steps.map((s, i) => (
-            <div key={i} style={{ display: 'flex', gap: 16 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#F2620C', color: '#fff', fontWeight: 900, fontSize: 11, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontFamily: 'var(--font-mono)', lineHeight: 1.1 }}>
-                  <span style={{ fontSize: 8 }}>STEP</span>{i + 1}
-                </div>
-                {i < steps.length - 1 && <div style={{ width: 2, flex: 1, background: '#EFE8DF', margin: '6px 0' }} />}
-              </div>
-              <div style={{ paddingBottom: i < steps.length - 1 ? 20 : 0, paddingTop: 10, flex: 1 }}>
-                <p style={{ fontSize: 14.5, color: '#3A352F', margin: 0, lineHeight: 1.7 }}>{s}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
 
   // Fetch job — no auth required
   useEffect(() => {
@@ -547,16 +549,12 @@ export default function JobDetailPage() {
             </div>
 
             {/* 内定実績 */}
-            <TextSection title="インターン卒業生の内定実績" text={job.alumni_placements} />
+            <TextSection isMobile={isMobile} title="インターン卒業生の内定実績" text={job.alumni_placements} />
 
-            {/* 応募要件 */}
-            {job.requirements && (
-              <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 14, padding: isMobile ? '20px 16px' : '28px 32px', marginBottom: 16 }}>
-                <h2 style={{ fontWeight: 900, fontSize: 18, margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ width: 4, height: 20, background: '#F2620C', borderRadius: 2, display: 'inline-block' }} />応募要件
-                </h2>
-                <p style={{ fontSize: 14, lineHeight: 1.9, color: '#3A352F', margin: 0, whiteSpace: 'pre-wrap' }}>{job.requirements}</p>
-              </div>
+            {/* 旧「応募要件」は「必須条件」に一本化した。
+                SQLの移行前で応募要件にしか文章が無い求人だけ、必須条件として表示する */}
+            {!job.required_conditions?.trim() && (
+              <TextSection isMobile={isMobile} title="必須条件" text={job.requirements} />
             )}
 
             {/* 募集要項 */}
@@ -617,11 +615,16 @@ export default function JobDetailPage() {
             </div>
 
             {/* 条件・選考など（入力があるものだけ表示） */}
-            <TextSection title="必須条件" text={job.required_conditions} />
-            <TextSection title="歓迎条件" text={job.welcome_conditions} />
-            <TextSection title="求める人物像" text={job.ideal_candidate} />
-            <StepsSection title="選考プロセス" text={job.selection_process} />
-            <TextSection title="研修・教育制度" text={job.training} />
+            <TextSection isMobile={isMobile} title="必須条件" text={job.required_conditions} />
+            <TextSection isMobile={isMobile} title="歓迎条件" text={job.welcome_conditions} />
+            <TextSection isMobile={isMobile} title="求める人物像" text={job.ideal_candidate} />
+            <StepsSection isMobile={isMobile} title="選考プロセス" text={job.selection_process} />
+            <TextSection isMobile={isMobile} title="研修・教育制度" text={job.training} />
+
+            {/* この求人だけの項目（企業が自由に追加したもの） */}
+            {(job.custom_fields || []).map((f, i) => (
+              <TextSection isMobile={isMobile} key={`${f.label}-${i}`} title={f.label} text={f.value} />
+            ))}
 
             {/* 企業情報 */}
             {job.companies && (

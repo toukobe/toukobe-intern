@@ -453,7 +453,11 @@ function AdminCompaniesTab() {
                       <div style={{ fontWeight: 700, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{j.job_title}</div>
                       <div style={{ fontSize: 11, color: '#938B81' }}>{JOB_STATUS[j.status] || j.status}</div>
                     </div>
-                    <button onClick={() => router.push(`/dashboard/edit-job/${j.id}`)} style={{ flexShrink: 0, background: '#FFF1E8', color: '#F2620C', border: '1px solid #FBD5C0', borderRadius: 8, padding: '7px 16px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>編集</button>
+                    <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                      <button onClick={() => router.push(`/dashboard/edit-job/${j.id}`)} style={{ background: '#FFF1E8', color: '#F2620C', border: '1px solid #FBD5C0', borderRadius: 8, padding: '7px 16px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>編集</button>
+                      {/* 内容を引き継いだ新規作成画面を開く（保存するまでは何も作られない） */}
+                      <button onClick={() => router.push(`/dashboard/post-job?company=${jobsFor.id}&copy=${j.id}`)} title="この求人の内容をコピーして新しい求人を作る" style={{ background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 8, padding: '7px 16px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>複製</button>
+                    </div>
                   </div>
                 ))}
               </div>

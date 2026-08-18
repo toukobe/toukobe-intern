@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { GA_MEASUREMENT_ID } from "./utils/analytics";
 
 // Supabase の接続先は環境変数から組み立てる（connect-src を https: 全開放にしないため）
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -7,7 +8,7 @@ const isDev = process.env.NODE_ENV !== "production";
 
 // Googleアナリティクス(GA4)を入れている場合だけ、Googleのドメインを許可する。
 // 測定IDが未設定のうちは許可しない（必要になるまで穴を開けない）。
-const gaEnabled = Boolean(process.env.NEXT_PUBLIC_GA_ID);
+const gaEnabled = Boolean(GA_MEASUREMENT_ID);
 const gaScriptSrc = gaEnabled ? " https://www.googletagmanager.com" : "";
 const gaConnectSrc = gaEnabled
   ? " https://www.googletagmanager.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com"

@@ -4,9 +4,7 @@ import Script from 'next/script';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect } from 'react';
 
-// 測定ID（G-XXXXXXXXXX）。Vercelの環境変数 NEXT_PUBLIC_GA_ID に設定する。
-// 未設定なら何も出力しないので、IDが決まるまではタグが一切入らない。
-const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
+import { GA_MEASUREMENT_ID as GA_ID } from '@/utils/analytics';
 
 declare global {
   interface Window {

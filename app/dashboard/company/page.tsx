@@ -389,6 +389,8 @@ export default function CompanyDashboard() {
                         <button onClick={() => handleStatusChange(job.id, 'pending')} style={{ background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '7px 13px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>承認申請</button>
                       )}
                       <button onClick={() => router.push(`/dashboard/edit-job/${job.id}`)} style={{ background: '#F3EEE7', color: '#57514A', border: 'none', borderRadius: 8, padding: '7px 14px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>編集</button>
+                      {/* 内容を引き継いだ新規求人の作成画面を開く（保存するまでは何も作られない） */}
+                      <button onClick={() => router.push(`/dashboard/post-job?copy=${job.id}`)} title="この求人の内容をコピーして新しい求人を作る" style={{ background: '#FFF3E9', color: '#C2530A', border: '1px solid #FBD5B5', borderRadius: 8, padding: '7px 14px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>複製</button>
                       <button onClick={() => handleDeleteJob(job.id)} style={{ background: '#FFF1EE', color: '#C2390A', border: 'none', borderRadius: 8, padding: '7px 14px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>削除</button>
                     </div>
                   </div>
