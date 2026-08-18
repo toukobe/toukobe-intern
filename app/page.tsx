@@ -57,6 +57,17 @@ interface UserType {
   user_type: string;
 }
 
+// トップの勤務地セレクト。値は検索ページの都道府県セレクト（utils/constants の PREFECTURES）と
+// 一致させる必要がある。ズレていると /search 側でセレクトが空に戻り、絞り込みが解除されてしまう。
+// 「フルリモート」だけは勤務地ではなく働き方の条件として渡す。
+const LOCATION_OPTIONS = ['東京都', '神奈川県', '大阪府', '愛知県', '福岡県', 'フルリモート'];
+
+function applyLocationParam(params: URLSearchParams, loc: string) {
+  if (!loc) return;
+  if (loc === 'フルリモート') params.set('condition', 'フルリモート');
+  else params.set('location', loc);
+}
+
 const cats = [
   'コンサルティング', '経営・企画', '金融・ファイナンス', 'マーケティング',
   'エンジニア', 'デザイナー', '営業', 'ライター・メディア',
@@ -264,16 +275,12 @@ export default function Home() {
                 <div style={{ position: 'relative', flex: 1 }}>
                   <select value={selectedLocation} onChange={(e) => setSelectedLocation(e.target.value)} style={{ width: '100%', border: '1px solid #EFE8DF', borderRadius: 6, padding: '10px 28px 10px 12px', fontFamily: "var(--font-sans)", fontSize: 13, color: '#57514A', outline: 'none', background: '#fff', cursor: 'pointer' }}>
                     <option value="">勤務地</option>
-                    <option value="東京">東京</option>
-                    <option value="大阪">大阪</option>
-                    <option value="名古屋">名古屋</option>
-                    <option value="福岡">福岡</option>
-                    <option value="リモート">リモート</option>
+                    {LOCATION_OPTIONS.map((l) => <option key={l} value={l}>{l}</option>)}
                   </select>
                   <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#C2B8AC', pointerEvents: 'none', fontSize: 10 }}>▼</span>
                 </div>
               </div>
-              <button className="btn-primary" onClick={() => { const p = new URLSearchParams(); if (searchQuery) p.set('q', searchQuery); if (selectedCategory) p.set('category', selectedCategory); if (selectedLocation) p.set('location', selectedLocation); router.push(`/search?${p.toString()}`); }} style={{ background: '#F2620C', color: '#fff', border: 'none', padding: '13px', borderRadius: 6, fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>検索する</button>
+              <button className="btn-primary" onClick={() => { const p = new URLSearchParams(); if (searchQuery) p.set('q', searchQuery); if (selectedCategory) p.set('category', selectedCategory); applyLocationParam(p, selectedLocation); router.push(`/search?${p.toString()}`); }} style={{ background: '#F2620C', color: '#fff', border: 'none', padding: '13px', borderRadius: 6, fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>検索する</button>
             </div>
           ) : (
             <div className="anim-fade-up anim-delay-3" style={{ maxWidth: 860, background: '#fff', border: '1px solid #E9DFD2', borderRadius: 12, boxShadow: '0 1px 3px rgba(28,24,19,.06)', padding: 10, display: 'flex', gap: 8, alignItems: 'center', textAlign: 'left' }}>
@@ -291,22 +298,18 @@ export default function Home() {
               <div style={{ position: 'relative', flex: 1 }}>
                 <select value={selectedLocation} onChange={(e) => setSelectedLocation(e.target.value)} style={{ width: '100%', border: 'none', borderLeft: '1px solid #EFE8DF', padding: '14px 32px 14px 18px', fontFamily: "var(--font-sans)", fontSize: 14, color: '#57514A', outline: 'none', background: '#fff', cursor: 'pointer' }}>
                   <option value="">勤務地</option>
-                  <option value="東京">東京</option>
-                  <option value="大阪">大阪</option>
-                  <option value="名古屋">名古屋</option>
-                  <option value="福岡">福岡</option>
-                  <option value="リモート">リモート</option>
+                  {LOCATION_OPTIONS.map((l) => <option key={l} value={l}>{l}</option>)}
                 </select>
                 <span style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', color: '#C2B8AC', pointerEvents: 'none', fontSize: 11 }}>▼</span>
               </div>
-              <button className="btn-primary" onClick={() => { const params = new URLSearchParams(); if (searchQuery) params.set('q', searchQuery); if (selectedCategory) params.set('category', selectedCategory); if (selectedLocation) params.set('location', selectedLocation); router.push(`/search?${params.toString()}`); }} style={{ background: '#F2620C', color: '#fff', border: 'none', padding: '15px 34px', borderRadius: 8, fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 15, cursor: 'pointer', whiteSpace: 'nowrap' }}>検索する</button>
+              <button className="btn-primary" onClick={() => { const params = new URLSearchParams(); if (searchQuery) params.set('q', searchQuery); if (selectedCategory) params.set('category', selectedCategory); applyLocationParam(params, selectedLocation); router.push(`/search?${params.toString()}`); }} style={{ background: '#F2620C', color: '#fff', border: 'none', padding: '15px 34px', borderRadius: 8, fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 15, cursor: 'pointer', whiteSpace: 'nowrap' }}>検索する</button>
             </div>
           )}
 
           <div className="anim-fade-up anim-delay-4" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 11.5, color: '#938B81' }}>人気：</span>
             {(isMobile ? popularTags.slice(0, 4) : popularTags.slice(0, 8)).map((p) => (
-              <span key={p} className="pill-link" style={{ fontSize: 11.5, color: '#6D28D9', background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 999, padding: '5px 12px', cursor: 'pointer' }} onClick={() => router.push(`/search?tag=${encodeURIComponent(p)}`)}>
+              <span key={p} className="pill-link" style={{ fontSize: 11.5, color: '#C2530A', background: '#FFF3E9', border: '1px solid #FBD5B5', borderRadius: 999, padding: '5px 12px', cursor: 'pointer' }} onClick={() => router.push(`/search?tag=${encodeURIComponent(p)}`)}>
                 #{p}
               </span>
             ))}
@@ -315,14 +318,16 @@ export default function Home() {
 
           {!isMobile && (
             <div className="anim-fade anim-delay-2" style={{ width: 400, flexShrink: 0, position: 'relative' }}>
-              <img src="/images/hero-office.jpg" alt="" fetchPriority="high" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: 18, display: 'block' }} />
-              <div style={{ position: 'absolute', inset: 0, borderRadius: 18, background: 'linear-gradient(205deg, rgba(242,98,12,.16) 0%, rgba(242,98,12,0) 42%, rgba(28,24,19,.10) 100%)', pointerEvents: 'none' }} />
+              {/* 学生と企業の面談カット。枠(400x430)に合わせて事前に切り出し済み（public/images/hero-intern-meeting.jpg）
+                  差し替えるときは同じ比率で書き出すと、顔の位置がずれない */}
+              <img src="/images/hero-intern-meeting.jpg" alt="" fetchPriority="high" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 30%', borderRadius: 18, display: 'block' }} />
+              {/* 左下のバッジを読みやすくするための、ブランドカラー寄りのごく薄いオーバーレイ */}
+              <div style={{ position: 'absolute', inset: 0, borderRadius: 18, background: 'linear-gradient(205deg, rgba(242,98,12,.14) 0%, rgba(242,98,12,0) 44%, rgba(28,24,19,.16) 100%)', pointerEvents: 'none' }} />
               <div style={{ position: 'absolute', inset: 0, borderRadius: 18, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.35)', pointerEvents: 'none' }} />
               <div style={{ position: 'absolute', left: 18, bottom: 18, background: 'rgba(255,255,255,.94)', backdropFilter: 'blur(4px)', borderRadius: 10, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <img src="/icon.svg" alt="" style={{ width: 26, height: 26 }} />
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#1C1813', lineHeight: 1.4 }}>審査を通過した企業のみ掲載</div>
-                  <div style={{ fontSize: 11, color: '#938B81' }}>上場企業・資金調達済スタートアップ</div>
                 </div>
               </div>
             </div>

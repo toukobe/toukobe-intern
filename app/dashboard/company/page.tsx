@@ -6,6 +6,7 @@ import { supabase } from '@/utils/supabase';
 import ImagePositionPicker from '@/components/ImagePositionPicker';
 import { COVER_ASPECT } from '@/utils/coverImage';
 import { useIsMobile } from '@/utils/useIsMobile';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 interface User { id: string; email?: string; }
 interface Job { id: string; job_title: string; salary: string; location: string; status: string; cover_image_url?: string | null; cover_image_position?: string | null; }
@@ -33,6 +34,9 @@ export default function CompanyDashboard() {
   useEffect(() => { document.title = 'ダッシュボード | トウコべインターン'; return () => { document.title = 'トウコべインターン'; }; }, []);
   const [showEdit, setShowEdit] = useState(false);
   const [editForm, setEditForm] = useState({ company_name: '', industry: '', contact_email: '', description: '', website: '', employee_count: '', location: '', founded_year: '', representative: '', related_links: '', alumni_placements: '', intern_voices: '' });
+  // 削除系はすべて確認ダイアログを挟む（ロゴ/背景画像/求人）
+  const [confirmTarget, setConfirmTarget] = useState<{ kind: 'logo' | 'cover' | 'job'; jobId?: string; jobTitle?: string; applications?: number | null } | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
   const [coverUploading, setCoverUploading] = useState(false);
   const [coverPosition, setCoverPosition] = useState('50% 50%');
@@ -111,12 +115,7 @@ export default function CompanyDashboard() {
     }
   };
 
-  const handleLogoDelete = async () => {
-    if (!company || !confirm('ロゴを削除しますか？')) return;
-    const { error } = await supabase.from('companies').update({ logo_url: null }).eq('id', company.id);
-    if (error) { showToast('削除に失敗しました', 'error'); return; }
-    setCompany({ ...company, logo_url: undefined });
-  };
+  const handleLogoDelete = () => { if (company) setConfirmTarget({ kind: 'logo' }); };
 
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -146,12 +145,7 @@ export default function CompanyDashboard() {
     setCoverPositionSaved(true);
   };
 
-  const handleCoverDelete = async () => {
-    if (!company || !confirm('背景画像を削除しますか？')) return;
-    const { error } = await supabase.from('companies').update({ cover_url: null }).eq('id', company.id);
-    if (error) { showToast('削除に失敗しました', 'error'); return; }
-    setCompany({ ...company, cover_url: undefined });
-  };
+  const handleCoverDelete = () => { if (company) setConfirmTarget({ kind: 'cover' }); };
 
   const handleUpdateCompany = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -172,11 +166,61 @@ export default function CompanyDashboard() {
   // 応募者管理と同じく、IDだけを指定して他社の求人を操作できないようにする）
   const handleDeleteJob = async (jobId: string) => {
     if (!company) return;
-    if (!confirm('この求人を削除しますか？')) return;
-    const { error } = await supabase.from('jobs').delete().eq('id', jobId).eq('company_id', company.id);
-    if (error) { showToast('削除に失敗しました', 'error'); return; }
-    setJobs(jobs.filter(j => j.id !== jobId));
-    showToast('求人を削除しました');
+    const job = jobs.find(j => j.id === jobId);
+    setConfirmTarget({ kind: 'job', jobId, jobTitle: job?.job_title || 'この求人', applications: null });
+    // 応募が来ている求人かどうかを確認画面に出す（取得できなくても削除自体は実行できる）
+    const { count } = await supabase.from('applications').select('id', { count: 'exact', head: true }).eq('job_id', jobId);
+    setConfirmTarget(prev => (prev && prev.jobId === jobId ? { ...prev, applications: count ?? 0 } : prev));
+  };
+
+  // 確認ダイアログで「削除する」が押されたときの実処理
+  const runConfirmedDelete = async () => {
+    if (!company || !confirmTarget) return;
+    setConfirmBusy(true);
+    try {
+      if (confirmTarget.kind === 'logo') {
+        const { error } = await supabase.from('companies').update({ logo_url: null }).eq('id', company.id);
+        if (error) { showToast('削除に失敗しました', 'error'); return; }
+        setCompany({ ...company, logo_url: undefined });
+        showToast('ロゴを削除しました');
+      } else if (confirmTarget.kind === 'cover') {
+        const { error } = await supabase.from('companies').update({ cover_url: null }).eq('id', company.id);
+        if (error) { showToast('削除に失敗しました', 'error'); return; }
+        setCompany({ ...company, cover_url: undefined });
+        showToast('背景画像を削除しました');
+      } else if (confirmTarget.jobId) {
+        // 求人の削除は必ず自社IDで絞り込む（RLSに加えた多重防御）
+        const { error } = await supabase.from('jobs').delete().eq('id', confirmTarget.jobId).eq('company_id', company.id);
+        if (error) { showToast('削除に失敗しました', 'error'); return; }
+        setJobs(jobs.filter(j => j.id !== confirmTarget.jobId));
+        showToast('求人を削除しました');
+      }
+      setConfirmTarget(null);
+    } finally {
+      setConfirmBusy(false);
+    }
+  };
+
+  const confirmDialogProps = () => {
+    if (!confirmTarget) return null;
+    if (confirmTarget.kind === 'logo') {
+      return { title: 'ロゴを削除します', description: <>企業ページと求人カードからロゴが消えます。もう一度アップロードすれば元に戻せます。</>, confirmLabel: 'ロゴを削除する', items: undefined as string[] | undefined, requireAck: false, confirmWord: undefined as string | undefined };
+    }
+    if (confirmTarget.kind === 'cover') {
+      return { title: '背景画像を削除します', description: <>企業ページの背景画像が消えます。もう一度アップロードすれば元に戻せます。</>, confirmLabel: '背景画像を削除する', items: undefined as string[] | undefined, requireAck: false, confirmWord: undefined as string | undefined };
+    }
+    const apps = confirmTarget.applications;
+    return {
+      title: `「${confirmTarget.jobTitle}」を削除します`,
+      description: <>この求人を削除します。<strong>元に戻せません。</strong>公開を一時的に止めたいだけなら、削除せず「停止中」に切り替えてください。</>,
+      items: [
+        `この求人に届いた応募 ${apps === null || apps === undefined ? '—' : apps} 件`,
+        '学生のお気に入り登録',
+      ],
+      confirmLabel: '求人を削除する',
+      requireAck: true,
+      confirmWord: undefined as string | undefined,
+    };
   };
 
   const handleStatusChange = async (jobId: string, newStatus: string) => {
@@ -207,6 +251,25 @@ export default function CompanyDashboard() {
           {toast.type === 'success' ? '✓ ' : '✕ '}{toast.msg}
         </div>
       )}
+
+      {(() => {
+        const props = confirmDialogProps();
+        return (
+          <ConfirmDialog
+            open={!!confirmTarget}
+            title={props?.title || ''}
+            description={props?.description}
+            items={props?.items}
+            confirmWord={props?.confirmWord}
+            requireAck={props?.requireAck}
+            confirmLabel={props?.confirmLabel}
+            busy={confirmBusy}
+            onCancel={() => { if (!confirmBusy) setConfirmTarget(null); }}
+            onConfirm={runConfirmedDelete}
+          />
+        );
+      })()}
+
 
       {/* NAV */}
       <div style={{ background: '#fff', borderBottom: '1px solid #EFE8DF', padding: isMobile ? '14px 16px' : '14px 48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 50 }}>

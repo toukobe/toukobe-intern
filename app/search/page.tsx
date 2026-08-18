@@ -438,7 +438,7 @@ function SearchContent() {
                           if (!on) p.set('tag', t); // 同じタグを再クリックで解除
                           router.push(`/search?${p.toString()}`);
                         }}
-                        style={{ fontSize: 12, padding: '6px 14px', borderRadius: 999, border: `1px solid ${on ? '#6D28D9' : '#DDD6FE'}`, background: on ? '#6D28D9' : '#F5F3FF', color: on ? '#fff' : '#6D28D9', fontFamily: FF, fontWeight: on ? 700 : 500, cursor: 'pointer', transition: '.15s' }}
+                        style={{ fontSize: 12, padding: '6px 14px', borderRadius: 999, border: `1px solid ${on ? '#F2620C' : '#FBD5B5'}`, background: on ? '#F2620C' : '#FFF3E9', color: on ? '#fff' : '#C2530A', fontFamily: FF, fontWeight: on ? 700 : 500, cursor: 'pointer', transition: '.15s' }}
                       >
                         #{t}
                       </button>
@@ -484,9 +484,9 @@ function SearchContent() {
             {(keyword || category || location || condition || feature || tag || activeOnly) && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
                 {tag && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, background: '#F5F3FF', color: '#6D28D9', border: '1px solid #DDD6FE', borderRadius: 999, padding: '5px 12px' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, background: '#FFF3E9', color: '#C2530A', border: '1px solid #FBD5B5', borderRadius: 999, padding: '5px 12px' }}>
                     #{tag}
-                    <button onClick={() => { setTag(''); const p = new URLSearchParams(); if (keyword) p.set('q', keyword); if (category) p.set('category', category); if (location) p.set('location', location); if (condition) p.set('condition', condition); if (feature) p.set('feature', feature); if (activeOnly) p.set('active', '1'); router.push(`/search?${p.toString()}`); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6D28D9', padding: 0, lineHeight: 1, fontSize: 14, fontWeight: 900 }}>×</button>
+                    <button onClick={() => { setTag(''); const p = new URLSearchParams(); if (keyword) p.set('q', keyword); if (category) p.set('category', category); if (location) p.set('location', location); if (condition) p.set('condition', condition); if (feature) p.set('feature', feature); if (activeOnly) p.set('active', '1'); router.push(`/search?${p.toString()}`); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#C2530A', padding: 0, lineHeight: 1, fontSize: 14, fontWeight: 900 }}>×</button>
                   </span>
                 )}
                 {keyword && (

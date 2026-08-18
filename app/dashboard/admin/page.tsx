@@ -6,6 +6,7 @@ import { supabase } from '@/utils/supabase';
 import { usePendingJobs } from '@/utils/useNotifications';
 import { useIsMobile } from '@/utils/useIsMobile';
 import { SITE_MODES, SITE_MODE_LABELS, type SiteMode } from '@/utils/siteMode';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 interface User { id: string; email?: string; }
 interface Stats { totalUsers: number; totalStudents: number; totalCompanies: number; totalJobs: number; totalApplications: number; }
@@ -355,12 +356,49 @@ function AdminCompaniesTab() {
     setEditingCompany(null);
   };
 
+  // 削除は確認ダイアログ経由。企業名の入力を求めて誤操作を防ぐ
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; jobs: number | null; applications: number | null } | null>(null);
+  const [deletingCompany, setDeletingCompany] = useState(false);
+
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`「${name}」を削除しますか？\n※関連する求人・応募データも削除されます`)) return;
-    const { error } = await supabase.from('companies').delete().eq('id', id);
-    if (error) { showToast('削除に失敗しました: ' + error.message, 'error'); return; }
-    showToast('削除しました');
-    setCompanies(companies.filter(c => c.id !== id));
+    setDeleteTarget({ id, name, jobs: null, applications: null });
+    // 影響範囲（求人数・応募数）を数えて確認画面に出す。取得できなくても削除自体は実行できる
+    try {
+      const { data: jobRows } = await supabase.from('jobs').select('id').eq('company_id', id);
+      const ids = (jobRows || []).map((j: any) => j.id);
+      let appCount = 0;
+      if (ids.length > 0) {
+        const { count } = await supabase.from('applications').select('id', { count: 'exact', head: true }).in('job_id', ids);
+        appCount = count || 0;
+      }
+      setDeleteTarget(prev => (prev && prev.id === id ? { ...prev, jobs: ids.length, applications: appCount } : prev));
+    } catch {
+      /* 件数が取れなくても確認ダイアログは開いたままにする */
+    }
+  };
+
+  const confirmDeleteCompany = async () => {
+    if (!deleteTarget) return;
+    setDeletingCompany(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('認証セッションが見つかりません');
+      // 求人・応募・ログインアカウントまで消す必要があるため service role のAPI経由で削除する
+      const res = await fetch('/api/admin/delete-company', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ company_id: deleteTarget.id, company_name: deleteTarget.name }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || '削除に失敗しました');
+      setCompanies(companies.filter(c => c.id !== deleteTarget.id));
+      showToast(`「${deleteTarget.name}」を削除しました（求人${result.deleted?.jobs ?? 0}件・応募${result.deleted?.applications ?? 0}件・アカウント${result.deleted?.accounts ?? 0}件）`);
+      setDeleteTarget(null);
+    } catch (err: any) {
+      showToast('削除に失敗しました: ' + err.message, 'error');
+    } finally {
+      setDeletingCompany(false);
+    }
   };
 
   if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><div style={{ width: 36, height: 36, border: '2.5px solid #F2620C', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /></div>;
@@ -374,6 +412,25 @@ function AdminCompaniesTab() {
           {toast.type === 'success' ? '✓ ' : '✕ '}{toast.msg}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title={deleteTarget ? `「${deleteTarget.name}」を削除します` : ''}
+        description={<>この企業に関するデータをすべて削除します。<strong>元に戻せません。</strong>選考中の応募がある場合は、先に企業・学生への連絡を済ませてください。</>}
+        items={deleteTarget ? [
+          `求人 ${deleteTarget.jobs === null ? '—' : deleteTarget.jobs} 件`,
+          `応募データ ${deleteTarget.applications === null ? '—' : deleteTarget.applications} 件（学生のお気に入りも含む）`,
+          'この企業のログインアカウント（ログインできなくなります）',
+          'アップロード済みのロゴ・求人カバー画像',
+        ] : []}
+        confirmWord={deleteTarget?.name}
+        requireAck
+        confirmLabel="企業を削除する"
+        busy={deletingCompany}
+        onCancel={() => { if (!deletingCompany) setDeleteTarget(null); }}
+        onConfirm={confirmDeleteCompany}
+      />
+
       {/* 求人管理モーダル（管理者が企業の求人を作成・編集） */}
       {jobsFor && (
         <div onClick={() => setJobsFor(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
@@ -536,11 +593,18 @@ function AdminTagsTab() {
     setTags([...tags, { name, sort }]); setNewTag('');
     showToast('タグを追加しました');
   };
-  const remove = async (name: string) => {
-    if (!confirm(`タグ「${name}」を削除しますか？`)) return;
-    const { error } = await supabase.from('feature_tag_options').delete().eq('name', name);
+  const [tagToDelete, setTagToDelete] = useState<string | null>(null);
+  const [deletingTag, setDeletingTag] = useState(false);
+  const remove = (name: string) => setTagToDelete(name);
+  const confirmRemoveTag = async () => {
+    if (!tagToDelete) return;
+    setDeletingTag(true);
+    const { error } = await supabase.from('feature_tag_options').delete().eq('name', tagToDelete);
+    setDeletingTag(false);
     if (error) { showToast('削除に失敗しました', 'error'); return; }
-    setTags(tags.filter(t => t.name !== name));
+    setTags(tags.filter(t => t.name !== tagToDelete));
+    showToast(`タグ「${tagToDelete}」を削除しました`);
+    setTagToDelete(null);
   };
 
   if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><div style={{ width: 36, height: 36, border: '2.5px solid #F2620C', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /><style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style></div>;
@@ -561,6 +625,17 @@ function AdminTagsTab() {
           {toast.type === 'success' ? '✓ ' : '✕ '}{toast.msg}
         </div>
       )}
+      <ConfirmDialog
+        open={!!tagToDelete}
+        title={tagToDelete ? `タグ「${tagToDelete}」を削除します` : ''}
+        description={<>このタグは求人投稿フォームの候補・検索チップ・トップページの人気タグから消えます。すでにこのタグが付いている求人からも表示されなくなります。</>}
+        confirmLabel="タグを削除する"
+        requireAck
+        busy={deletingTag}
+        onCancel={() => { if (!deletingTag) setTagToDelete(null); }}
+        onConfirm={confirmRemoveTag}
+      />
+
       <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: '#F2620C', letterSpacing: '.14em', marginBottom: 12 }}>FEATURE TAGS</div>
       <h2 style={{ fontWeight: 900, fontSize: 24, margin: '0 0 8px' }}>タグ管理 ({tags.length})</h2>
       <p style={{ fontSize: 13, color: '#938B81', margin: '0 0 24px' }}>ここで管理するタグが、求人投稿フォームの候補・検索チップ・トップページの人気タグに使われます。</p>
@@ -576,9 +651,9 @@ function AdminTagsTab() {
       ) : (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
           {tags.map(t => (
-            <span key={t.name} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#F5F3FF', color: '#6D28D9', border: '1px solid #DDD6FE', borderRadius: 999, padding: '8px 14px', fontSize: 13, fontWeight: 600 }}>
+            <span key={t.name} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#FFF3E9', color: '#C2530A', border: '1px solid #FBD5B5', borderRadius: 999, padding: '8px 14px', fontSize: 13, fontWeight: 600 }}>
               #{t.name}
-              <button onClick={() => remove(t.name)} title="削除" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6D28D9', padding: 0, lineHeight: 1, fontSize: 16, fontWeight: 900 }}>×</button>
+              <button onClick={() => remove(t.name)} title="削除" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#C2530A', padding: 0, lineHeight: 1, fontSize: 16, fontWeight: 900 }}>×</button>
             </span>
           ))}
         </div>
