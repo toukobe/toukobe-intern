@@ -3,6 +3,7 @@ import { Zen_Kaku_Gothic_New, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import ImageFallback from "@/components/ImageFallback";
 import SiteGate from "@/components/SiteGate";
+import Analytics from "@/components/Analytics";
 
 const zenKaku = Zen_Kaku_Gothic_New({
   weight: ["400", "500", "700", "900"],
@@ -86,6 +87,8 @@ export default function RootLayout({
             ]).replace(/</g, '\\u003c'),
           }}
         />
+        {/* Googleアナリティクス（環境変数 NEXT_PUBLIC_GA_ID が未設定なら何も出力しない） */}
+        <Analytics />
         {/* 画像読み込み失敗時の全アプリ共通フォールバック（壊れ画像アイコンを出さない） */}
         <ImageFallback />
         {/* サイト公開モード（公開前／メンテナンス）のゲート。管理者ページで切替 */}
