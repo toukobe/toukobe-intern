@@ -554,8 +554,9 @@ function AdminCompaniesTab() {
                 <td style={{ padding: '16px 20px', fontSize: 13, color: '#57514A', fontFamily: "var(--font-mono)" }}>{c.contact_email}</td>
                 <td style={{ padding: '16px 20px' }}>
                   <div style={{ display: 'flex', gap: 10 }}>
+                    <span onClick={() => router.push(`/dashboard/company?company=${c.id}`)} style={{ fontSize: 13, color: '#0F766E', fontWeight: 700, cursor: 'pointer' }}>ページ編集</span>
                     <span onClick={() => openJobs(c)} style={{ fontSize: 13, color: '#1D4ED8', fontWeight: 700, cursor: 'pointer' }}>求人管理</span>
-                    <span onClick={() => handleEditOpen(c)} style={{ fontSize: 13, color: '#F2620C', fontWeight: 700, cursor: 'pointer' }}>編集</span>
+                    <span onClick={() => handleEditOpen(c)} style={{ fontSize: 13, color: '#F2620C', fontWeight: 700, cursor: 'pointer' }} title="企業名・業種・連絡先だけを素早く直す">基本情報</span>
                     <span onClick={() => handleDelete(c.id, c.company_name)} style={{ fontSize: 13, color: '#B91C1C', fontWeight: 700, cursor: 'pointer' }}>削除</span>
                   </div>
                 </td>

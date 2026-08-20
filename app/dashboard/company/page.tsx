@@ -31,6 +31,8 @@ export default function CompanyDashboard() {
   const [company, setCompany] = useState<Company | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
+  // 管理者が別の企業のページを編集しているモード（?company=<id> で開いたとき）
+  const [adminEditing, setAdminEditing] = useState(false);
   useEffect(() => { document.title = 'ダッシュボード | トウコべインターン'; return () => { document.title = 'トウコべインターン'; }; }, []);
   const [showEdit, setShowEdit] = useState(false);
   const [editForm, setEditForm] = useState({ company_name: '', industry: '', contact_email: '', description: '', website: '', employee_count: '', location: '', founded_year: '', representative: '', related_links: '', alumni_placements: '', intern_voices: '' });
@@ -78,17 +80,37 @@ export default function CompanyDashboard() {
       if (!session) { router.push('/auth/company-login'); return; }
       setUser(session.user as User);
 
-      const { data: ut } = await supabase.from('user_types').select('company_id').eq('user_id', session.user.id).single();
-      if (!ut?.company_id) { router.push('/auth/company-login'); return; }
+      // 管理者が ?company=<id> を付けて開いた場合は、その企業のページを編集する。
+      // （企業テーブルのRLSで管理者は任意企業をUPDATEできるため、この画面がそのまま使える）
+      const adminCompanyId = new URLSearchParams(window.location.search).get('company');
+      const isAdmin = session.user.email === 'ru_matsumoto@manabiph.com';
+      let targetCompanyId: string | null = null;
 
-      const { data: c } = await supabase.from('companies').select('*').eq('id', ut.company_id).single();
+      if (isAdmin && adminCompanyId) {
+        setAdminEditing(true);
+        targetCompanyId = adminCompanyId;
+      } else {
+        const { data: ut } = await supabase.from('user_types').select('company_id').eq('user_id', session.user.id).single();
+        if (!ut?.company_id) {
+          // 管理者が企業を指定せず開いた場合は管理者ページへ、それ以外は企業ログインへ
+          router.push(isAdmin ? '/dashboard/admin' : '/auth/company-login');
+          return;
+        }
+        targetCompanyId = ut.company_id;
+      }
+
+      const { data: c } = await supabase.from('companies').select('*').eq('id', targetCompanyId).single();
       if (c) {
         setCompany(c);
         setEditForm({ company_name: c.company_name || '', industry: c.industry || '', contact_email: c.contact_email || '', description: c.description || '', website: c.website || '', employee_count: c.employee_count || '', location: c.location || '', founded_year: c.founded_year || '', representative: (c as any).representative || '', related_links: (c as any).related_links || '', alumni_placements: (c as any).alumni_placements || '', intern_voices: (c as any).intern_voices || '' });
         if (c.cover_position) setCoverPosition(c.cover_position);
+      } else if (isAdmin && adminCompanyId) {
+        // 指定IDの企業が見つからないときは管理者ページへ戻す
+        router.push('/dashboard/admin');
+        return;
       }
 
-      const { data: j } = await supabase.from('jobs').select('id,job_title,salary,location,status,cover_image_url,cover_image_position').eq('company_id', ut.company_id).order('created_at', { ascending: false });
+      const { data: j } = await supabase.from('jobs').select('id,job_title,salary,location,status,cover_image_url,cover_image_position').eq('company_id', targetCompanyId).order('created_at', { ascending: false });
       setJobs(j || []);
       setLoading(false);
     }
@@ -282,13 +304,28 @@ export default function CompanyDashboard() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 12 }}>
-          <button onClick={() => router.push('/dashboard/company/applicants')} style={{ background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '10px 20px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-            応募者管理
-          </button>
-          <button onClick={() => { setShowPwModal(true); setPwError(null); }} style={{ background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 8, padding: isMobile ? '10px 12px' : '10px 20px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>{isMobile ? 'PW変更' : 'パスワード変更'}</button>
-          <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} style={{ background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 8, padding: '10px 20px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>ログアウト</button>
+          {adminEditing ? (
+            // 管理者が他社を編集中。パスワード変更・ログアウトは管理者本人のアカウントに
+            // 作用してしまい紛らわしいので出さず、管理者ページへ戻る導線だけ置く
+            <button onClick={() => router.push('/dashboard/admin')} style={{ background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 8, padding: '10px 20px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>← 管理者ページに戻る</button>
+          ) : (
+            <>
+              <button onClick={() => router.push('/dashboard/company/applicants')} style={{ background: '#FFF1E8', color: '#F2620C', border: 'none', borderRadius: 8, padding: '10px 20px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                応募者管理
+              </button>
+              <button onClick={() => { setShowPwModal(true); setPwError(null); }} style={{ background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 8, padding: isMobile ? '10px 12px' : '10px 20px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>{isMobile ? 'PW変更' : 'パスワード変更'}</button>
+              <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} style={{ background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 8, padding: '10px 20px', fontFamily: "var(--font-sans)", fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>ログアウト</button>
+            </>
+          )}
         </div>
       </div>
+
+      {adminEditing && (
+        <div style={{ background: '#1C1813', color: '#fff', padding: isMobile ? '10px 16px' : '10px 48px', display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: '.2em', background: 'rgba(251,169,76,.2)', color: '#FBA94C', padding: '3px 8px', borderRadius: 999 }}>ADMIN</span>
+          <span>管理者として <b>{company?.company_name || 'この企業'}</b> のページを編集しています</span>
+        </div>
+      )}
 
       {/* パスワード変更モーダル */}
       {showPwModal && (
