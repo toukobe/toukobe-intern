@@ -243,7 +243,7 @@ export default function JobFormFields({
 
       {/* ② 応募条件 */}
       <div style={F.section}>
-        <SectionTitle required note="「応募要件」と「必須条件」で同じことを2回書く形になっていたため、必須条件に一本化しました。">応募条件</SectionTitle>
+        <SectionTitle required>応募条件</SectionTitle>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {textarea('required_conditions', '必須条件', '例:\n・基礎的なPCスキルやコミュニケーションスキル\n・週15時間以上稼働できる方', 4, true)}
           {textarea('welcome_conditions', '歓迎条件', '例:\n・半年以上の勤務ができる方\n・団体のリーダー経験がある方', 3)}
