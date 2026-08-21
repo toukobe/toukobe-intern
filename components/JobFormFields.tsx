@@ -29,7 +29,6 @@ export interface JobFormValue {
   // 応募条件
   required_conditions: string;
   welcome_conditions: string;
-  ideal_candidate: string;
   // 働き方
   shift_info: string;
   employment_type: string;
@@ -38,21 +37,45 @@ export interface JobFormValue {
   selection_process: string;
   training: string;
   benefits: string;
-  alumni_placements: string;
-  intern_count: string;
   // タグ・自由項目
   feature_tags: string[];
+  // 求める人物像・内定実績・在籍数などは固定欄をやめ、custom_fields（この求人だけの項目）で
+  // 必要なときだけ追加する方式にした。旧カラムのデータは読み込み時にここへ移して編集できる。
   custom_fields: CustomField[];
 }
 
 export const EMPTY_JOB_FORM: JobFormValue = {
   job_title: '', salary: '', location: '', job_description: '',
   job_categories: [], work_days: [], work_conditions: [], job_features: [],
-  required_conditions: '', welcome_conditions: '', ideal_candidate: '',
+  required_conditions: '', welcome_conditions: '',
   shift_info: '', employment_type: '', address: '',
-  selection_process: '', training: '', benefits: '', alumni_placements: '', intern_count: '',
+  selection_process: '', training: '', benefits: '',
   feature_tags: [], custom_fields: [],
 };
+
+// 旧・固定欄から custom_fields（この求人だけの項目）へ移した項目。
+// 既存の求人を編集/複製で開いたとき、旧カラムの内容をこのラベルで custom_fields に移す。
+const LEGACY_TO_CUSTOM: { key: string; label: string }[] = [
+  { key: 'ideal_candidate', label: '求める人物像' },
+  { key: 'alumni_placements', label: 'インターン卒業生の内定実績' },
+  { key: 'intern_count', label: 'インターン生の在籍数' },
+];
+
+/**
+ * DBから読み込んだ求人レコードを、フォームで扱う custom_fields 配列に変換する。
+ * 既存の custom_fields に加え、旧カラム（求める人物像など）に値が残っていれば
+ * 同じ内容の項目がまだ無い場合に限り末尾へ移す（保存時に旧カラムは空になる）。
+ */
+export function buildCustomFieldsFromJob(job: Record<string, unknown>): CustomField[] {
+  const existing: CustomField[] = Array.isArray(job.custom_fields) ? (job.custom_fields as CustomField[]) : [];
+  const seenLabels = new Set(existing.map(f => f.label));
+  const migrated: CustomField[] = [];
+  for (const { key, label } of LEGACY_TO_CUSTOM) {
+    const v = typeof job[key] === 'string' ? (job[key] as string).trim() : '';
+    if (v && !seenLabels.has(label)) migrated.push({ label, value: v });
+  }
+  return [...existing, ...migrated];
+}
 
 /** 未入力の必須項目があればエラーメッセージを返す（無ければ null） */
 export function validateJobForm(v: JobFormValue): string | null {
@@ -247,7 +270,6 @@ export default function JobFormFields({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {textarea('required_conditions', '必須条件', '例:\n・基礎的なPCスキルやコミュニケーションスキル\n・週15時間以上稼働できる方', 4, true)}
           {textarea('welcome_conditions', '歓迎条件', '例:\n・半年以上の勤務ができる方\n・団体のリーダー経験がある方', 3)}
-          {textarea('ideal_candidate', '求める人物像', '例:\n・主体的に業務に取り組み、裁量を持って働きたい方\n・結果に妥協しない環境で成長したい方', 4)}
         </div>
       </div>
 
@@ -287,13 +309,6 @@ export default function JobFormFields({
           </div>
           {textarea('training', '研修・教育制度', '例: 入社後は先輩メンバーから手厚いサポートが受けられます。', 3)}
           {textarea('benefits', '福利厚生', '例:\n・交通費支給\n・昇給制度あり', 3)}
-          {textarea('alumni_placements', 'インターン卒業生の内定実績', '例: 過去に弊社でインターンをしていた学生は、以下のような企業に内定しています。\n・外資系コンサルティングファーム\n・大手商社', 3)}
-          <div>
-            <FieldLabel>インターン生の在籍数</FieldLabel>
-            <input style={F.input} value={value.intern_count} onChange={e => set('intern_count', e.target.value)} placeholder="例: 30人在籍（※2026年1月時点）"
-              onFocus={e => ((e.target as HTMLInputElement).style.borderColor = '#F2620C')}
-              onBlur={e => ((e.target as HTMLInputElement).style.borderColor = '#EFE8DF')} />
-          </div>
         </div>
       </div>
 

@@ -7,7 +7,7 @@ import ImagePositionPicker from '@/components/ImagePositionPicker';
 import { COVER_ASPECT } from '@/utils/coverImage';
 import { fetchFeatureTagOptions } from '@/utils/featureTags';
 import { useIsMobile } from '@/utils/useIsMobile';
-import JobFormFields, { EMPTY_JOB_FORM, validateJobForm, type JobFormValue } from '@/components/JobFormFields';
+import JobFormFields, { EMPTY_JOB_FORM, validateJobForm, buildCustomFieldsFromJob, type JobFormValue } from '@/components/JobFormFields';
 import { cleanCustomFields } from '@/components/CustomFieldsEditor';
 import { splitJobPayload } from '@/utils/jobPayload';
 
@@ -81,17 +81,15 @@ export default function PostJobPage() {
         // 応募要件しか無い（マイグレーション前の）求人は、必須条件として引き継ぐ
         required_conditions: str('required_conditions') || str('requirements'),
         welcome_conditions: str('welcome_conditions'),
-        ideal_candidate: str('ideal_candidate'),
         shift_info: str('shift_info'),
         employment_type: str('employment_type'),
         address: str('address'),
         selection_process: str('selection_process'),
         training: str('training'),
         benefits: str('benefits'),
-        alumni_placements: str('alumni_placements'),
-        intern_count: str('intern_count'),
         feature_tags: arr('feature_tags'),
-        custom_fields: Array.isArray(j.custom_fields) ? (j.custom_fields as JobFormValue['custom_fields']) : [],
+        // 求める人物像・内定実績・在籍数は「この求人だけの項目」へ移して引き継ぐ
+        custom_fields: buildCustomFieldsFromJob(j),
       });
       // カバー画像は元求人のものをそのまま引き継ぐ（別ファイルとして持ち直す必要はない）
       if (typeof j.cover_image_url === 'string') setCoverPreview(j.cover_image_url);

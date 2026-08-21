@@ -23,16 +23,19 @@ export function splitJobPayload(form: JobFormValue) {
   const extraEntries: [string, string | string[]][] = [
     ['required_conditions', form.required_conditions],
     ['welcome_conditions', form.welcome_conditions],
-    ['ideal_candidate', form.ideal_candidate],
     ['shift_info', form.shift_info],
     ['employment_type', form.employment_type],
     ['address', form.address],
     ['selection_process', form.selection_process],
     ['training', form.training],
     ['benefits', form.benefits],
-    ['alumni_placements', form.alumni_placements],
-    ['intern_count', form.intern_count],
     ['feature_tags', form.feature_tags],
+    // 求める人物像・内定実績・在籍数は固定欄をやめ custom_fields へ移した。
+    // これらの旧カラムは保存のたびに空にして、求人ページで custom_fields と
+    // 二重に表示されないようにする（内容は custom_fields 側に移してある）。
+    ['ideal_candidate', ''],
+    ['alumni_placements', ''],
+    ['intern_count', ''],
   ];
   const extras = Object.fromEntries(extraEntries);
 
