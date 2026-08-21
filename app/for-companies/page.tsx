@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIsMobile } from '@/utils/useIsMobile';
 import SiteFooter from '@/components/SiteFooter';
+import LogoWall from '@/components/LogoWall';
 
 const problems = [
   { title: '優秀な学生からの応募が来ない', desc: '求人を掲載しても難関大生からの応募は限定的。採用しても、期待した戦力にならないことも。' },
@@ -71,6 +72,9 @@ export default function ForCompaniesPage() {
           </div>
         </div>
       </div>
+
+      {/* 掲載企業ロゴ帯（管理画面「掲載ロゴ」で登録。0件なら非表示） */}
+      <LogoWall title="掲載企業" subtitle="すでに多くの企業にご掲載いただいています" background="#fff" />
 
       {/* PROBLEMS */}
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: isMobile ? '48px 16px' : '76px 48px' }}>

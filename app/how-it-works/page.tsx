@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIsMobile } from '@/utils/useIsMobile';
 import SiteFooter from '@/components/SiteFooter';
+import LogoWall from '@/components/LogoWall';
 
 const steps = [
   {
@@ -114,6 +115,9 @@ export default function HowItWorksPage() {
           </div>
         </div>
       </div>
+
+      {/* 掲載企業ロゴ帯（管理画面「掲載ロゴ」で登録。0件なら非表示） */}
+      <LogoWall title="掲載企業" subtitle="実績ある企業の長期インターンに応募できます" background="#FBF8F4" />
 
       <SiteFooter />
     </div>

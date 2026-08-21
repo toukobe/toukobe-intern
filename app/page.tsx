@@ -7,6 +7,7 @@ import { useIsMobile } from '@/utils/useIsMobile';
 import { fetchFeatureTagOptions } from '@/utils/featureTags';
 import { COVER_ASPECT } from '@/utils/coverImage';
 import SiteFooter from '@/components/SiteFooter';
+import LogoWall from '@/components/LogoWall';
 
 // スクロールで1回だけふわっと表示する（globals.cssに依存しない自己完結実装）
 function FadeIn({ children, delay = 0, style }: { children: React.ReactNode; delay?: number; style?: React.CSSProperties }) {
@@ -346,6 +347,9 @@ export default function Home() {
           ))}
         </div>
       </div>
+
+      {/* 掲載企業ロゴ帯（管理画面「掲載ロゴ」で登録。0件なら非表示） */}
+      <LogoWall title="掲載企業" subtitle="実績ある企業の長期インターンに応募できます" background="#FBF8F4" />
 
       {/* CATEGORIES */}
       <div style={{ background: '#FBF8F4' }}>

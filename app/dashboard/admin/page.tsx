@@ -7,10 +7,11 @@ import { usePendingJobs } from '@/utils/useNotifications';
 import { useIsMobile } from '@/utils/useIsMobile';
 import { SITE_MODES, SITE_MODE_LABELS, type SiteMode } from '@/utils/siteMode';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { fetchAllLogos, type ShowcaseLogo } from '@/utils/showcaseLogos';
 
 interface User { id: string; email?: string; }
 interface Stats { totalUsers: number; totalStudents: number; totalCompanies: number; totalJobs: number; totalApplications: number; }
-type Tab = 'overview' | 'jobs' | 'companies' | 'students' | 'forms' | 'tags' | 'legal' | 'mail' | 'site';
+type Tab = 'overview' | 'jobs' | 'companies' | 'students' | 'forms' | 'tags' | 'logos' | 'legal' | 'mail' | 'site';
 
 const F = {
   label: { display: 'block', fontSize: 13, fontWeight: 600, color: '#57514A', marginBottom: 8 } as React.CSSProperties,
@@ -59,6 +60,7 @@ export default function AdminDashboard() {
     { key: 'students', label: '学生管理' },
     { key: 'forms', label: 'フォーム申し込み' },
     { key: 'tags', label: 'タグ管理' },
+    { key: 'logos', label: '掲載ロゴ' },
     { key: 'legal', label: '規約・ポリシー' },
     { key: 'mail', label: 'メール文面' },
     { key: 'site', label: 'サイト状態' },
@@ -127,6 +129,7 @@ export default function AdminDashboard() {
 
         {tab === 'forms' && <AdminFormsTab />}
         {tab === 'tags' && <AdminTagsTab />}
+        {tab === 'logos' && <AdminLogosTab />}
         {tab === 'legal' && <AdminLegalTab />}
         {tab === 'mail' && <AdminMailTab />}
         {tab === 'site' && <AdminSiteTab />}
@@ -1031,6 +1034,143 @@ const LEGAL_DOCS = [
 ];
 
 // サイト公開モードの切り替え（公開／公開前／メンテナンス）
+// 掲載ロゴ管理（LP・企業向け・使い方ページのロゴ帯に出るロゴを登録・並べ替え・表示切替）
+function AdminLogosTab() {
+  const isMobile = useIsMobile();
+  const [logos, setLogos] = useState<ShowcaseLogo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [tableMissing, setTableMissing] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const showToast = (msg: string, type: 'success' | 'error' = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
+
+  const load = async () => {
+    try {
+      setLogos(await fetchAllLogos());
+    } catch (e) {
+      if (/relation|does not exist|schema cache/i.test((e as Error).message)) setTableMissing(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { load(); }, []);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { showToast('2MB以下の画像を選んでください', 'error'); return; }
+    setUploading(true);
+    try {
+      const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+      const path = `showcase/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('company-logos').upload(path, file, { contentType: file.type || undefined });
+      if (upErr) { showToast('アップロードに失敗しました: ' + upErr.message, 'error'); return; }
+      const { data: urlData } = supabase.storage.from('company-logos').getPublicUrl(path);
+      const nextSort = (logos.reduce((m, l) => Math.max(m, l.sort), 0) || 0) + 10;
+      const { error: insErr } = await supabase.from('showcase_logos').insert([{ name: newName.trim(), image_url: urlData.publicUrl, sort: nextSort, visible: true }]);
+      if (insErr) { showToast('保存に失敗しました: ' + insErr.message, 'error'); return; }
+      setNewName('');
+      showToast('ロゴを追加しました');
+      load();
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const rename = async (id: string, name: string) => {
+    const { error } = await supabase.from('showcase_logos').update({ name }).eq('id', id);
+    if (error) { showToast('更新に失敗しました', 'error'); return; }
+    setLogos(logos.map(l => l.id === id ? { ...l, name } : l));
+  };
+  const toggleVisible = async (l: ShowcaseLogo) => {
+    const { error } = await supabase.from('showcase_logos').update({ visible: !l.visible }).eq('id', l.id);
+    if (error) { showToast('更新に失敗しました', 'error'); return; }
+    setLogos(logos.map(x => x.id === l.id ? { ...x, visible: !x.visible } : x));
+  };
+  const move = async (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= logos.length) return;
+    const a = logos[i], b = logos[j];
+    // 表示順(sort)を入れ替える
+    await Promise.all([
+      supabase.from('showcase_logos').update({ sort: b.sort }).eq('id', a.id),
+      supabase.from('showcase_logos').update({ sort: a.sort }).eq('id', b.id),
+    ]);
+    const next = [...logos];
+    next[i] = { ...b, sort: a.sort }; next[j] = { ...a, sort: b.sort };
+    // 並びを実際の sort 順に整える
+    next.sort((x, y) => x.sort - y.sort);
+    setLogos(next);
+  };
+  const remove = async (l: ShowcaseLogo) => {
+    const { error } = await supabase.from('showcase_logos').delete().eq('id', l.id);
+    if (error) { showToast('削除に失敗しました', 'error'); return; }
+    // 画像もベストエフォートで削除
+    const path = l.image_url.split('/company-logos/')[1]?.split('?')[0];
+    if (path) supabase.storage.from('company-logos').remove([path]).catch(() => {});
+    setLogos(logos.filter(x => x.id !== l.id));
+    showToast('削除しました');
+  };
+
+  if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><div style={{ width: 36, height: 36, border: '2.5px solid #F2620C', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /><style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style></div>;
+
+  if (tableMissing) return (
+    <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 16, padding: '28px 32px' }}>
+      <h3 style={{ fontWeight: 700, fontSize: 16, margin: '0 0 10px', color: '#B45309' }}>初期設定が必要です</h3>
+      <p style={{ fontSize: 14, color: '#57514A', lineHeight: 1.9, margin: 0 }}>
+        掲載ロゴを使うには、Supabase → SQL Editor で <code style={{ background: '#FFF', padding: '2px 8px', borderRadius: 6, fontFamily: 'var(--font-mono)', fontSize: 12 }}>sql/2026-08-19_showcase_logos.sql</code> を実行してください。実行後にこのページを再読み込みしてください。
+      </p>
+    </div>
+  );
+
+  return (
+    <div>
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: toast.type === 'error' ? '#FEF2F2' : '#F0FDF4', border: `1px solid ${toast.type === 'error' ? '#FECACA' : '#BBF7D0'}`, color: toast.type === 'error' ? '#B91C1C' : '#15803D', borderRadius: 12, padding: '14px 24px', fontWeight: 700, fontSize: 14, boxShadow: '0 8px 32px rgba(0,0,0,.12)', maxWidth: '90vw' }}>
+          {toast.type === 'success' ? '✓ ' : '✕ '}{toast.msg}
+        </div>
+      )}
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: '#F2620C', letterSpacing: '.14em', marginBottom: 12 }}>SHOWCASE LOGOS</div>
+      <h2 style={{ fontWeight: 900, fontSize: 24, margin: '0 0 8px' }}>掲載ロゴ ({logos.length})</h2>
+      <p style={{ fontSize: 13, color: '#938B81', margin: '0 0 24px', lineHeight: 1.8 }}>ここで登録したロゴが、トップページ・企業向けページ・使い方ページのロゴ帯に表示されます。透過PNG（背景なし）が最もきれいに並びます。</p>
+
+      {/* 追加フォーム */}
+      <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 12, padding: '18px 20px', marginBottom: 24, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="企業名（任意・altテキストに使用）"
+          style={{ flex: 1, minWidth: 200, border: '1px solid #EFE8DF', borderRadius: 10, padding: '11px 16px', fontFamily: "var(--font-sans)", fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
+        <label style={{ background: uploading ? '#D9B99B' : '#F2620C', color: '#fff', borderRadius: 10, padding: '11px 24px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 14, cursor: uploading ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
+          {uploading ? 'アップロード中…' : '＋ ロゴ画像を追加'}
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={handleUpload} disabled={uploading} style={{ display: 'none' }} />
+        </label>
+      </div>
+
+      {logos.length === 0 ? (
+        <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: 40, textAlign: 'center', color: '#938B81' }}>ロゴがまだありません。上のボタンから画像を追加してください。</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {logos.map((l, i) => (
+            <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 14, border: '1px solid #EFE8DF', borderRadius: 12, padding: '12px 14px', background: l.visible ? '#fff' : '#FBF8F4', opacity: l.visible ? 1 : 0.65 }}>
+              <div style={{ width: 96, height: 48, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBF8F4', borderRadius: 8 }}>
+                <img src={l.image_url} alt={l.name} style={{ maxHeight: 40, maxWidth: 88, objectFit: 'contain' }} />
+              </div>
+              <input value={l.name} onChange={e => setLogos(logos.map(x => x.id === l.id ? { ...x, name: e.target.value } : x))} onBlur={e => rename(l.id, e.target.value.trim())} placeholder="企業名"
+                style={{ flex: 1, minWidth: 0, border: '1px solid #EFE8DF', borderRadius: 8, padding: '9px 12px', fontFamily: "var(--font-sans)", fontSize: 14, outline: 'none' }} />
+              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                <button onClick={() => move(i, -1)} disabled={i === 0} title="上へ" style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 8, width: 32, height: 32, cursor: i === 0 ? 'not-allowed' : 'pointer', color: i === 0 ? '#D6CEC4' : '#57514A' }}>↑</button>
+                <button onClick={() => move(i, 1)} disabled={i === logos.length - 1} title="下へ" style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 8, width: 32, height: 32, cursor: i === logos.length - 1 ? 'not-allowed' : 'pointer', color: i === logos.length - 1 ? '#D6CEC4' : '#57514A' }}>↓</button>
+              </div>
+              <button onClick={() => toggleVisible(l)} title={l.visible ? '非表示にする' : '表示する'} style={{ flexShrink: 0, background: l.visible ? '#F0FDF4' : '#F3F4F6', color: l.visible ? '#15803D' : '#6B7280', border: `1px solid ${l.visible ? '#BBF7D0' : '#E5E7EB'}`, borderRadius: 8, padding: '7px 12px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>{l.visible ? '表示中' : '非表示'}</button>
+              <button onClick={() => remove(l)} title="削除" style={{ flexShrink: 0, background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA', borderRadius: 8, padding: '7px 12px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>削除</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminSiteTab() {
   const isMobile = useIsMobile();
   const [mode, setMode] = useState<SiteMode | null>(null);
