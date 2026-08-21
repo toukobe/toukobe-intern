@@ -10,6 +10,7 @@ import { useIsMobile } from '@/utils/useIsMobile';
 import JobFormFields, { EMPTY_JOB_FORM, validateJobForm, buildCustomFieldsFromJob, type JobFormValue } from '@/components/JobFormFields';
 import { cleanCustomFields } from '@/components/CustomFieldsEditor';
 import { splitJobPayload } from '@/utils/jobPayload';
+import { notifyPendingReview } from '@/utils/notifyPendingReview';
 
 const F = {
   section: { background: '#fff', border: '1px solid #EFE8DF', borderRadius: 16, padding: '28px 32px', marginBottom: 20 } as React.CSSProperties,
@@ -133,15 +134,25 @@ export default function PostJobPage() {
       const { base, extras, custom } = splitJobPayload({ ...form, custom_fields: cleanCustomFields(form.custom_fields) });
       const common = { company_id: companyId, status: 'pending', cover_image_url, cover_image_position: coverPosition };
 
-      // カラム未追加の環境でも投稿できるよう、段階的に落として再試行する
-      let { error: jobError } = await supabase.from('jobs').insert([{ ...common, ...base, ...extras, ...custom }]);
-      if (jobError && /column/i.test(jobError.message)) {
-        ({ error: jobError } = await supabase.from('jobs').insert([{ ...common, ...base, ...extras }]));
-      }
-      if (jobError && /column/i.test(jobError.message)) {
-        ({ error: jobError } = await supabase.from('jobs').insert([{ ...common, ...base }]));
+      // カラム未追加の環境でも投稿できるよう、段階的に落として再試行する。
+      // 作成した求人IDを承認通知に使うため select('id') で受け取る。
+      let jobError: { message: string } | null = null;
+      let newJobId: string | null = null;
+      const attempts = [
+        { ...common, ...base, ...extras, ...custom },
+        { ...common, ...base, ...extras },
+        { ...common, ...base },
+      ];
+      for (const row of attempts) {
+        const res = await supabase.from('jobs').insert([row]).select('id').single();
+        jobError = res.error;
+        newJobId = (res.data as { id: string } | null)?.id ?? null;
+        if (!jobError || !/column/i.test(jobError.message)) break;
       }
       if (jobError) throw jobError;
+
+      // 承認待ちになったことを管理者にメール通知（管理者自身が作成した場合は不要）。
+      if (newJobId && !isAdmin) await notifyPendingReview(newJobId);
 
       showToast('求人を投稿しました！');
       // リダイレクトまで saving を維持して二重送信を防ぐ

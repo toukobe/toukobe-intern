@@ -7,6 +7,7 @@ import ImagePositionPicker from '@/components/ImagePositionPicker';
 import { COVER_ASPECT } from '@/utils/coverImage';
 import { useIsMobile } from '@/utils/useIsMobile';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { notifyPendingReview } from '@/utils/notifyPendingReview';
 
 interface User { id: string; email?: string; }
 interface Job { id: string; job_title: string; salary: string; location: string; status: string; cover_image_url?: string | null; cover_image_position?: string | null; }
@@ -250,6 +251,8 @@ export default function CompanyDashboard() {
     const { error } = await supabase.from('jobs').update({ status: newStatus }).eq('id', jobId).eq('company_id', company.id);
     if (error) { showToast('更新に失敗しました', 'error'); return; }
     setJobs(jobs.map(j => j.id === jobId ? { ...j, status: newStatus } : j));
+    // 承認申請・再申請（pending化）のときは管理者へ通知。管理者代理編集時は不要。
+    if (newStatus === 'pending' && !adminEditing) notifyPendingReview(jobId);
   };
 
   if (loading) return (

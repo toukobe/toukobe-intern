@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import { escapeHtml, sanitizeSubject, isValidEmail, rateLimit } from '@/utils/apiSecurity';
+import { signApprovalToken } from '@/utils/approvalToken';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 // 環境変数が空・空白・不正な形式でも必ず有効な送信元に落とす（422 Invalid from 対策）
@@ -20,9 +21,13 @@ type EmailType =
   | 'status_interview'       // 学生宛: 面接予定になった
   | 'status_offer'           // 学生宛: 内定が出た
   | 'status_rejected'        // 学生宛: 不採用になった
-  | 'student_welcome';       // 学生宛: 登録完了ウェルカム
+  | 'student_welcome'        // 学生宛: 登録完了ウェルカム
+  | 'job_pending_review';    // 管理者宛: 求人が承認待ちになった
 
-const EMAIL_TYPES: EmailType[] = ['application_received', 'application_viewed', 'status_interview', 'status_offer', 'status_rejected', 'student_welcome'];
+const EMAIL_TYPES: EmailType[] = ['application_received', 'application_viewed', 'status_interview', 'status_offer', 'status_rejected', 'student_welcome', 'job_pending_review'];
+
+// 求人承認の通知先（＝管理者）。宛先はこの定数に固定し、クライアントからは受け取らない。
+const ADMIN_NOTIFY_EMAIL = 'ru_matsumoto@manabiph.com';
 
 // 既定の件名・本文。管理者ページ「メール文面」タブ（email_templatesテーブル）で上書きできる。
 // 本文では {{jobTitle}} {{companyName}} {{studentName}} が差し込み変数として使える。
@@ -50,6 +55,10 @@ const DEFAULT_TEMPLATES: Record<EmailType, { subject: string; body: string }> = 
   student_welcome: {
     subject: 'トウコべインターンへようこそ！登録が完了しました',
     body: '{{studentName}} さん、トウコべインターンへようこそ！\nプロフィールの登録が完了しました。さっそく求人を探して、理想のインターンシップに応募してみましょう。',
+  },
+  job_pending_review: {
+    subject: '【承認待ち】{{companyName}}「{{jobTitle}}」が申請されました',
+    body: '{{companyName}} の求人「{{jobTitle}}」が承認待ちになりました。管理画面から内容を確認して承認してください。',
   },
 };
 
@@ -191,6 +200,30 @@ function studentWelcomeHtml(p: EmailPayload, bodyHtml: string) {
 </div>`;
 }
 
+// 管理者宛：求人が承認待ちになったことの通知。approveUrl があれば「ログイン不要で承認」ボタンを出す。
+function jobPendingHtml(p: EmailPayload, bodyHtml: string, approveUrl?: string) {
+  return `
+<div style="font-family:'Hiragino Kaku Gothic Pro',Meiryo,sans-serif;max-width:560px;margin:0 auto;color:#1C1813">
+  <div style="background:#F2620C;padding:20px 32px;border-radius:12px 12px 0 0">
+    <p style="color:#fff;font-size:13px;margin:0;letter-spacing:.08em">TOUKOBE INTERN</p>
+  </div>
+  <div style="background:#fff;border:1px solid #EFE8DF;border-top:none;padding:32px;border-radius:0 0 12px 12px">
+    <div style="display:inline-block;background:#FFFBEB;color:#B45309;border:1px solid #FDE68A;border-radius:999px;padding:6px 16px;font-size:13px;font-weight:700;margin-bottom:16px">承認待ち</div>
+    <h2 style="font-size:20px;margin:0 0 16px">求人の承認申請が届きました</h2>
+    <p style="font-size:14px;line-height:1.8;margin:0 0 20px;color:#57514A">${bodyHtml}</p>
+    <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:24px">
+      <tr><td style="padding:10px 12px;background:#FBF8F4;border:1px solid #EFE8DF;font-weight:600;width:120px">企業</td><td style="padding:10px 12px;border:1px solid #EFE8DF">${p.companyName || '—'}</td></tr>
+      <tr><td style="padding:10px 12px;background:#FBF8F4;border:1px solid #EFE8DF;font-weight:600">求人</td><td style="padding:10px 12px;border:1px solid #EFE8DF">${p.jobTitle || '—'}</td></tr>
+    </table>
+    ${approveUrl ? `<a href="${approveUrl}" style="display:inline-block;background:#F2620C;color:#fff;text-decoration:none;border-radius:8px;padding:13px 28px;font-weight:700;font-size:14px">ログイン不要で承認する →</a>
+    <p style="font-size:12px;color:#938B81;margin:14px 0 0;line-height:1.7">ボタンを押すと確認画面が開き、そこで「承認」を押すと公開されます。このリンクは7日間有効です。第三者に転送しないでください。</p>
+    <p style="font-size:12px;color:#B6ADA2;margin:8px 0 0"><a href="${SITE}/dashboard/admin" style="color:#B6ADA2">管理画面で確認する</a></p>` :
+    `<a href="${SITE}/dashboard/admin" style="display:inline-block;background:#F2620C;color:#fff;text-decoration:none;border-radius:8px;padding:13px 28px;font-weight:700;font-size:14px">承認画面を開く →</a>`}
+    <p style="font-size:12px;color:#B6ADA2;margin:24px 0 0">このメールはトウコべインターンから自動送信されています。</p>
+  </div>
+</div>`;
+}
+
 export async function POST(req: NextRequest) {
   try {
     // 認証必須: ログイン済みユーザーの Supabase アクセストークンを検証する
@@ -227,7 +260,31 @@ export async function POST(req: NextRequest) {
       ? rawPayload.applicationId : null;
 
     let recipient: string | null = null;
-    if (type === 'student_welcome') {
+    let approveUrl: string | undefined;
+    if (type === 'job_pending_review') {
+      // 求人が承認待ちになった通知。宛先は管理者固定。
+      // 呼び出せるのは「その求人を持つ企業」または管理者本人のみ（第三者のなりすまし防止）。
+      const jobId = typeof rawPayload.jobId === 'string' && /^[0-9a-f-]{10,64}$/i.test(rawPayload.jobId) ? rawPayload.jobId : null;
+      if (!jobId) return NextResponse.json({ error: 'jobId required' }, { status: 400 });
+      const { data: job } = await svc.from('jobs').select('company_id, job_title, status').eq('id', jobId).maybeSingle();
+      if (!job) return NextResponse.json({ error: 'not found' }, { status: 404 });
+      const isAdmin = user.email === ADMIN_NOTIFY_EMAIL;
+      if (!isAdmin) {
+        const { data: ut } = await svc.from('user_types').select('company_id').eq('user_id', user.id).maybeSingle();
+        if (!ut?.company_id || ut.company_id !== job.company_id) {
+          return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+        }
+      }
+      // 承認待ち状態のときだけ通知する（既に公開済みの求人で無駄打ちしない）
+      if (job.status !== 'pending') return NextResponse.json({ ok: true, skipped: 'not pending' });
+      // 差し込み値はクライアント任せにせず、DBの正しい求人名・企業名を使う
+      const { data: company } = await svc.from('companies').select('company_name').eq('id', job.company_id).maybeSingle();
+      rawPayload.jobTitle = job.job_title || '';
+      rawPayload.companyName = company?.company_name || '';
+      recipient = ADMIN_NOTIFY_EMAIL;
+      // ログイン不要の承認リンク（署名トークン付き）
+      approveUrl = `${SITE}/approve-job?token=${encodeURIComponent(signApprovalToken(jobId))}`;
+    } else if (type === 'student_welcome') {
       // 登録した本人宛（トークンで確認済みのメールアドレス）
       recipient = user.email ?? null;
     } else if (type === 'application_received') {
@@ -280,6 +337,8 @@ export async function POST(req: NextRequest) {
       ? applicationViewedHtml(payload, bodyHtml)
       : type === 'student_welcome'
       ? studentWelcomeHtml(payload, bodyHtml)
+      : type === 'job_pending_review'
+      ? jobPendingHtml(payload, bodyHtml, approveUrl)
       : statusChangedHtml(payload, bodyHtml);
 
     // onboarding@resend.dev はアカウント登録メール宛にしか送れないため
