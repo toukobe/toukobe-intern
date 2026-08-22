@@ -9,6 +9,7 @@ import { SITE_MODES, SITE_MODE_LABELS, type SiteMode } from '@/utils/siteMode';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { fetchAllLogos, type ShowcaseLogo } from '@/utils/showcaseLogos';
 import { normalizeLogo } from '@/utils/normalizeLogo';
+import { removeLogoBackground } from '@/utils/removeLogoBackground';
 
 interface User { id: string; email?: string; }
 interface Stats { totalUsers: number; totalStudents: number; totalCompanies: number; totalJobs: number; totalApplications: number; }
@@ -1124,6 +1125,33 @@ function AdminLogosTab() {
     showToast('削除しました');
   };
 
+  // 白以外の背景（グレー・色付きの四角）を透過に抜く。外周の同色領域だけを消すのでロゴ本体は残る。
+  const [bgBusy, setBgBusy] = useState<string | null>(null);
+  const makeTransparent = async (l: ShowcaseLogo) => {
+    setBgBusy(l.id);
+    try {
+      const res = await fetch(l.image_url);
+      if (!res.ok) { showToast('画像の取得に失敗しました', 'error'); return; }
+      const out = await removeLogoBackground(await res.blob());
+      if (!out.changed) { showToast('背景を検出できませんでした（すでに透過、または白背景の可能性）', 'error'); return; }
+      const path = `showcase/${Date.now()}.png`;
+      const { error: upErr } = await supabase.storage.from('company-logos').upload(path, out.blob, { contentType: 'image/png' });
+      if (upErr) { showToast('保存に失敗しました: ' + upErr.message, 'error'); return; }
+      const newUrl = supabase.storage.from('company-logos').getPublicUrl(path).data.publicUrl;
+      const { error: dbErr } = await supabase.from('showcase_logos').update({ image_url: newUrl }).eq('id', l.id);
+      if (dbErr) { showToast('更新に失敗しました: ' + dbErr.message, 'error'); return; }
+      // 古い画像はベストエフォートで削除
+      const oldPath = l.image_url.split('/company-logos/')[1]?.split('?')[0];
+      if (oldPath) supabase.storage.from('company-logos').remove([oldPath]).catch(() => {});
+      setLogos(logos.map(x => x.id === l.id ? { ...x, image_url: newUrl } : x));
+      showToast('背景を透過しました');
+    } catch (e) {
+      showToast('透過処理に失敗しました: ' + (e as Error).message, 'error');
+    } finally {
+      setBgBusy(null);
+    }
+  };
+
   if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><div style={{ width: 36, height: 36, border: '2.5px solid #F2620C', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /><style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style></div>;
 
   if (tableMissing) return (
@@ -1171,6 +1199,7 @@ function AdminLogosTab() {
                 <button onClick={() => move(i, -1)} disabled={i === 0} title="上へ" style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 8, width: 32, height: 32, cursor: i === 0 ? 'not-allowed' : 'pointer', color: i === 0 ? '#D6CEC4' : '#57514A' }}>↑</button>
                 <button onClick={() => move(i, 1)} disabled={i === logos.length - 1} title="下へ" style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 8, width: 32, height: 32, cursor: i === logos.length - 1 ? 'not-allowed' : 'pointer', color: i === logos.length - 1 ? '#D6CEC4' : '#57514A' }}>↓</button>
               </div>
+              <button onClick={() => makeTransparent(l)} disabled={bgBusy === l.id} title="白以外の背景を透過に抜く" style={{ flexShrink: 0, background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 8, padding: '7px 12px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 12, cursor: bgBusy === l.id ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>{bgBusy === l.id ? '処理中…' : '背景透過'}</button>
               <button onClick={() => toggleVisible(l)} title={l.visible ? '非表示にする' : '表示する'} style={{ flexShrink: 0, background: l.visible ? '#F0FDF4' : '#F3F4F6', color: l.visible ? '#15803D' : '#6B7280', border: `1px solid ${l.visible ? '#BBF7D0' : '#E5E7EB'}`, borderRadius: 8, padding: '7px 12px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>{l.visible ? '表示中' : '非表示'}</button>
               <button onClick={() => remove(l)} title="削除" style={{ flexShrink: 0, background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA', borderRadius: 8, padding: '7px 12px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>削除</button>
             </div>
