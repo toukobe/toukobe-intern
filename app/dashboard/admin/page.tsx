@@ -8,6 +8,7 @@ import { useIsMobile } from '@/utils/useIsMobile';
 import { SITE_MODES, SITE_MODE_LABELS, type SiteMode } from '@/utils/siteMode';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { fetchAllLogos, type ShowcaseLogo } from '@/utils/showcaseLogos';
+import { normalizeLogo } from '@/utils/normalizeLogo';
 
 interface User { id: string; email?: string; }
 interface Stats { totalUsers: number; totalStudents: number; totalCompanies: number; totalJobs: number; totalApplications: number; }
@@ -1060,19 +1061,28 @@ function AdminLogosTab() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { showToast('2MB以下の画像を選んでください', 'error'); return; }
+    if (file.size > 5 * 1024 * 1024) { showToast('5MB以下の画像を選んでください', 'error'); return; }
     setUploading(true);
     try {
-      const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+      // アップロード時に高さをそろえて自動で最適化する（各社ロゴのばらつき・重い画像を吸収）
+      let body: Blob = file;
+      let ext = (file.name.split('.').pop() || 'png').toLowerCase();
+      let lowRes = false;
+      try {
+        const norm = await normalizeLogo(file);
+        body = norm.blob; ext = norm.ext; lowRes = norm.lowRes;
+      } catch {
+        // 正規化に失敗しても元ファイルでアップロードは続行する
+      }
       const path = `showcase/${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from('company-logos').upload(path, file, { contentType: file.type || undefined });
+      const { error: upErr } = await supabase.storage.from('company-logos').upload(path, body, { contentType: ext === 'svg' ? 'image/svg+xml' : 'image/png' });
       if (upErr) { showToast('アップロードに失敗しました: ' + upErr.message, 'error'); return; }
       const { data: urlData } = supabase.storage.from('company-logos').getPublicUrl(path);
       const nextSort = (logos.reduce((m, l) => Math.max(m, l.sort), 0) || 0) + 10;
       const { error: insErr } = await supabase.from('showcase_logos').insert([{ name: newName.trim(), image_url: urlData.publicUrl, sort: nextSort, visible: true }]);
       if (insErr) { showToast('保存に失敗しました: ' + insErr.message, 'error'); return; }
       setNewName('');
-      showToast('ロゴを追加しました');
+      showToast(lowRes ? 'ロゴを追加しました（元画像の解像度が低いため、粗く表示される場合があります）' : 'ロゴを追加しました');
       load();
     } finally {
       setUploading(false);
@@ -1134,7 +1144,7 @@ function AdminLogosTab() {
       )}
       <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: '#F2620C', letterSpacing: '.14em', marginBottom: 12 }}>SHOWCASE LOGOS</div>
       <h2 style={{ fontWeight: 900, fontSize: 24, margin: '0 0 8px' }}>掲載ロゴ ({logos.length})</h2>
-      <p style={{ fontSize: 13, color: '#938B81', margin: '0 0 24px', lineHeight: 1.8 }}>ここで登録したロゴが、トップページ・企業向けページ・使い方ページのロゴ帯に表示されます。透過PNG（背景なし）が最もきれいに並びます。</p>
+      <p style={{ fontSize: 13, color: '#938B81', margin: '0 0 24px', lineHeight: 1.8 }}>ここで登録したロゴが、トップページ・企業向けページ・使い方ページのロゴ帯に表示されます。アップロード時に高さを自動でそろえて最適化するので、サイズの違うロゴもきれいに並びます。透過PNG（背景なし）が最もきれいです。</p>
 
       {/* 追加フォーム */}
       <div style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 12, padding: '18px 20px', marginBottom: 24, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>

@@ -34,16 +34,15 @@ export default function LogoWall({
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'center', justifyContent: 'center' }}>
           {logos.map(l => (
+            // 各ロゴを同じ大きさの白いカードに入れる。
+            // 透過ロゴにも背景が付き、比率の違うロゴでも大きさ・余白がそろって並ぶ。
             <div key={l.id} title={l.name}
-              style={{ height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 8px' }}>
-              {/* ロゴは横幅バラバラなので高さ基準で揃え、グレースケール→ホバーで色を出す軽い演出 */}
+              style={{ height: 96, width: 208, background: '#fff', border: '1px solid #EFE8DF', borderRadius: 12, boxShadow: '0 2px 8px rgba(28,24,19,.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 22px', boxSizing: 'border-box' }}>
               <img
                 src={l.image_url}
                 alt={l.name || '掲載企業ロゴ'}
                 loading="lazy"
-                style={{ maxHeight: 44, maxWidth: 150, objectFit: 'contain', filter: 'grayscale(1)', opacity: 0.72, transition: 'filter .2s, opacity .2s' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLImageElement).style.filter = 'none'; (e.currentTarget as HTMLImageElement).style.opacity = '1'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLImageElement).style.filter = 'grayscale(1)'; (e.currentTarget as HTMLImageElement).style.opacity = '0.72'; }}
+                style={{ maxHeight: 56, maxWidth: 164, width: 'auto', objectFit: 'contain', display: 'block' }}
               />
             </div>
           ))}
