@@ -1095,6 +1095,16 @@ function AdminLogosTab() {
     if (error) { showToast('更新に失敗しました', 'error'); return; }
     setLogos(logos.map(l => l.id === id ? { ...l, name } : l));
   };
+  // 1社ずつの表示倍率を調整（0.5〜1.6）。scale列(2026-08-20)が無い環境では実行時に案内する。
+  const setScale = async (l: ShowcaseLogo, next: number) => {
+    const v = Math.round(Math.min(1.6, Math.max(0.5, next)) * 10) / 10;
+    setLogos(logos.map(x => x.id === l.id ? { ...x, scale: v } : x));
+    const { error } = await supabase.from('showcase_logos').update({ scale: v }).eq('id', l.id);
+    if (error) {
+      showToast(/scale|column/i.test(error.message) ? 'サイズ調整には sql/2026-08-20_showcase_logo_scale.sql の実行が必要です' : '更新に失敗しました', 'error');
+    }
+  };
+
   const toggleVisible = async (l: ShowcaseLogo) => {
     const { error } = await supabase.from('showcase_logos').update({ visible: !l.visible }).eq('id', l.id);
     if (error) { showToast('更新に失敗しました', 'error'); return; }
@@ -1125,8 +1135,27 @@ function AdminLogosTab() {
     showToast('削除しました');
   };
 
-  // 白以外の背景（グレー・色付きの四角）を透過に抜く。外周の同色領域だけを消すのでロゴ本体は残る。
   const [bgBusy, setBgBusy] = useState<string | null>(null);
+
+  // 背景透過を取り消して、透過前の画像に戻す
+  const restoreOriginal = async (l: ShowcaseLogo) => {
+    if (!l.prev_image_url) return;
+    setBgBusy(l.id);
+    try {
+      const original = l.prev_image_url;
+      const { error } = await supabase.from('showcase_logos').update({ image_url: original, prev_image_url: null }).eq('id', l.id);
+      if (error) { showToast('取り消しに失敗しました: ' + error.message, 'error'); return; }
+      // 透過処理で作った画像はベストエフォートで削除
+      const processedPath = l.image_url.split('/company-logos/')[1]?.split('?')[0];
+      if (processedPath) supabase.storage.from('company-logos').remove([processedPath]).catch(() => {});
+      setLogos(logos.map(x => x.id === l.id ? { ...x, image_url: original, prev_image_url: null } : x));
+      showToast('背景透過を取り消しました');
+    } finally {
+      setBgBusy(null);
+    }
+  };
+
+  // 白以外の背景（グレー・色付きの四角）を透過に抜く。外周の同色領域だけを消すのでロゴ本体は残る。
   const makeTransparent = async (l: ShowcaseLogo) => {
     setBgBusy(l.id);
     try {
@@ -1138,13 +1167,19 @@ function AdminLogosTab() {
       const { error: upErr } = await supabase.storage.from('company-logos').upload(path, out.blob, { contentType: 'image/png' });
       if (upErr) { showToast('保存に失敗しました: ' + upErr.message, 'error'); return; }
       const newUrl = supabase.storage.from('company-logos').getPublicUrl(path).data.publicUrl;
-      const { error: dbErr } = await supabase.from('showcase_logos').update({ image_url: newUrl }).eq('id', l.id);
+      // 取り消せるよう、透過前のURLを prev_image_url に保存（すでに保存済みなら最初の原本を維持）。
+      // 元画像は削除しない（復元に使うため）。
+      const prev = l.prev_image_url || l.image_url;
+      let { error: dbErr } = await supabase.from('showcase_logos').update({ image_url: newUrl, prev_image_url: prev }).eq('id', l.id);
+      let undoable = true;
+      if (dbErr && /prev_image_url|column/i.test(dbErr.message)) {
+        // prev_image_url 列が無い環境：透過だけ反映（取り消し不可）
+        ({ error: dbErr } = await supabase.from('showcase_logos').update({ image_url: newUrl }).eq('id', l.id));
+        undoable = false;
+      }
       if (dbErr) { showToast('更新に失敗しました: ' + dbErr.message, 'error'); return; }
-      // 古い画像はベストエフォートで削除
-      const oldPath = l.image_url.split('/company-logos/')[1]?.split('?')[0];
-      if (oldPath) supabase.storage.from('company-logos').remove([oldPath]).catch(() => {});
-      setLogos(logos.map(x => x.id === l.id ? { ...x, image_url: newUrl } : x));
-      showToast('背景を透過しました');
+      setLogos(logos.map(x => x.id === l.id ? { ...x, image_url: newUrl, prev_image_url: undoable ? prev : x.prev_image_url } : x));
+      showToast(undoable ? '背景を透過しました（「元に戻す」で取り消せます）' : '背景を透過しました（取り消しには sql/2026-08-20 の実行が必要です）');
     } catch (e) {
       showToast('透過処理に失敗しました: ' + (e as Error).message, 'error');
     } finally {
@@ -1199,7 +1234,17 @@ function AdminLogosTab() {
                 <button onClick={() => move(i, -1)} disabled={i === 0} title="上へ" style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 8, width: 32, height: 32, cursor: i === 0 ? 'not-allowed' : 'pointer', color: i === 0 ? '#D6CEC4' : '#57514A' }}>↑</button>
                 <button onClick={() => move(i, 1)} disabled={i === logos.length - 1} title="下へ" style={{ background: '#fff', border: '1px solid #EFE8DF', borderRadius: 8, width: 32, height: 32, cursor: i === logos.length - 1 ? 'not-allowed' : 'pointer', color: i === logos.length - 1 ? '#D6CEC4' : '#57514A' }}>↓</button>
               </div>
-              <button onClick={() => makeTransparent(l)} disabled={bgBusy === l.id} title="白以外の背景を透過に抜く" style={{ flexShrink: 0, background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 8, padding: '7px 12px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 12, cursor: bgBusy === l.id ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>{bgBusy === l.id ? '処理中…' : '背景透過'}</button>
+              {/* サイズ調整（1社ずつ） */}
+              <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, border: '1px solid #EFE8DF', borderRadius: 8, padding: '3px 6px' }}>
+                <button onClick={() => setScale(l, (l.scale || 1) - 0.1)} title="小さく" style={{ width: 24, height: 24, border: 'none', background: '#F3EEE7', borderRadius: 6, cursor: 'pointer', color: '#57514A', fontWeight: 900, fontSize: 15, lineHeight: 1 }}>−</button>
+                <span style={{ minWidth: 42, textAlign: 'center', fontSize: 12, fontWeight: 700, color: '#57514A' }}>{Math.round((l.scale || 1) * 100)}%</span>
+                <button onClick={() => setScale(l, (l.scale || 1) + 0.1)} title="大きく" style={{ width: 24, height: 24, border: 'none', background: '#F3EEE7', borderRadius: 6, cursor: 'pointer', color: '#57514A', fontWeight: 900, fontSize: 15, lineHeight: 1 }}>＋</button>
+              </div>
+              {l.prev_image_url ? (
+                <button onClick={() => restoreOriginal(l)} disabled={bgBusy === l.id} title="背景透過を取り消して元の画像に戻す" style={{ flexShrink: 0, background: '#FFF3E9', color: '#C2530A', border: '1px solid #FBD5B5', borderRadius: 8, padding: '7px 12px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 12, cursor: bgBusy === l.id ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>{bgBusy === l.id ? '処理中…' : '透過を取消'}</button>
+              ) : (
+                <button onClick={() => makeTransparent(l)} disabled={bgBusy === l.id} title="白以外の背景を透過に抜く" style={{ flexShrink: 0, background: '#fff', color: '#57514A', border: '1px solid #EFE8DF', borderRadius: 8, padding: '7px 12px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 12, cursor: bgBusy === l.id ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>{bgBusy === l.id ? '処理中…' : '背景透過'}</button>
+              )}
               <button onClick={() => toggleVisible(l)} title={l.visible ? '非表示にする' : '表示する'} style={{ flexShrink: 0, background: l.visible ? '#F0FDF4' : '#F3F4F6', color: l.visible ? '#15803D' : '#6B7280', border: `1px solid ${l.visible ? '#BBF7D0' : '#E5E7EB'}`, borderRadius: 8, padding: '7px 12px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>{l.visible ? '表示中' : '非表示'}</button>
               <button onClick={() => remove(l)} title="削除" style={{ flexShrink: 0, background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA', borderRadius: 8, padding: '7px 12px', fontFamily: "var(--font-sans)", fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>削除</button>
             </div>

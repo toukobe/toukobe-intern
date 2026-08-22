@@ -34,17 +34,21 @@ export default function LogoWall({
         {/* カードなしで白い帯に直接並べ、参考例のように詰めて配置する。
             透過ロゴは白背景の上に乗るので背景が付いた状態で見える。 */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px 40px', alignItems: 'center', justifyContent: 'center' }}>
-          {logos.map(l => (
-            <div key={l.id} title={l.name}
-              style={{ height: 72, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <img
-                src={l.image_url}
-                alt={l.name || '掲載企業ロゴ'}
-                loading="lazy"
-                style={{ maxHeight: 72, maxWidth: 168, width: 'auto', height: 'auto', objectFit: 'contain', display: 'block' }}
-              />
-            </div>
-          ))}
+          {logos.map(l => {
+            // 1社ずつの倍率を高さ72pxの基準に掛ける
+            const s = l.scale && l.scale > 0 ? l.scale : 1;
+            return (
+              <div key={l.id} title={l.name}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <img
+                  src={l.image_url}
+                  alt={l.name || '掲載企業ロゴ'}
+                  loading="lazy"
+                  style={{ maxHeight: 72 * s, maxWidth: 168 * s, width: 'auto', height: 'auto', objectFit: 'contain', display: 'block' }}
+                />
+              </div>
+            );
+          })}
         </div>
       </div>
     </section>
